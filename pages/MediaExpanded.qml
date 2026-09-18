@@ -354,16 +354,30 @@ Item {
                 color: Theme.hairline
             }
 
-            // 03 CONTROLS: VOL and MIC only. BRI is deliberately left out,
-            // not just hidden: this desktop has no backlight, and the only
-            // real brightness path found is DDC/CI over the monitor's I2C
-            // bus (`ddcutil`), which measured ~8s round-trip per read/write
-            // on this hardware. A click-to-set slider that takes 8 seconds
-            // to visibly respond isn't a style/scope question, it's a
-            // genuinely bad control, so Haziq chose to skip it rather than
-            // ship it pending or fire-and-forget.
-            Column {
+            // 03 CONTROLS / 04 TOGGLES: side by side, half width each, per
+            // the design's `grid-template-columns: 1fr 1px 1fr` (a content
+            // column, a 1px divider, a content column, 16px gaps either
+            // side of the divider - a plain Row with spacing:16 and these
+            // three children reproduces that exactly). Only CONTROLS is
+            // real; TOGGLES stays a placeholder in its own reserved half,
+            // not stacked below, so it doesn't need reflowing again once
+            // it's built for real.
+            Row {
+                id: controlsTogglesRow
                 width: parent.width
+                spacing: 16
+
+                // VOL and MIC only. BRI is deliberately left out, not just
+                // hidden: this desktop has no backlight, and the only real
+                // brightness path found is DDC/CI over the monitor's I2C
+                // bus (`ddcutil`), which measured ~8s round-trip per
+                // read/write on this hardware. A click-to-set slider that
+                // takes 8 seconds to visibly respond isn't a style/scope
+                // question, it's a genuinely bad control, so Haziq chose to
+                // skip it rather than ship it pending or fire-and-forget.
+                Column {
+                id: controlsCol
+                width: (controlsTogglesRow.width - 32 - 1) / 2
                 spacing: 11
                 // Whole section, header included: without this, the "03
                 // CONTROLS" label rendered alone with nothing under it for
@@ -488,6 +502,33 @@ Item {
                         }
                     }
                 }
+                }
+
+                Rectangle {
+                    width: 1
+                    height: Math.max(controlsCol.implicitHeight, togglesCol.implicitHeight)
+                    color: Theme.hairline
+                }
+
+                Column {
+                    id: togglesCol
+                    width: (controlsTogglesRow.width - 32 - 1) / 2
+                    spacing: 11
+
+                    Row {
+                        spacing: 9
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "04"; color: Theme.inkDim; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "TOGGLES"; color: Theme.inkMuted; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "切替"; color: Theme.inkDim; font.family: Theme.fontFamilyJp; font.pixelSize: 9 }
+                    }
+                    Text {
+                        color: Theme.inkDim
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 9
+                        font.letterSpacing: 1
+                        text: "PLACEHOLDER"
+                    }
+                }
             }
 
             Rectangle {
@@ -515,7 +556,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: 10
                 font.letterSpacing: 2
-                text: "TOGGLES · SYSTEM · INBOX · SESSION · PLACEHOLDER"
+                text: "SYSTEM · INBOX · SESSION · PLACEHOLDER"
             }
         }
     }
