@@ -22,12 +22,12 @@ QtObject {
     readonly property int queueCap: 6
 
     // --- Derived state ---
-    // `readonly property alias` to a plain writable backing property: Qt6
-    // genuinely enforces readonly (unlike some older QML lore), so the
-    // internal functions below write `_current`/`_queue`, and only the
-    // alias is exposed, giving external consumers real enforcement rather
-    // than a naming convention.
-    property var _current: null // {kind,key,priority,page,payload,duration,requeue}
+    // `readonly property alias` to a plain writable backing property.
+    // NOTE this is a naming convention, not real enforcement: `current`
+    // genuinely can't be written from outside, but nothing stops external
+    // code that knows the underscore name from writing `_current` directly.
+    // Don't do that; treat the underscore as private by agreement.
+    property var _current: null // {kind,key,priority,page,payload,duration,requeue,seq}
     property var _queue: [] // priority desc, FIFO within priority, cap queueCap
     readonly property alias current: root._current
     readonly property alias queue: root._queue
@@ -37,12 +37,17 @@ QtObject {
     readonly property bool isPeek: current !== null
     readonly property bool isExpanded: !current && expandedPage !== ""
 
+    // Reasons beyond the plan's original four (timeout|dismissed|preempted|
+    // cleared): "dropped" (queue-cap overflow evicted it before it ever
+    // showed) and "cleared" also now covers a queued (never-shown) item
+    // removed via clearKey. Both matter for slice 6's RetainableLock: a
+    // notification needs its lock released even if it never became current.
     signal transientStarted(var t)
-    signal transientEnded(var t, string reason) // timeout|dismissed|preempted|cleared
+    signal transientEnded(var t, string reason)
 
     // --- Timer bookkeeping (rule 7: hover-hold) ---
     property real _startedAt: 0
-    property real _remaining: 0
+    property real _remaining: -1
 
     property Timer _timer: Timer {
         repeat: false
@@ -77,18 +82,36 @@ QtObject {
             seq: ++root._seqCounter
         }
 
-        // Rule 1: coalesce with current, no exit animation.
+        if (t.key === undefined || t.key === null) {
+            // A kind whose table entry has no static key (e.g.
+            // "notification", which needs a per-id key) MUST get one via
+            // overrides.key. Without this guard, every call silently
+            // coalesces into a single slot under key `undefined`.
+            console.warn("IslandController.show: kind", kind, "has no key; pass overrides.key")
+            return
+        }
+
+        // Rule 1: coalesce with current, no exit animation. Carries
+        // priority/page too, not just payload/duration: an escalating
+        // same-key event (e.g. a notification's urgency bumped to
+        // critical) needs its new priority to actually take effect.
         if (root._current && t.key === root._current.key) {
-            root._current = Object.assign({}, root._current, { payload: t.payload, duration: t.duration })
+            root._current = Object.assign({}, root._current, {
+                payload: t.payload, duration: t.duration, priority: t.priority, page: t.page
+            })
             root._restartTimer(t.duration)
             return
         }
-        // Rule 1: coalesce with a queued item, in place, no reorder.
+        // Rule 1: coalesce with a queued item, in place. Re-normalizes
+        // (sort+cap) after, since a priority change can change its
+        // position.
         for (let i = 0; i < root._queue.length; i++) {
             if (root._queue[i].key === t.key) {
                 const q = root._queue.slice()
-                q[i] = Object.assign({}, q[i], { payload: t.payload, duration: t.duration })
-                root._queue = q
+                q[i] = Object.assign({}, q[i], {
+                    payload: t.payload, duration: t.duration, priority: t.priority, page: t.page
+                })
+                root._queue = root._normalizeQueue(q)
                 return
             }
         }
@@ -111,7 +134,12 @@ QtObject {
             const old = root._current
             root._end(old, "preempted")
             if (old.requeue) {
-                root._queue = [old].concat(root._queue)
+                // old.priority >= every item already in the queue (it was
+                // current, so it out-prioritized all of them when it
+                // started or resumed), so front-pushing can't violate the
+                // priority-desc invariant; _normalizeQueue still re-sorts
+                // and re-caps for safety rather than assuming that holds.
+                root._queue = root._normalizeQueue([old].concat(root._queue))
             }
             root._start(t)
             return
@@ -138,7 +166,14 @@ QtObject {
             root._advanceQueue()
             return
         }
+        const removed = root._queue.filter(item => item.key === key)
+        if (removed.length === 0) {
+            return
+        }
         root._queue = root._queue.filter(item => item.key !== key)
+        for (const item of removed) {
+            root.transientEnded(item, "cleared")
+        }
     }
 
     function expand(pageId) {
@@ -147,16 +182,26 @@ QtObject {
 
     function collapse() {
         root.expandedPage = ""
+        // Rule 2 can have left eligible items stuck in the queue while
+        // expanded; retry now that the gate is open.
+        root._advanceQueue()
     }
 
     function toggle(pageId) {
-        root.expandedPage = (root.expandedPage === pageId) ? "" : pageId
+        if (root.expandedPage === pageId) {
+            root.collapse()
+        } else {
+            root.expand(pageId)
+        }
     }
 
     // --- Internals ---
 
-    function _enqueue(t) {
-        let q = root._queue.concat([t])
+    function _isInfiniteDuration(duration) {
+        return duration === undefined || duration === null || duration < 0
+    }
+
+    function _normalizeQueue(q) {
         // Priority desc, ties broken by seq ascending (oldest first): see
         // the _seqCounter comment above for why this can't just be a
         // stable sort. This also makes the oldest of any priority tier
@@ -169,9 +214,14 @@ QtObject {
             // oldest."
             const minPriority = q[q.length - 1].priority
             const dropIndex = q.findIndex(item => item.priority === minPriority)
-            q.splice(dropIndex, 1)
+            const dropped = q.splice(dropIndex, 1)[0]
+            root.transientEnded(dropped, "dropped")
         }
-        root._queue = q
+        return q
+    }
+
+    function _enqueue(t) {
+        root._queue = root._normalizeQueue(root._queue.concat([t]))
     }
 
     function _start(t) {
@@ -182,7 +232,8 @@ QtObject {
 
     function _restartTimer(duration) {
         root._timer.stop()
-        if (duration === undefined || duration === null || duration < 0) {
+        if (root._isInfiniteDuration(duration)) {
+            root._remaining = -1
             return // stays until dismissed
         }
         root._remaining = duration
@@ -208,10 +259,23 @@ QtObject {
     }
 
     function _advanceQueue() {
+        if (root._current) {
+            // Something already claimed current re-entrantly (e.g. a
+            // transientEnded handler called show() synchronously during
+            // _end's signal emission, before we got here). Don't stomp it.
+            return
+        }
         if (root._queue.length === 0) {
             return
         }
         const next = root._queue[0]
+        if (root.expandedPage !== "" && next.priority < root.expandedBlockBelow) {
+            // Rule 2 applies to dequeuing too. The queue is priority-desc,
+            // so if the head is gated, everything behind it is too (same
+            // or lower priority); leave the whole queue as is and retry
+            // from collapse().
+            return
+        }
         root._queue = root._queue.slice(1)
         root._start(next)
     }
@@ -227,7 +291,7 @@ QtObject {
             return
         }
 
-        if (root._current && !root._timer.running && root._current.duration >= 0) {
+        if (root._current && !root._timer.running && !root._isInfiniteDuration(root._current.duration)) {
             const resumeDuration = Math.max(root._remaining, root.hoverGrace)
             root._startedAt = Date.now()
             root._timer.interval = resumeDuration

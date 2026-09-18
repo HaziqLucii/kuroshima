@@ -2,12 +2,13 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
-## Status: Slice 2 done (Controller)
+## Status: Slice 2 done (Controller), including a refuter pass that found real bugs
 
 Built: `core/IslandController.qml` (pure `QtObject`, imports only `QtQuick`), `core/Kinds.qml`
 (data table) + `core/qmldir` (`singleton Kinds 1.0 Kinds.qml`, needed for the singleton to
 resolve without pulling in Quickshell's `qs.*` machinery), `tests/tst_controller.qml`
-(12 tests, all passing), `scripts/test.sh`. No UI change this slice, as specified.
+(22 test functions, 24 total entries counting qtest's `init`/`cleanupTestCase`, all
+passing), `scripts/test.sh`. No UI change this slice, as specified.
 
 Implements all 8 rules from the plan: coalesce (current + queued), expanded gate, empty,
 preempt (+ conditional requeue), enqueue with cap 6, timeout/dismiss/clearKey ending +
@@ -20,13 +21,52 @@ queue advance, hover-hold (pause/resume with `max(remaining, hoverGrace)`), and
    JS**, even from functions in the same file. (Some QML lore says otherwise; it's wrong,
    at least on Qt 6.11.) Fixed with the standard workaround: private writable backing
    properties `_current`/`_queue`, exposed as `readonly property alias current: _current`
-   / `queue: _queue`. External code genuinely cannot write them; internal functions write
-   the backing property.
+   / `queue: _queue`. **Correction to an earlier version of this note**: this is a naming
+   convention, not real enforcement, external code that knows the underscore names can
+   still write `_current`/`_queue` directly (the refuter pass proved this empirically).
+   Only the alias name is genuinely read-only. Don't write the underscore properties from
+   outside `core/IslandController.qml`; nothing stops you, but nothing should.
 2. **`Array.prototype.sort` is not stable in this Qt6 JS engine** for equal-priority
    comparator results, verified empirically (traced actual output, saw insertion order
    scrambled). "FIFO within priority" cannot rely on sort stability. Fixed with an
    explicit monotonic `_seqCounter` stamped onto every transient as `seq`, used as an
    explicit tiebreaker: `(b.priority - a.priority) || (a.seq - b.seq)`.
+
+**A `refuter` pass (Opus) after the above found 4 more real bugs, all fixed, tests added
+for each**:
+
+3. **A `duration: null`/`-1` ("until dismissed") peek died on one hover-and-unhover.**
+   `_restartTimer` treated `undefined`/`null`/`<0` as "infinite", but `_updateHold`'s
+   resume guard checked `duration >= 0`, and `null >= 0` is `true` in JS, so unhovering
+   armed a timer using a **stale `_remaining` left over from a previous transient**.
+   Fixed with a shared `_isInfiniteDuration()` helper used consistently in both places.
+   This is exactly slice 6's "critical notification stays until dismissed" case.
+4. **`_advanceQueue` never re-applied the expanded gate (rule 2), and rule 8's own click
+   contract (`expand()` then `dismiss()`) triggers it.** A queued low-priority item would
+   pop over a page you just expanded. Fixed: `_advanceQueue` now re-checks the gate
+   against the queue head (safe to check only the head: the queue is priority-sorted, so
+   if the head is gated everything behind it is too) and leaves it queued rather than
+   dropping it; `collapse()` now retries the queue afterward.
+5. **`core/Kinds.qml`'s `notification` row has no static `key`** (by design, it needs a
+   per-notification-id key), and `show()` had no guard against that, so a call without
+   `overrides.key` silently coalesced every notification into one slot under key
+   `undefined`. Fixed: `show()` now rejects (warns + no-ops) a kind resolving to an
+   undefined key, forcing the caller to supply one instead of failing silently.
+6. **A `transientEnded` handler calling `show()` re-entrantly (e.g. "notification closed,
+   show the next thing") had its result immediately overwritten** by the queue-advance
+   that runs right after `_end()`'s signal emission. Fixed: `_advanceQueue` now checks
+   `if (root._current) return` first, since a re-entrant call means something already
+   claimed `current` before it got there.
+
+**Also fixed, lower severity but cheap and real**: same-key coalesce (current or queued)
+now carries `priority`/`page` through, not just `payload`/`duration` (an escalating
+same-key event needs its new priority to actually apply); queue-cap-dropped items and
+`clearKey`'d *queued* (never-shown) items now emit `transientEnded` with reasons
+`"dropped"`/`"cleared"` respectively, extending the plan's original four reasons, so a
+future `RetainableLock` on a notification has something to release even if it never
+became current; the preempt-requeue front-push now goes through the same normalize
+(sort+cap) path as a normal enqueue, so the queue can no longer transiently exceed
+`queueCap`.
 
 **Tooling gotcha, cost real time**: `/usr/bin/qmltestrunner` on this system is
 **qt5-declarative's** binary (Qt 5.15, wants versioned imports like `import QtQuick 2.15`,
