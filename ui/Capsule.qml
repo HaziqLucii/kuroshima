@@ -11,6 +11,12 @@ Item {
         host.setPage(name, payload)
     }
 
+    // Temporary: slice 3 replaces this with the real click contract
+    // (page emits requestExpand(), the controller decides what happens).
+    // This exists now purely to feel the spring morph before the
+    // controller's state machine is built.
+    property bool expanded: false
+
     Component.onCompleted: setPage("compact", null)
 
     Component { id: compactComponent; CompactPage {} }
@@ -49,6 +55,13 @@ Item {
                 "compact": compactComponent,
                 "dummyWide": dummyWideComponent
             })
+        }
+
+        TapHandler {
+            onTapped: {
+                root.expanded = !root.expanded
+                root.setPage(root.expanded ? "dummyWide" : "compact", null)
+            }
         }
     }
 }
