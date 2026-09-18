@@ -2,6 +2,60 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
+## Status: Slice 2 done (Controller)
+
+Built: `core/IslandController.qml` (pure `QtObject`, imports only `QtQuick`), `core/Kinds.qml`
+(data table) + `core/qmldir` (`singleton Kinds 1.0 Kinds.qml`, needed for the singleton to
+resolve without pulling in Quickshell's `qs.*` machinery), `tests/tst_controller.qml`
+(12 tests, all passing), `scripts/test.sh`. No UI change this slice, as specified.
+
+Implements all 8 rules from the plan: coalesce (current + queued), expanded gate, empty,
+preempt (+ conditional requeue), enqueue with cap 6, timeout/dismiss/clearKey ending +
+queue advance, hover-hold (pause/resume with `max(remaining, hoverGrace)`), and
+`expand`/`collapse`/`toggle` for `expandedPage`.
+
+**Real bugs found only by writing the tests, not by reasoning about the code:**
+
+1. **QML `readonly property` genuinely cannot be reassigned from the type's own internal
+   JS**, even from functions in the same file. (Some QML lore says otherwise; it's wrong,
+   at least on Qt 6.11.) Fixed with the standard workaround: private writable backing
+   properties `_current`/`_queue`, exposed as `readonly property alias current: _current`
+   / `queue: _queue`. External code genuinely cannot write them; internal functions write
+   the backing property.
+2. **`Array.prototype.sort` is not stable in this Qt6 JS engine** for equal-priority
+   comparator results, verified empirically (traced actual output, saw insertion order
+   scrambled). "FIFO within priority" cannot rely on sort stability. Fixed with an
+   explicit monotonic `_seqCounter` stamped onto every transient as `seq`, used as an
+   explicit tiebreaker: `(b.priority - a.priority) || (a.seq - b.seq)`.
+
+**Tooling gotcha, cost real time**: `/usr/bin/qmltestrunner` on this system is
+**qt5-declarative's** binary (Qt 5.15, wants versioned imports like `import QtQuick 2.15`,
+logs to journald not stdout by default so failures look like silent zero-output hangs).
+The right one, matching qt6-declarative and this project's unversioned Qt6-style imports,
+is `/usr/lib/qt6/bin/qmltestrunner`. `scripts/test.sh` hardcodes that path and sets
+`QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1`. If test output ever goes silent
+again with a bare nonzero exit code, check `journalctl --user -n 50` before assuming the
+test file itself is broken.
+
+## Status: Slice 1.5 done (click-to-morph + spring bounce, inserted by Haziq)
+
+Not in the original plan's slice list; Haziq asked for it directly after seeing slice 1's
+smooth morph, wanted to feel a spring/bounce motion and trigger it by clicking the capsule
+rather than only via IPC. Two changes:
+
+- `theme/Motion.qml`'s `morph`/`morphEasing` (duration+easing tokens) replaced with
+  `morphSpring`/`morphDamping`/`morphMass`. `ui/MorphAnimation.qml` now wraps
+  `SpringAnimation`, not `NumberAnimation`: springs have no fixed duration, they
+  overshoot and settle based on the three physics params, tuned live with Haziq
+  (`spring: 3.5, damping: 0.4, mass: 1.0`).
+- `ui/Capsule.qml` has a `TapHandler` that toggles `expanded` and calls
+  `setPage("dummyWide"/"compact")` directly. **This is temporary**: slice 3's real click
+  contract is a page emitting `requestExpand()`, which the view routes through
+  `IslandController.expand()`. Replace this direct toggle when slice 3 wires the
+  controller into `Capsule`/`IslandWindow`, don't leave both mechanisms in place.
+
+Confirmed by Haziq: "looks very cool."
+
 ## Status: Slice 1 done (Morph)
 
 Built: `theme/Motion.qml` (morph/fade/scale tokens), `ui/MorphAnimation.qml`
@@ -83,11 +137,14 @@ no IPC. Window-focus-title and MPRIS now-playing (both working in the pre-plan r
 prototype) are intentionally dropped for now; now-playing comes back in slice 5 as part
 of `CompactPage`, per the plan. There is currently no page showing anything but a clock.
 
-## Next: Slice 2 (Controller)
+## Next: Slice 3 (Wire)
 
-`IslandController`, `Kinds`, `tests/tst_controller.qml`, `scripts/test.sh` green with
-durations injected at 50ms. No UI change this slice. See the plan for the full rule
-list (coalesce, expanded gate, preempt, enqueue, hover-hold, cap 6, clearKey).
+`Island` singleton (`core/Island.qml`, `pragma Singleton` + `PersistentProperties` for
+`expandedPage`), view binds to `Island.page`/`Island.payload`, `Demo` service, IPC
+`demo/expand/collapse/toggle/dismiss`. This is also where slice 1.5's temporary
+`TapHandler` toggle in `Capsule.qml` gets replaced with the real click contract
+(`requestExpand()` -> `Island.expand()`). Verify: `qs -p . ipc call island demo <kind>`
+previews every page; hover pauses the timeout; `expandedPage` survives a hot reload.
 
 ## Environment notes worth not rediscovering
 
