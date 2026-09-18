@@ -9,8 +9,10 @@ Item {
     // Page contract (docs/HANDOFF.md): implicitWidth/Height + payload.
     property var payload: null
     signal requestExpand(string pageId)
+    // Page contract addition: per-state radius (design's IDLE state, r15).
+    readonly property real cornerRadius: 15
 
-    implicitWidth: content.implicitWidth + 32
+    implicitWidth: content.implicitWidth + 28
     implicitHeight: Theme.compactH
     // Plain Item doesn't self-size from implicitWidth/Height the way a
     // Control does; the page contract relies on width/height tracking it
@@ -26,23 +28,24 @@ Item {
     Row {
         id: content
         anchors.centerIn: parent
-        spacing: 10
+        spacing: 11
 
         Text {
             id: clockText
             anchors.verticalCenter: parent.verticalCenter
             color: Theme.ink
             font.family: Theme.fontFamily
-            font.pixelSize: 13
+            font.pixelSize: 12
+            font.weight: Font.Medium
             font.letterSpacing: 1
             text: Qt.formatDateTime(clock.date, "hh:mm:ss")
         }
 
         Rectangle {
             width: 1
-            height: 12
+            height: 11
             anchors.verticalCenter: parent.verticalCenter
-            color: Theme.hairline
+            color: Theme.divider
             visible: Media.available
         }
 
@@ -52,10 +55,9 @@ Item {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             visible: Media.available
-            color: Theme.ink
-            opacity: Media.isPlaying ? 1.0 : 0.55
+            color: Media.isPlaying ? Theme.ink : Theme.inkFaint
             font.family: Theme.fontFamily
-            font.pixelSize: 12
+            font.pixelSize: 11
             elide: Text.ElideRight
             width: Math.min(implicitWidth, 160)
             text: Media.artist ? (Media.artist + " · " + Media.title) : Media.title

@@ -11,6 +11,25 @@ QtObject {
     readonly property real volume: available ? sink.audio.volume : 0
     readonly property bool muted: available ? sink.audio.muted : false
 
+    function setVolume(pct) {
+        if (!available) return
+        sink.audio.volume = Math.max(0, Math.min(1, pct / 100))
+    }
+
+    // Mic: same shape as the sink above, but the input device. No OSD/
+    // debounce/changed() signal for it (nothing currently pops a peek on
+    // mic volume changing), it's read for the expanded view's CONTROLS
+    // section only.
+    readonly property var source: Pipewire.defaultAudioSource
+    readonly property bool micAvailable: source !== null && source.ready && source.audio !== null
+    readonly property real micVolume: micAvailable ? source.audio.volume : 0
+    readonly property bool micMuted: micAvailable ? source.audio.muted : false
+
+    function setMicVolume(pct) {
+        if (!micAvailable) return
+        source.audio.volume = Math.max(0, Math.min(1, pct / 100))
+    }
+
     // Fires after Motion.debounceOsd once volume/muted settles, and only
     // once Pipewire itself has been ready for 500ms: without this gate,
     // enumerating existing devices at startup fires a burst of volume
@@ -19,7 +38,10 @@ QtObject {
 
     property bool _pastStartupBurst: false
     property PwObjectTracker _tracker: PwObjectTracker {
-        objects: root.sink ? [root.sink] : []
+        // Both sink and source need tracking for their `.audio` sub-object
+        // (volume/muted) to actually populate; the mic slider silently
+        // reading zero forever was the failure mode without this.
+        objects: (root.sink ? [root.sink] : []).concat(root.source ? [root.source] : [])
     }
 
     property Timer _startupGate: Timer {

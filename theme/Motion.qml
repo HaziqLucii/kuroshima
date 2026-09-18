@@ -2,32 +2,36 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // Spring physics for the capsule width/height morph. No fixed
-    // duration: SpringAnimation is driven by these three. Measured
-    // settling around 250-500ms at these values, tune by feel via hot
-    // reload from here, but change one field at a time and watch
-    // ui/Capsule.qml's clamp (Theme.canvasW/H) is what protects against a
-    // bad value; a spring of 300 here once made width diverge to over a
-    // million px (confirmed via the quickshell log), which drove a GPU
-    // texture allocation the same size and froze the whole desktop. This
-    // integrator is only stable for small spring values relative to the
-    // frame timestep, "hundreds" from generic spring-UI advice does not
-    // apply to it.
-    readonly property real morphSpring: 18
-    readonly property real morphDamping: 3.5
-    readonly property real morphMass: 1.0
+    // Capsule width/height/radius morph. The design specifies a CSS
+    // overshoot curve (`cubic-bezier(.34, 1.5, .5, 1)`), not a physical
+    // spring, and Qt's Easing.BezierSpline reproduces a CSS cubic-bezier
+    // exactly (control points cp1, cp2, endpoint; y can exceed 1 for the
+    // overshoot, unlike x). This replaces the old SpringAnimation-based
+    // morph, which is also a deliberate safety win: a spring can diverge
+    // numerically (a bad Motion.qml value once sent width past a million
+    // px and froze the GPU via MultiEffect's shadow texture, see
+    // docs/HANDOFF.md); a fixed-duration bezier animation to a known
+    // target cannot.
+    readonly property int morphDuration: 520
+    readonly property var morphBezier: [0.34, 1.5, 0.5, 1.0, 1.0, 1.0]
 
-    readonly property int fadeOut: 140
-    readonly property int fadeIn: 220
+    // Content crossfade: "220ms ease-out, +4px rise" in the design, applied
+    // symmetrically here (incoming rises in, outgoing drops out) since the
+    // design only specifies the enter keyframe.
+    readonly property int fadeDuration: 220
+    readonly property real fadeRise: 4
+    readonly property var fadeBezier: [0.0, 0.0, 0.58, 1.0, 1.0, 1.0]
+
+    // Not in the design: internal stagger so the two-slot crossfade in
+    // ui/PageHost.qml doesn't show a fully-transparent gap between the
+    // outgoing and incoming page.
     readonly property int fadeInDelay: 60
-    readonly property real scaleFrom: 0.96
 
     readonly property int hoverGrace: 700
     readonly property int debounceOsd: 16
 
-    // Slice 3.5 (inserted, not in the original plan): grace period before
-    // the expanded page auto-collapses once the cursor leaves it. Longer
-    // than hoverGrace since a deliberately-expanded page is something the
-    // user is likely reading, not a transient peek.
-    readonly property int expandCollapseGrace: 1500
+    // "AUTO COLLAPSE: 1800ms after exit" in the design. Currently only
+    // drives ui/Capsule.qml's expanded-page auto-collapse (slice 3.5); the
+    // design also uses it for the not-yet-built hover-peek pill.
+    readonly property int autoCollapseDelay: 1800
 }

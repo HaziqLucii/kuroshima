@@ -27,6 +27,13 @@ Item {
     readonly property Item currentItem: (aActive ? slotA : slotB).item
     readonly property real targetWidth: currentItem ? currentItem.implicitWidth : 0
     readonly property real targetHeight: currentItem ? currentItem.implicitHeight : 0
+    // Per-state radius (page contract, alongside implicitWidth/Height):
+    // each page declares its own design-spec radius since the design ties
+    // radius to state, not one fixed value. Falls back to Theme.radius for
+    // a page that hasn't declared cornerRadius (shouldn't happen once every
+    // page in pageMap does, but a missing property read would otherwise be
+    // a hard QML error rather than a graceful default).
+    readonly property real targetRadius: currentItem && currentItem.cornerRadius !== undefined ? currentItem.cornerRadius : Theme.radius
 
     implicitWidth: targetWidth
     implicitHeight: targetHeight
@@ -84,7 +91,7 @@ Item {
         const outgoing = aActive ? slotA : slotB
 
         loader.opacity = 0
-        loader.scale = Motion.scaleFrom
+        loader.riseY = Motion.fadeRise
         loader.visible = true
         // Re-enable explicitly: this slot may have been the *outgoing*
         // side of an earlier crossfade and left disabled below.
@@ -112,11 +119,16 @@ Item {
         crossfade.restart()
     }
 
+    // riseY backs the design's fadeUp keyframe (translateY(4px) -> 0), via
+    // a Translate transform: Loader has no "y offset independent of anchors"
+    // property of its own, and this slot is anchors.centerIn'd.
     Loader {
         id: slotA
         asynchronous: false
         anchors.centerIn: parent
         layer.enabled: opacity < 1
+        property real riseY: 0
+        transform: Translate { y: slotA.riseY }
         onLoaded: root.handleLoaded(slotA)
     }
     Loader {
@@ -124,6 +136,8 @@ Item {
         asynchronous: false
         anchors.centerIn: parent
         layer.enabled: opacity < 1
+        property real riseY: 0
+        transform: Translate { y: slotB.riseY }
         onLoaded: root.handleLoaded(slotB)
     }
 
@@ -132,15 +146,29 @@ Item {
         property Loader outgoing: null
         property Loader incoming: null
 
+        // The design only specifies the enter keyframe (fadeUp); the exit
+        // here mirrors it (fade + drop by fadeRise) for a symmetric feel.
         ParallelAnimation {
-            NumberAnimation { target: crossfade.outgoing; property: "opacity"; to: 0; duration: Motion.fadeOut }
-            NumberAnimation { target: crossfade.outgoing; property: "scale"; to: Motion.scaleFrom; duration: Motion.fadeOut }
+            NumberAnimation {
+                target: crossfade.outgoing; property: "opacity"; to: 0
+                duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+            }
+            NumberAnimation {
+                target: crossfade.outgoing; property: "riseY"; to: Motion.fadeRise
+                duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+            }
         }
         SequentialAnimation {
             PauseAnimation { duration: Motion.fadeInDelay }
             ParallelAnimation {
-                NumberAnimation { target: crossfade.incoming; property: "opacity"; to: 1; duration: Motion.fadeIn }
-                NumberAnimation { target: crossfade.incoming; property: "scale"; to: 1; duration: Motion.fadeIn }
+                NumberAnimation {
+                    target: crossfade.incoming; property: "opacity"; to: 1
+                    duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+                }
+                NumberAnimation {
+                    target: crossfade.incoming; property: "riseY"; to: 0
+                    duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+                }
             }
         }
 

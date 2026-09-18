@@ -588,6 +588,253 @@ no IPC. Window-focus-title and MPRIS now-playing (both working in the pre-plan r
 prototype) are intentionally dropped for now; now-playing comes back in slice 5 as part
 of `CompactPage`, per the plan. There is currently no page showing anything but a clock.
 
+## Claude Design reference swap (theme/motion token pass)
+
+Per Haziq's explicit "replicate 100%" direction, `plans/Claude Design - Dynamic Island/Dynamic Island.dc.html`
+now supersedes the earlier Kuro-derived `theme/Theme.qml` (bone ink, pure black,
+Plus Jakarta Sans, one fixed radius) and the spring-based `theme/Motion.qml`/
+`ui/MorphAnimation.qml`. New tokens: ink ramp `#ededed`/`#8f8f8f`/`#7a7a7a`/`#6f6f6f`/
+`#5c5c5c`, surface `#050506`, JetBrains Mono + Noto Sans JP, per-state size/radius
+constants (`compactH`/`peekH`/`osdW`/`osdH`/`osdRadius`/`expandedW`/`expandedH`/
+`expandedRadius`). The design's `accent` token defaults to (and every swatch renders
+as) plain `#e8e8e8`, so fills/dots/highlights just use `ink` directly rather than
+adding a real accent-hue system, consistent with Haziq's standing no-accent-hue
+preference.
+
+Motion: replaced `SpringAnimation` (spring/damping/mass tuned by feel, the same
+mechanism that once diverged to 1,000,000+ px and froze the GPU) with a fixed-duration
+`NumberAnimation` using `Easing.BezierSpline` and an explicit control-point array,
+reproducing the design's `cubic-bezier(.34, 1.5, .5, 1)` overshoot exactly (control
+points can exceed y=1, unlike x). This is a real safety improvement, not just fidelity:
+a bezier animation to a fixed target over a fixed duration can't diverge the way a
+spring's integrator can. `Motion.expandCollapseGrace` renamed `autoCollapseDelay`
+(1500 -> 1800ms per the design's SPEC panel). Content crossfade switched from a
+scale-based transition to translateY (`Motion.fadeRise`, 4px) via a `transform:
+Translate` on each `ui/PageHost.qml` Loader slot, per the design's `fadeUp` keyframe;
+both fade directions now share one `Motion.fadeDuration` (220ms) instead of the old
+asymmetric fadeIn/fadeOut split.
+
+**Page contract addition**: every page now declares `readonly property real
+cornerRadius`, alongside the existing `implicitWidth`/`implicitHeight`/`payload`/
+`requestExpand`. `ui/PageHost.qml` exposes it as `targetRadius` (falls back to
+`Theme.radius` if a page doesn't declare it), and `ui/Capsule.qml` morphs
+`ClippingRectangle.radius` against it the same way width/height already morph.
+`OsdPeek` and `MediaExpanded` (placeholder) use the design's exact per-state
+radius/size; `CompactPage` uses the design's IDLE radius (15); `MediaPeek`/`DummyWide`
+have no exact design counterpart (the design has no "media track changed" or
+"not-yet-built kind" transient at all) so they use the generic peek-family radius (17)
+as the closest reasoned bucket.
+
+`core/Kinds.qml` transient durations updated to the design's SPEC panel ("TRANSIENT
+DWELL: 3200ms / 900ms ws"): osd/notification/power/media.track all 3200, workspace 900
+(was 1200). The design's own interactive demo buttons hardcode slightly different
+per-trigger numbers (e.g. notification 4200); treated those as prototype-convenience
+values, not the documented spec, and went with the SPEC panel as authoritative.
+
+`pages/MediaExpanded.qml` was deliberately gutted to an empty bordered placeholder box
+(700x604, r30, sized/radiused to the design's EXPANDED state) per Haziq: "for the
+expanded part you can just put an empty box with border as placeholder, so next slices
+will replace that placeholder." The real dashboard (identity/media/controls/toggles/
+system/inbox/session, see the design's ANATOMY panel) is real backend work spanning
+several future slices, not a style pass.
+
+**Known, deliberate divergences from the literal design values** (Haziq tuned these
+live after seeing them rendered; don't "fix" them back to the design's numbers):
+- **Capsule border removed entirely.** The design specifies
+  `border: 1px solid rgba(255,255,255,0.08)` on every state; Haziq tried it live and
+  preferred the capsule with no border at all. `ui/Capsule.qml`'s `ClippingRectangle`
+  is `border.width: 0`.
+- **Shadow backed off hard from the literal CSS values.** The design's
+  `0 24px 60px -18px rgba(0,0,0,0.95)` taken literally into `MultiEffect` (which has no
+  spread parameter to soften/shrink the shadow the way CSS's `-18px` does) rendered as
+  a heavy black blob, not a soft recede. Tuned down live to
+  `shadowOpacity: 0.18, shadowBlur: 0.5, shadowVerticalOffset: 5` ("just enough to be
+  seen"). These are feel-tuned, not derived from the CSS numbers by any formula;
+  expect further live retuning as more states get built.
+- **`Theme.canvasH` bumped 620 -> 680.** Real bug, not a taste call: the shadow's blur
+  bleed extends past the capsule's own bounds, and unlike an item-level `clip: true`
+  (soft nothing, just stops being drawn), the actual Wayland surface edge is a hard
+  cutoff with no falloff, visible as a straight line slicing through the shadow. At
+  680px, `expandedH(604) + topInset(5)` leaves 71px of margin below the capsule, plenty
+  for blur bleed even at higher `shadowBlur` values. Keep this margin in mind if
+  `expandedH` ever grows once the real dashboard replaces the placeholder.
+
+## Claude Design swap, refuter round 1 fixes
+
+refuter caught four real bugs in the token/motion swap above, all fixed:
+
+- **Font tokens didn't resolve.** `"JetBrains Mono"`/`"Noto Sans JP"` (the Google Fonts
+  webfont names from the design's `<link>` tag) aren't installed on this machine and
+  silently fell back to a proportional face, which breaks every content-driven page's
+  sizing math (`CompactPage`/`MediaPeek` measure `implicitWidth` from these fonts) and
+  the design's own "tabular, never reflow" numerals rule. Fixed to the actually-
+  installed families carrying the same typefaces: `"JetBrainsMono Nerd Font"` (JetBrains
+  Mono via the Nerd Fonts patcher) and `"Noto Sans CJK JP"` (the Noto CJK superfamily,
+  not the per-language webfont subset). Verify with `Qt.fontFamilies()` if this machine's
+  font set ever changes.
+- **Morph overshoot vs. the canvas clamp.** `Motion.morphBezier`'s
+  `cubic-bezier(.34, 1.5, .5, 1)` peaks around y=1.08, so a 30->604 height morph
+  transiently overshoots to ~650px. `Theme.canvasH` was already bumped to 680 for the
+  shadow-bleed fix above, which happens to clear this too (650 < 680) — confirmed, not
+  re-fixed. If `Theme.expandedH` ever grows, recheck this headroom accounts for both the
+  shadow bleed AND the morph overshoot, not just one.
+- **`pages/OsdPeek.qml`'s label row was baseline-anchored to a `Row`.** `Row.baselineOffset`
+  is always 0, so `anchors.baseline: valueText.baseline` aligned the Row's *top* (not its
+  text) to that baseline, dropping the whole label ~17px too low and overrunning into the
+  bar below. Fixed to `anchors.verticalCenter`.
+- **OSD fill lost its rounded ends.** The fill `Rectangle` had no `radius`, and the
+  attempted `clip: true` on its rounded parent doesn't help either: Qt Quick's
+  `Rectangle.clip` clips to a rectangular bounds regardless of `radius`. Added
+  `radius: parent.radius` back to the fill directly (the pattern the pre-swap
+  OsdPeek/MediaExpanded already used), removed the now-pointless `clip: true`.
+
+**Reviewed and accepted, not fixed**: the same overshoot bezier also means shrinking to
+a small enough target transiently computes a *negative* height, clamped to 0 for part
+of the animation. Refuter round 2 measured this precisely: any target below ~44.8px
+zeroes out, so it's not just the 604->30 (expanded->compact) collapse, expanded->peek
+(604->34) blinks too, invisible for roughly 130ms in the middle of the 520ms animation.
+During that window the capsule (and its `Region`-based click mask) is fully invisible
+and fully click-through at once, which is internally consistent, not a surprise to
+click on nothing that isn't there. The design's own CSS transition has the identical
+artifact (browsers clamp computed height at 0 the same way). Not chasing this: fixing it
+would mean deviating from the design's specified curve for a genuinely cosmetic
+mid-animation blink.
+
+**`pages/MediaExpanded.qml`'s placeholder was too broad.** Haziq caught that the "empty
+box" instruction had swallowed real, working functionality (title/artist/progress/
+transport, backed by `services/Media.qml` since slice 5), not just the design's new,
+not-yet-built sections. Restored the MEDIA section for real (title/artist, tabular
+elapsed/remaining, prev/play-pause/next as plain glyph text per the design, not the old
+bordered Canvas buttons), plus a squircle-clipped album art thumbnail (`ClippingRectangle`
++ `Image { source: Media.artUrl }`, falling back to a flat hairline swatch when there's no
+art) per Haziq's ask. The squircle is a large-radius rounded rect, not a true
+superellipse: at 54px a custom `Shape` path would be indistinguishable by eye and isn't
+worth the extra surface area. The remaining design sections (identity header, controls,
+toggles, system, inbox, session) are still the one placeholder box, now anchored below
+the real media section instead of replacing it. Seeking-by-click on the progress bar is
+NOT implemented: `services/Media.qml` has no `seek()`/`SetPosition` method yet, adding one
+is real MPRIS service work, not a style pass.
+
+## Claude Design swap, refuter round 2 fixes + identity header + live-stream handling
+
+refuter round 2 PASSed the round-1 fixes and the MediaExpanded media-section rebuild
+(all four round-1 items independently re-verified as genuinely fixed, not just claimed),
+with two small misses fixed since: an em-dash in the placeholder label text (violates
+the standing no-em-dash rule) swapped for the same middot already used elsewhere in that
+string, and the media progress track was missing `radius: 2` that `OsdPeek`'s equivalent
+bar already has (cosmetic consistency, not a functional bug). refuter also flagged the
+placeholder box's `border.width: 0` as a miss against the file's own header comment and
+this doc's "empty bordered placeholder box" wording — that's not a bug, Haziq asked for
+the border removed live *after* refuter's round-1 snapshot; both the file comment and
+this doc's earlier wording are now corrected instead.
+
+**Real bug caught live, not by refuter**: `services/Media.qml`'s player selection
+(`isPlaying ? that : players[0]`) picked whichever player reported `isPlaying` first,
+which on a real desktop is not always the richest source. Confirmed via `playerctl -l`
+while watching a YouTube livestream in Chrome: `chromium.instanceNNNN` (raw browser
+MPRIS, generic per-session icon as its `artUrl`, i.e. literally a Chrome logo) and
+`plasma-browser-integration` (KDE's extension, real per-tab artwork/artist/title) were
+BOTH reporting `isPlaying: true` for the same tab. Fixed: among playing players, prefer
+one whose `dbusName` contains `"plasma-browser-integration"` when present.
+
+**Live-stream handling, new.** MPRIS has no explicit "this is live" flag, and the two
+players disagree on how they signal an unknown/live duration: raw Chromium uses the
+documented sentinel (int64 max microseconds), `plasma-browser-integration` instead
+reports some arbitrary large placeholder (confirmed live: 13 hours, for an actual
+livestream). `Media.isLive` (`services/Media.qml`) treats any `length` over 4 hours as
+"not a real duration" rather than trying to match every player's own sentinel
+convention: no legitimate track/video runs that long. `pages/MediaExpanded.qml` uses it
+to replace the remaining-time countdown with a pulsing "● LIVE" badge, pin the progress
+fill full (you're always at the live edge), and force the skip-forward glyph off
+regardless of what MPRIS's own `canGoNext` claims (Haziq: "for live video you cant go
+forward, only backwards, since it is well, live" - there's nothing ahead of live to skip
+into).
+
+**New: `services/System.qml`**, backing the design's "01 IDENTITY" header row that
+Haziq flagged as missing ("dont forget the things above the media player"). Exposes
+`userHost` (`$USER`/`$LOGNAME` via `Quickshell.env()`, `+`/etc/hostname`), `uptimeLabel`
+(one blocking read of `/proc/uptime` at startup plus a live wall-clock offset, not
+re-read on a timer) and `niriVersion` (`niri msg --json version` via a `Process`,
+`stdout` parsed as JSON). Each field hides independently when absent, same rule as
+every other module: on Hyprland (Haziq's other target compositor) `niri msg` simply
+doesn't exist, the `Process` errors, `niriVersion` stays `""`, and that one field in the
+header disappears rather than showing garbage. Added to `pages/MediaExpanded.qml` as the
+first section, above the (now real) media section. `services/qmldir` needed the new
+`singleton System 1.0 System.qml` line (manual `qmldir` files disable auto-synthesis for
+the whole directory, same gotcha as `core/qmldir`).
+
+## CONTROLS section (VOL/MIC), brightness deliberately skipped
+
+Extended `services/Audio.qml` with a write path (`setVolume(pct)`, writes
+`sink.audio.volume`) and mic support (`Pipewire.defaultAudioSource`, mirroring the sink:
+`micAvailable`/`micVolume`/`micMuted`/`setMicVolume(pct)`; both sink and source now need
+to be in `PwObjectTracker.objects` for their `.audio` sub-object to populate, mic was
+silently reading zero forever without that). `pages/MediaExpanded.qml` "03 CONTROLS"
+section: VOL/MIC as click-to-set bars (`TapHandler.onTapped`'s `eventPoint.position.x`
+against the bar's own width), each independently hidden when its source isn't available.
+
+**BRI is not built, on purpose, not just deferred.** This desktop has no
+`/sys/class/backlight` (confirmed earlier in this doc). Investigated the only real
+alternative, DDC/CI over the monitor's I2C bus (`ddcutil`): it actually works, found the
+real monitor (`ddcutil detect` -> Acer XZ306C X on `/dev/i2c-7`, no root needed, a udev
+ACL already grants the seat user access) and both `getvcp 10`/`setvcp 10 <n>` round-trip
+correctly. But every single call measured **~8 seconds** on this hardware (confirmed 3x,
+consistent to the tenth of a second, reads like a fixed retry/backoff policy on
+`ddcutil`'s side more than raw I2C latency). Asked Haziq how to handle it (skip / show a
+pending state / fire-and-forget with drift); he chose skip. If this ever gets revisited
+(different monitor, faster DDC path, or accept the latency with a visible "pending"
+state), `Audio.qml`'s pattern doesn't transfer directly: DDC calls need to go through a
+`Quickshell.Io.Process`, not a live property binding, so a `Brightness.qml` service
+would look more like `services/System.qml`'s niri-version `Process` than like the
+audio/mic sliders next to it.
+
+The "04 TOGGLES · 05 SYSTEM · 06 INBOX · 07 SESSION" placeholder box shrank accordingly
+(it used to also say "CONTROLS", now that section is real).
+
+## Refuter round 3: CONTROLS section fixes
+
+refuter round 3's brief predated the CONTROLS section (dispatched right before it was
+built), but it reviewed the moving tree anyway and caught a real architectural bug in it:
+
+**Tapping the VOL slider inside the expanded dashboard collapsed the dashboard around
+it.** `Audio.setVolume()` -> `Audio.volume` changes -> `Audio.changed()` ->
+`app/Bridges.qml` -> `Island.show("osd.volume", ...)`. `osd.volume`'s priority (40)
+equals `IslandController.expandedBlockBelow` (40), and the gate is a strict `<`
+(`t.priority < expandedBlockBelow`), so `40 < 40` is false and the OSD is NOT blocked,
+by original design (the gate's own comment: "OSD/notifications ... still show over an
+expanded page"). That's correct for a volume change from OUTSIDE the dashboard (a
+hardware key while looking at something else); it's wrong here because
+`pages/MediaExpanded.qml`'s CONTROLS section shows the same volume value live, in place,
+so popping a whole separate OSD transient over it just morphs the 700x604 dashboard down
+to the 320x58 OSD pill mid-adjustment, hiding the slider you just touched, for the
+dwell's full 3200ms (this diff also raised that dwell from 1500ms, making it worse).
+Fixed in `app/Bridges.qml`: the `Audio.changed` handler now skips `Island.show(...)`
+whenever `Island.expandedPage === "MediaExpanded"`, regardless of whether the change
+came from the dashboard's own slider or a hardware key. `core/IslandController.qml`'s
+gate logic itself is untouched: the fix is at the integration point that decides whether
+to ask for an OSD in the first place, not at the priority-comparison rule.
+
+Also fixed, all flagged by the same round: the file's own header comment still listed
+"controls" among the not-yet-real sections (same class of drift rounds 1-2 already
+caught, now three for three); the VOL/MIC tap targets were the visual 3px track itself,
+too thin to comfortably hit, moved onto a taller (18px) invisible parent Item instead;
+the "03 CONTROLS" header row was missing `anchors.verticalCenter` on its children (same
+bug class as round 1's OsdPeek catch, ~1.27px here vs ~17px there, still fixed for
+consistency); the whole CONTROLS `Column` had no visibility gate of its own, only its
+two inner VOL/MIC sub-columns did, so the "03 CONTROLS" label rendered alone for the
+2-3s Pipewire takes to bind at startup; and `fmt()` had no hours field, so a live
+stream's elapsed or a long film's remaining rendered as a bare un-rolled-over
+"125:00" past 60 minutes.
+
+`./scripts/lint.sh` picked up a new category from the `Island.isExpanded`/
+`Island.expandedPage` property reads added to `app/Bridges.qml`: 2 `unresolved-type`
+warnings, same root cause as the existing `unqualified`/`incompatible-type` baseline
+(qmllint can't resolve Quickshell's directory-as-singleton convention outside the
+Quickshell runtime), just a different warning code because this is a property read on
+the unresolved reference rather than a bare reference or method call. Confirmed real at
+runtime (`Island.isExpanded`/`expandedPage` both genuinely exist, `app/Island.qml`), not
+a new baseline count to chase down.
+
 ## Next: Slice 6 (Notifications)
 
 `services/Notifs.qml` (`NotificationServer` inside `Loader { active: Config.notificationServer }`

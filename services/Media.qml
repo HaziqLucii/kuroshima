@@ -13,13 +13,25 @@ QtObject {
     // desktop actually runs at once, "first playing, else first known"
     // is not meaningfully different in practice. Revisit if that stops
     // being true.
+    //
+    // It stopped being true: a browser tab shows up as TWO simultaneously
+    // "isPlaying" players at once (confirmed live via `playerctl -l`) -
+    // the browser's own raw MPRIS handle (`chromium.instanceNNNN`) and
+    // Plasma's browser-integration extension (`plasma-browser-integration`)
+    // both mirror the same tab. The raw handle's artUrl is just a generic
+    // per-session icon (literally the Chrome logo, in a temp file), not the
+    // actual video thumbnail; plasma-browser-integration exists
+    // specifically to supply richer per-tab metadata for exactly this
+    // reason, so it wins whenever both are live.
     readonly property var player: {
         const players = Mpris.players.values
         if (players.length === 0) return null
-        for (let i = 0; i < players.length; i++) {
-            if (players[i].isPlaying) return players[i]
-        }
-        return players[0]
+
+        const playing = players.filter(p => p.isPlaying)
+        if (playing.length === 0) return players[0]
+
+        const integrated = playing.find(p => p.dbusName.includes("plasma-browser-integration"))
+        return integrated || playing[0]
     }
 
     readonly property bool available: player !== null
@@ -31,6 +43,19 @@ QtObject {
     readonly property bool canGoPrevious: available ? player.canGoPrevious : false
     readonly property bool canTogglePlaying: available ? player.canTogglePlaying : false
     readonly property real length: available ? player.length : 0
+
+    // MPRIS has no explicit "this is a live stream" flag, and players
+    // signal an unknown/live duration inconsistently: confirmed live on a
+    // YouTube livestream, Chromium's own raw MPRIS handle reports the
+    // documented sentinel for "unknown length" (int64 max microseconds,
+    // ~292471 years), while plasma-browser-integration (preferred above
+    // for richer metadata) instead reports some arbitrary large placeholder
+    // (13 hours, that same stream) rather than the sentinel or 0. Matching
+    // both without hardcoding either convention: no real track/video runs
+    // longer than a few hours, so anything past this threshold isn't a
+    // real duration regardless of which sentinel (or non-sentinel) a given
+    // player used to say so.
+    readonly property bool isLive: available && length > 4 * 60 * 60
 
     // Not a live binding to player.position: MPRIS doesn't push continuous
     // position updates, only on seek/state-change, so a binding to it

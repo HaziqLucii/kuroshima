@@ -15,19 +15,20 @@ Item {
     // Connections to whatever page is current doesn't warn about a
     // missing signal every time this page is shown.
     signal requestExpand(string pageId)
+    readonly property real cornerRadius: Theme.radius
 
     implicitWidth: Math.max(140, labelText.implicitWidth + 48)
-    implicitHeight: Math.max(Theme.compactH, labelText.implicitHeight + 32)
+    implicitHeight: Math.max(Theme.peekH, labelText.implicitHeight + 24)
     width: implicitWidth
     height: implicitHeight
 
     Text {
         id: labelText
         anchors.centerIn: parent
-        color: Theme.ink
+        color: Theme.inkMuted
         font.family: Theme.fontFamily
-        font.pixelSize: 16
-        font.letterSpacing: 1
+        font.pixelSize: 11
+        font.letterSpacing: 2
         text: (root.payload && root.payload.label) ? root.payload.label : "DUMMY WIDE PAGE"
     }
 }

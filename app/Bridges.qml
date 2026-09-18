@@ -14,6 +14,19 @@ Item {
     Connections {
         target: Audio
         function onChanged() {
+            // pages/MediaExpanded.qml's CONTROLS section already shows
+            // volume live while it's the expanded page, so popping the OSD
+            // transient over it is always redundant, whether the change
+            // came from that section's own slider or a hardware volume key
+            // pressed while looking at it. Without this guard, the OSD
+            // transient's own priority (40, equal to expandedBlockBelow)
+            // clears IslandController's expanded gate, which morphs the
+            // whole 700x604 dashboard down to the 320x58 OSD pill mid-
+            // adjustment: refuter-caught, the slider vanishes from under
+            // the cursor for the OSD's full dwell.
+            if (Island.isExpanded && Island.expandedPage === "MediaExpanded") {
+                return
+            }
             Island.show("osd.volume", {
                 kind: "volume",
                 value: Audio.volume,

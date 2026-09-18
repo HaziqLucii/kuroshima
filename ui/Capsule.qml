@@ -23,8 +23,14 @@ Item {
     // This clamp holds even if the animation misbehaves again.
     property real animatedWidth: host.targetWidth
     property real animatedHeight: host.targetHeight
+    // Radius has no divergence-safety concern the way width/height do (a
+    // rounded-rect radius can't blow up a GPU texture the way MultiEffect's
+    // shadow can), but it morphs on the same curve for visual consistency
+    // with the design, which ties radius to size per state.
+    property real animatedRadius: host.targetRadius
     Behavior on animatedWidth { MorphAnimation {} }
     Behavior on animatedHeight { MorphAnimation {} }
+    Behavior on animatedRadius { MorphAnimation {} }
 
     width: Math.max(0, Math.min(animatedWidth, Theme.canvasW))
     height: Math.max(0, Math.min(animatedHeight, Theme.canvasH))
@@ -45,9 +51,20 @@ Item {
     ClippingRectangle {
         id: background
         anchors.fill: parent
-        radius: Theme.radius
+        radius: root.animatedRadius
         color: Theme.bg
         border.width: 0
+
+        // `inset 0 1px 0 rgba(255,255,255,0.05)` from the design: a hairline
+        // top highlight. MultiEffect only does drop shadows, not CSS-style
+        // inset shadows, so it's drawn directly instead.
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 1
+            color: Theme.insetHighlight
+        }
 
         PageHost {
             id: host
@@ -117,7 +134,7 @@ Item {
 
     Timer {
         id: collapseGraceTimer
-        interval: Motion.expandCollapseGrace
+        interval: Motion.autoCollapseDelay
         repeat: false
         onTriggered: Island.collapse()
     }

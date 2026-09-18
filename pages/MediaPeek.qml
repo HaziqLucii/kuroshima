@@ -7,12 +7,18 @@ Item {
 
     property var payload: null
     signal requestExpand(string pageId)
+    // No exact design counterpart (the design has no dedicated "media
+    // changed" transient: media only ever shows via the idle pill's EQ
+    // glyph or inside the full expanded view). Sized/radiused as the
+    // closest bucket, the generic "peek" family (state B), since like a
+    // hover peek this is the pill grown to show one extra line of info.
+    readonly property real cornerRadius: Theme.radius
 
     readonly property string title: payload ? payload.title : ""
     readonly property string artist: payload ? payload.artist : ""
 
     implicitWidth: textColumn.implicitWidth + 20 + 32
-    implicitHeight: Theme.compactH
+    implicitHeight: Theme.peekH
     width: implicitWidth
     height: implicitHeight
 
@@ -44,8 +50,7 @@ Item {
                 width: Math.min(implicitWidth, 220)
             }
             Text {
-                color: Theme.ink
-                opacity: 0.6
+                color: Theme.inkFaint
                 font.family: Theme.fontFamily
                 font.pixelSize: 10
                 text: root.artist
