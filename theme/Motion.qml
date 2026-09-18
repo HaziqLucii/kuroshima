@@ -24,4 +24,10 @@ QtObject {
 
     readonly property int hoverGrace: 700
     readonly property int debounceOsd: 16
+
+    // Slice 3.5 (inserted, not in the original plan): grace period before
+    // the expanded page auto-collapses once the cursor leaves it. Longer
+    // than hoverGrace since a deliberately-expanded page is something the
+    // user is likely reading, not a transient peek.
+    readonly property int expandCollapseGrace: 1500
 }

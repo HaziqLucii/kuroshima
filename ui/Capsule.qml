@@ -87,4 +87,28 @@ Item {
             onHoveredChanged: Island.hovered = hovered
         }
     }
+
+    // Slice 3.5 (inserted, not in the original plan): auto-collapse the
+    // expanded page after the cursor's been off it for a grace period.
+    // Deliberately separate from rule 7's hover-hold: that pauses a
+    // transient's own dismiss timer, this collapses expandedPage, which
+    // the controller otherwise only changes on explicit expand/collapse/
+    // toggle calls, never on a timer. View-level, not controller-level:
+    // like the slice-1.5 click toggle, this is UI convenience layered on
+    // top of the state machine, not one of its core rules.
+    readonly property bool shouldAutoCollapse: Island.isExpanded && !Island.hovered
+    onShouldAutoCollapseChanged: {
+        if (shouldAutoCollapse) {
+            collapseGraceTimer.restart()
+        } else {
+            collapseGraceTimer.stop()
+        }
+    }
+
+    Timer {
+        id: collapseGraceTimer
+        interval: Motion.expandCollapseGrace
+        repeat: false
+        onTriggered: Island.collapse()
+    }
 }

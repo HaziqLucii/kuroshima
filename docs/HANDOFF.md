@@ -2,6 +2,20 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
+## Status: Slice 3.5 done (auto-collapse on cursor-away, inserted by Haziq)
+
+Not in the original plan; Haziq asked whether hovering *off* the island for a while
+auto-collapses it (symmetric to the earlier hover-to-expand question, also not planned).
+Added `theme/Motion.qml`'s `expandCollapseGrace` (1500ms, longer than `hoverGrace` since
+an expanded page is something the user is likely reading, not a transient peek) and
+`ui/Capsule.qml`'s `shouldAutoCollapse` (`Island.isExpanded && !Island.hovered`) driving
+a one-shot `Timer` that calls `Island.collapse()`. View-level, not controller-level, same
+reasoning as the slice-1.5 click toggle: this is UI convenience layered on the state
+machine, not one of its 8 core rules, so it doesn't belong in `IslandController.qml`.
+
+Verified live: `expand("dummyExpanded")` via IPC with the cursor elsewhere, capsule
+auto-collapsed to the compact clock after ~1.5s. Confirmed by Haziq: "very nice, i like it."
+
 ## Status: Slice 3 done (Wire), including a second refuter pass that found 3 more real bugs
 
 A second `refuter` pass on the slice 3 commit (static review, no live testing given the
