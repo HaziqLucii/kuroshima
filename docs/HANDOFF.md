@@ -40,71 +40,88 @@ fixed, plus a meta-finding that undermines trust in every prior "lint clean" cla
 Both fixes verified live (real PipeWire, real `wpctl`): OSD still pops correctly for a
 genuine volume change.
 
-## Slice 4.5 done: reserved space via a separate spacer surface
+## Slice 4.5 done: reserved space, one surface, not two
 
 Haziq asked for the compact pill's height to be reserved space (tiled windows shouldn't
 render directly under the clock), matching how other Dynamic Island implementations
 behave, and matching what the original plan itself anticipated
 (`exclusiveZone: Config.reserveSpace ? Theme.compactH + Theme.topInset : 0`).
 
-**The naive one-line version genuinely hangs niri, this is real, don't try it again**:
-setting `ui/IslandWindow.qml`'s `exclusiveZone` directly to `Theme.compactH +
-Theme.topInset` (44) hung the whole nested niri session's layer-shell configure
-handshake, confirmed reproducibly multiple times (toggling the value back and forth;
-`qs` sits at 0% CPU, `Configuration Loaded` never prints). niri itself recovered on its
-own within a few seconds of the client dying each time (`niri msg` IPC came back), so it
-wasn't a permanent deadlock, but it visibly froze the session while stuck. Root cause,
-confirmed by isolated testing (a minimal throwaway `qs` config outside this repo, not
-found in either niri's or Quickshell's issue trackers): a `PanelWindow` anchored `top`
-only (not also `left`+`right`) has a compositor-decided, centered horizontal position;
-reserving a nonzero exclusive zone for a surface whose position isn't fixed apparently
-creates something niri's layout solver can't resolve. Anchoring `top`+`left`+`right`
-(full width) with the identical `exclusiveZone` value loaded instantly in the same
-isolated test; centered top-only reproduced the hang every time. Not confirmed against
-niri's own source, and not filed upstream (Haziq's call if that's ever wanted), but the
-empirical A/B result was clean enough to build on.
+**The naive one-line version genuinely hangs niri, this is real, confirmed
+reproducibly**: setting `ui/IslandWindow.qml`'s `exclusiveZone` directly to
+`Theme.compactH + Theme.topInset` (a positive value) on the centered (`anchors.top`
+only) window hung the whole nested niri session's layer-shell configure handshake
+(toggling the value back and forth reproduced it every time; `qs` sits at 0% CPU,
+`Configuration Loaded` never prints). niri recovered on its own within a few seconds of
+the client dying each time (`niri msg` IPC came back), so not a permanent deadlock, but
+it visibly froze the session while stuck.
 
-**The fix**: two separate layer-shell surfaces, not one.
-`ui/ReservedSpaceWindow.qml` is a new, invisible, `mask: Region {}` (fully click-through)
-`PanelWindow` anchored `top`+`left`+`right`, with `exclusiveZone: Theme.compactH +
-Theme.topInset`: it does nothing but reserve the layout space. `ui/IslandWindow.qml`
-keeps rendering and animating the capsule exactly as before, still centered
-(`anchors.top` only). Both are instantiated from `shell.qml`. This sidesteps the hang
-entirely (the reserving surface's position is never ambiguous) while keeping the
-capsule's own morph/overlay behavior exactly as designed: it can still grow past the
-reserved strip's height for a peek or the expanded state, since only the *reservation*
-is fixed at compact height, not the capsule's own rendering surface.
+**Correction, found by a `refuter` pass, do not repeat the earlier wrong claim**: an
+earlier version of this note theorized that a centered (top-only-anchored) surface
+"can't resolve" a positive exclusive zone per the wlr-layer-shell protocol. Checked
+directly against the protocol XML (`wlr-layer-shell-unstable-v1.xml`, "A positive value
+is only meaningful if the surface is anchored to one edge or an edge and both
+perpendicular edges"): **top-only anchoring is the canonical valid case for a positive
+exclusive zone**, not an unresolvable one. This means the hang is very likely a genuine
+**niri bug** on a spec-legal client request, not a client-side mistake. Not filed
+upstream yet (Haziq's call); if revisited, this is the accurate framing to file it with.
 
-**One more real bug this surfaced, fixed immediately after**: with the spacer surface
-in place, the pill rendered *below* the reserved strip instead of inside it.
-`IslandWindow.qml`'s `exclusiveZone` was `0`, and per wlr-layer-shell semantics, `0`
-means "I don't reserve space myself, but I still respect *other* surfaces'
-reservations", so it was getting pushed down by `ReservedSpaceWindow`'s zone instead of
-overlaying inside it. `-1` means "ignore other surfaces' exclusive zones, anchor to the
-true edge regardless", which is what a floating overlay actually needs once a sibling
-surface is reserving space at all; `IslandWindow.qml` is now `exclusiveZone: -1`.
-Verified live, same bounded-`timeout` caution as the rest of this incident (this is the
-same window that hung on a *positive* exclusiveZone; `-1` specifically hadn't been
-tested yet): loaded cleanly, no hang, and visually confirmed by Haziq the pill now sits
-inside the reserved gap correctly.
+**First fix attempt, since superseded**: two separate layer-shell surfaces, an
+invisible full-width spacer (`ui/ReservedSpaceWindow.qml`, anchored `top`+`left`+`right`,
+doing only the `exclusiveZone` reservation) plus the existing centered `IslandWindow.qml`
+(unchanged, rendering the capsule). This sidestepped the hang (confirmed working,
+screenshotted), but a second `refuter` pass caught a real regression it introduced,
+invisible in the nested-niri sandbox because nothing else there has a top-anchored bar:
+Haziq's real session runs `noctalia` with a floating top bar and its own exclusion zone
+(`~/.config/noctalia/settings.json`, `enableExclusionZoneInset: true`). The spacer
+surface (a normal, non-ignoring exclusive zone) would correctly get pushed below
+noctalia's bar, but `IslandWindow.qml` had been set to `exclusiveZone: -1`
+("ignore every other surface's exclusive zone, anchor to the true output edge
+regardless") specifically to stop it rendering below its *own* spacer sibling. On the
+real session that same `-1` would make the pill ignore noctalia's bar too, rendering at
+the absolute screen top, overlapping/under noctalia, while the spacer surface (still
+correctly respecting noctalia) reserved space in a different, lower position: the two
+surfaces would disagree about where "the top" is the moment a third surface enters the
+picture. Two independently-positioned surfaces measuring the same edge was the root
+design flaw, not fixable by tuning either one's exclusiveZone value alone.
+
+**The actual fix**: one surface, not two. `ui/ReservedSpaceWindow.qml` deleted.
+`ui/IslandWindow.qml` itself is now anchored `top`+`left`+`right` (full width, the
+combination already proven not to hang) with a normal positive
+`exclusiveZone: Theme.compactH + Theme.topInset + Theme.bottomInset` (no `-1`, no
+"ignore" mode: a normal exclusive zone correctly queues behind noctalia's own, restoring
+proper coexistence). `implicitHeight` stays `Theme.canvasH` (the full morph range):
+exclusive zone is a distance from the anchored edge, independent of the surface's own
+height, so a tall surface reserving only the compact row is protocol-legal. The capsule
+content is unaffected, still centered via `anchors.horizontalCenter` inside whatever
+width the compositor stretches the window to, still masked via
+`mask: Region { item: capsule } }` so clicks outside it pass through. One surface, one
+shared reference point, nothing left to disagree.
+
+Verified live at each step with a bounded `timeout` wrapper on the launch (given the
+hang history): isolated full-width+positive-zone test loaded instantly outside this
+repo; the real consolidated window then loaded cleanly in the actual project; niri
+stayed responsive (`niri msg` instant) throughout. Visually confirmed by Haziq: pill
+renders, positions, and morphs exactly as before.
 
 **Vertical spacing tuned live, non-obvious finding along the way**: `Theme.topInset`
 settled at `5` (tried `14` first per an ambiguous "a little lower" request that turned
 out to mean "less gap", then `5` per "looks more minimalist"). The *bottom* gap (pill's
 bottom edge to where tiled windows start) turned out not to just be `topInset` again:
-a mathematically symmetric reserved strip (`compactH + 2*topInset`) looked visibly
+a mathematically symmetric formula (`compactH + 2*topInset`) looked visibly
 *bottom-heavy* despite the equal math. Cause, found by Haziq: **niri's own `gaps`
 setting** (`~/.config/niri/cfg/layout.kdl`, currently `12`) adds spacing "between
-windows and to screen edges", which stacks on top of whatever `Theme.qml` reserves for
-the bottom, since the reserved strip's lower boundary is now effectively a screen edge
-from niri's layout perspective. Nothing analogous exists for the *top* gap, there's no
+windows and to screen edges", which stacks on top of whatever's reserved for the
+bottom, since the reserved strip's lower boundary is effectively a screen edge from
+niri's layout perspective. Nothing analogous exists for the *top* gap, there's no
 window above it to trigger niri's own gap logic, so top and bottom were never going to
-match by using one symmetric formula. Fixed: added a separate `Theme.bottomInset`
-(distinct from `topInset`, tuned independently, not derived from it), set to `0` so
-niri's own `12px` gap is the entire bottom spacing. `ui/ReservedSpaceWindow.qml`'s
-height/`exclusiveZone` is now `Theme.compactH + Theme.topInset + Theme.bottomInset`.
-**If `~/.config/niri/cfg/layout.kdl`'s `gaps` value ever changes, re-check this balance,
-it's tuned against `12` specifically, not derived from it.**
+match from one symmetric formula. Fixed: a separate `Theme.bottomInset` (distinct from
+`topInset`, tuned independently, not derived from it), set to `0` so niri's own `12px`
+gap is the entire bottom spacing. **If `~/.config/niri/cfg/layout.kdl`'s `gaps` value
+ever changes, re-check this balance, it's tuned against `12` specifically, not derived
+from it.** Also worth knowing: `ui/PageHost.qml`'s oversize-page warning bound
+(`Theme.canvasW/H - 2*Theme.topInset`) reuses `topInset` for canvas padding too, so
+retuning the visual gap silently shifts that warning threshold as a side effect.
 
 Verified live throughout, safely, with a bounded `timeout` wrapper on every test launch
 specifically because of the hang risk: isolated minimal repro confirmed the anchor

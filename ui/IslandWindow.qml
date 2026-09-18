@@ -4,26 +4,34 @@ import Quickshell.Wayland
 import qs.theme
 import qs.ui
 
+// One surface, not two: an earlier version split rendering (this file)
+// from space reservation (a second, separate PanelWindow) specifically to
+// dodge a hang (see docs/HANDOFF.md, "exclusiveZone hangs niri"), but that
+// left two surfaces measuring "the top" independently, which breaks the
+// instant a third-party top-anchored bar with its own exclusive zone is
+// in the picture (e.g. Haziq's noctalia bar on the real session, absent
+// from the nested-niri test sandbox this was built against): the two
+// surfaces would disagree about where "the top" actually is. Fixed by
+// refuter's review: a single surface anchored top+left+right does both
+// jobs from one shared reference point. exclusiveZone is a distance from
+// the anchored edge, independent of the surface's own height, so a tall
+// (Theme.canvasH) surface reserving only the compact row's height is
+// protocol-legal; refuter confirmed this in the wlr-layer-shell spec
+// directly (top-only anchoring is the CANONICAL valid case for a
+// positive exclusive zone, contradicting this file's earlier "centered
+// anchor can't resolve a positive zone" theory, which was wrong: the
+// niri hang encountered while building this is very likely a genuine
+// niri bug on a spec-legal request, not something we tried that wasn't
+// spec-legal in the first place).
 PanelWindow {
     id: root
 
     anchors.top: true
-    // -1, not 0: per wlr-layer-shell semantics, 0 means "I don't reserve
-    // space myself, but I still respect other surfaces' reservations",
-    // which pushed this window below ui/ReservedSpaceWindow.qml's strip
-    // instead of overlaying inside it (the actual bug behind the pill
-    // rendering below the reserved gap instead of inside it). -1 means
-    // "ignore other surfaces' exclusive zones, anchor to the true edge
-    // regardless", which is what a floating overlay actually needs once
-    // a sibling surface is reserving space. A nonzero *positive* value
-    // here (tried: Theme.compactH + Theme.topInset) hung niri's
-    // layer-shell configure handshake outright; see docs/HANDOFF.md
-    // ("exclusiveZone hangs niri") before ever trying that again, on
-    // this window specifically.
-    exclusiveZone: -1
+    anchors.left: true
+    anchors.right: true
+    exclusiveZone: Theme.compactH + Theme.topInset + Theme.bottomInset
     color: "transparent"
 
-    implicitWidth: Theme.canvasW
     implicitHeight: Theme.canvasH
 
     WlrLayershell.namespace: "dynamic-island"
