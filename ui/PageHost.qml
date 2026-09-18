@@ -43,6 +43,15 @@ Item {
 
         const incoming = aActive ? slotB : slotA
         pendingIncoming = incoming
+        // Force a fresh instance even if this slot already holds the exact
+        // same Component reference (most page names share the DummyWide
+        // placeholder right now, and will keep sharing Components even
+        // once real pages land, e.g. two different notifications both
+        // mapping to NotificationPeek). Loader.sourceComponent is a
+        // silent no-op when assigned the same value, which would mean
+        // `loaded` never fires, `pendingIncoming`/`pageName` desync from
+        // what's actually on screen, and the incoming page never appears.
+        incoming.sourceComponent = null
         incoming.sourceComponent = component
     }
 

@@ -78,5 +78,13 @@ Item {
         TapHandler {
             onTapped: Island.toggle("dummyExpanded")
         }
+
+        // Drives rule 7 (hover-hold): pauses a transient's dismiss timer
+        // while the cursor sits on the capsule. The controller side of
+        // this was implemented and tested from slice 2, but nothing
+        // actually set Island.hovered until now, so it was dead code.
+        HoverHandler {
+            onHoveredChanged: Island.hovered = hovered
+        }
     }
 }

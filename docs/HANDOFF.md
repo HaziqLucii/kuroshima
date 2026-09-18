@@ -2,7 +2,55 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
-## Status: Slice 3 done (Wire)
+## Status: Slice 3 done (Wire), including a second refuter pass that found 3 more real bugs
+
+A second `refuter` pass on the slice 3 commit (static review, no live testing given the
+GPU incident, then verified live afterward once fixes landed) returned FAIL with three
+must-fix findings, all real, all fixed and live-verified:
+
+1. **`ui/PageHost.qml`'s `Loader.sourceComponent = component` is a silent no-op when the
+   slot already holds that exact Component reference.** Since 6 of 8 `pageMap` entries
+   share `dummyWideComponent`, and `IslandController`'s preempt path transitions
+   `OsdPeek -> compact -> NotificationPeek` in one synchronous call (the intermediate
+   `compact` step is real and expected, but it consumes a slot), the follow-up
+   `NotificationPeek` assignment could hit a slot that still held `dummyWideComponent`
+   from before: `loaded` never fires, `pendingIncoming`/`pageName` desync from what's
+   actually rendered, and the notification never appears at all, the pill just sits on
+   the clock until the transient times out. This isn't a placeholder-only bug either:
+   two different real notifications will both map to the same `NotificationPeek`
+   Component once that page exists. Fixed: `setPage()` now does
+   `incoming.sourceComponent = null` immediately before reassigning, forcing a fresh
+   instance regardless of whether the Component reference changed. Verified live: traced
+   `page -> OsdPeek -> compact -> NotificationPeek` in the log, then visually confirmed
+   "NOTIFICATION" actually rendered and held for its real duration.
+   **Known remaining cosmetic issue, not re-broken by the fix, pre-existing**: that
+   `compact` intermediate is now visibly reachable when nothing else masks it, so a
+   rapid preempt can flash the clock for a frame before the real content field lands.
+   Revisit if it's visible enough in practice to matter once real (non-placeholder)
+   pages make transitions more frequent.
+2. **`app/Island.qml`'s `PersistentProperties` never actually survived a hot reload**,
+   contrary to what the file's own comment and slice 3's commit message claimed.
+   Verified against Quickshell's own C++ source (`singleton.hpp`, `reload.cpp`,
+   `persistentprops.cpp`): reload registration requires the singleton's *root type* to
+   be `Quickshell.Singleton` (a `ReloadPropagator`/`Reloadable`), not a bare
+   `QtObject`-based type like the previous `IslandController`-rooted version; the
+   restored child must be reachable via the default `children` property
+   (`ReloadPropagator::onReload` only walks `mChildren`), so a *named* property
+   assignment (`property PersistentProperties _persisted: ...`, what the previous
+   version used) is invisible to it; and restoration fires on `reloaded()`, emitted
+   after the whole tree rebuilds, not `Component.onCompleted`, which runs before that
+   point on every generation. Fixed: `Island.qml`'s root is now `Singleton`, with
+   `IslandController` as a named child (`controller`, forwarded via property
+   aliases/one-line function delegates so `Island.show()`/`Island.page` etc. keep
+   working directly) and `PersistentProperties` as a genuine unnamed default-property
+   child, restoring via its own `onLoaded`/`onReloaded` handlers. Verified live:
+   `expand("dummyExpanded")`, triggered two hot reloads via trivial file edits, capsule
+   still showed the expanded page after both.
+3. **Nothing in the view ever set `Island.hovered`.** Rule 7 (hover-hold: pausing a
+   transient's dismiss timer while the cursor sits on the capsule) was fully implemented
+   and covered by 3 passing unit tests at the controller level, entirely dead code in
+   the running app because no `HoverHandler` existed anywhere. Fixed: added one to
+   `ui/Capsule.qml`, `onHoveredChanged: Island.hovered = hovered`.
 
 Built: `app/Island.qml` (the singleton `IslandController` instance the real app uses,
 `PersistentProperties` for `expandedPage` surviving hot reload), `services/Demo.qml`
