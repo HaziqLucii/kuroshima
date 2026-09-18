@@ -2,18 +2,23 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // Capsule width/height/radius morph. The design specifies a CSS
-    // overshoot curve (`cubic-bezier(.34, 1.5, .5, 1)`), not a physical
-    // spring, and Qt's Easing.BezierSpline reproduces a CSS cubic-bezier
-    // exactly (control points cp1, cp2, endpoint; y can exceed 1 for the
-    // overshoot, unlike x). This replaces the old SpringAnimation-based
-    // morph, which is also a deliberate safety win: a spring can diverge
-    // numerically (a bad Motion.qml value once sent width past a million
-    // px and froze the GPU via MultiEffect's shadow texture, see
-    // docs/HANDOFF.md); a fixed-duration bezier animation to a known
-    // target cannot.
-    readonly property int morphDuration: 520
-    readonly property var morphBezier: [0.34, 1.5, 0.5, 1.0, 1.0, 1.0]
+    // Capsule width/height/radius morph. The design's own
+    // `cubic-bezier(.34, 1.5, .5, 1)` overshoot (tried via
+    // Easing.BezierSpline) read as too bouncy once actually seen live, for
+    // both the expand and collapse directions - Haziq wanted the original,
+    // more restrained spring feel back instead, closer to how macOS's
+    // actual Dynamic Island moves. Reverted to the pre-redesign
+    // SpringAnimation values. Change one field at a time and watch
+    // ui/Capsule.qml's clamp (Theme.canvasW/H) is what protects against a
+    // bad value: a spring of 300 here once made width diverge to over a
+    // million px (confirmed via the quickshell log), which drove a GPU
+    // texture allocation the same size and froze the whole desktop. This
+    // integrator is only stable for small spring values relative to the
+    // frame timestep, "hundreds" from generic spring-UI advice does not
+    // apply to it.
+    readonly property real morphSpring: 18
+    readonly property real morphDamping: 3.5
+    readonly property real morphMass: 1.0
 
     // Content crossfade: "220ms ease-out, +4px rise" in the design, applied
     // symmetrically here (incoming rises in, outgoing drops out) since the
