@@ -15,6 +15,15 @@ Item {
     property bool aActive: true
     property Loader pendingIncoming: null
 
+    // Loader.item's actual declared type is QObject (Loader can host
+    // non-visual components too), so typing this as Item is a static
+    // mismatch qmllint flags even though every page here always is one.
+    // Typing it QtObject instead "fixes" that but breaks the
+    // implicitWidth/implicitHeight access below instead (missing-property
+    // on QObject) since those aren't members of the generic type either:
+    // there's no way to satisfy qmllint here without a runtime cast QML
+    // doesn't have. Keeping Item: one warning beats two, and it's correct
+    // at runtime.
     readonly property Item currentItem: (aActive ? slotA : slotB).item
     readonly property real targetWidth: currentItem ? currentItem.implicitWidth : 0
     readonly property real targetHeight: currentItem ? currentItem.implicitHeight : 0

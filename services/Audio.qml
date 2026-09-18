@@ -29,11 +29,30 @@ QtObject {
         onTriggered: root._pastStartupBurst = true
     }
 
+    // Re-arms the gate on a real Pipewire reconnect (pipewire/wireplumber
+    // restart): readyChanged going false->true restarts _startupGate
+    // (its `running: Pipewire.ready` binding), but without also resetting
+    // this flag, it was already true from the first launch, so the
+    // re-enumeration burst that follows a reconnect wasn't suppressed at
+    // all.
+    property Connections _pipewireReadiness: Connections {
+        target: Pipewire
+        function onReadyChanged() {
+            if (!Pipewire.ready) {
+                root._pastStartupBurst = false
+            }
+        }
+    }
+
     property Timer _debounce: Timer {
         interval: Motion.debounceOsd
         repeat: false
         onTriggered: {
-            if (root._pastStartupBurst) {
+            // Also gated on `available`: losing the sink (unplugged,
+            // switched, not yet bound) synthesizes volume/muted defaults
+            // above, and firing changed() on that synthetic value would
+            // pop an OSD reporting a volume change that never happened.
+            if (root._pastStartupBurst && root.available) {
                 root.changed()
             }
         }

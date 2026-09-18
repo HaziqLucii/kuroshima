@@ -2,6 +2,83 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
+## Slice 4 refuter fixes: 2 real Audio.qml bugs, plus scripts/lint.sh was a no-op
+
+A `refuter` pass on the slice 4 commit found two real bugs in `services/Audio.qml`, both
+fixed, plus a meta-finding that undermines trust in every prior "lint clean" claim:
+
+1. **`scripts/lint.sh` called bare `qmllint`, which on this system is qt5-declarative's
+   binary**: syntax-only, silently exits 0 on real errors (missing properties,
+   unqualified access) it can't detect. The exact same PATH-shadowing trap
+   `scripts/test.sh` already documents and works around for `qmltestrunner`, just never
+   applied to this script. Fixed: now calls `/usr/lib/qt6/bin/qmllint` directly. Also
+   corrected a misdiagnosis in the old script's comment: it excluded `shell.qml`
+   believing qmllint crashed on typed function parameters; the real qt6 binary handles
+   `shell.qml` fine (verified directly), the exclusion was masking nothing.
+   Re-running the real linter across the whole repo surfaced ~90 warnings, verified
+   individually: all but one are the already-known `qs.*`-unresolvable-import cascade
+   (`[import]`/`[unqualified]`, plus secondary cascades like `[unresolved-alias]` on
+   `app/Island.qml` since `IslandController`'s type never resolves without `qs.core`).
+   The one independent finding, `ui/PageHost.qml`'s `currentItem` (`Loader.item` is
+   declared `QObject`, typing it `Item` is a static mismatch): tried "fixing" it by
+   typing it `QtObject` instead, which only moved the warning (breaks
+   `.implicitWidth`/`.implicitHeight` access instead, `missing-property` on `QObject`).
+   Reverted, `Item` is correct at runtime and one warning beats two.
+2. **`Audio.volume`/`Audio.muted` synthesize `0`/`false` when `available` is false**
+   (sink null, or a newly-tracked node not yet `ready`), and that synthetic value fed
+   straight into the emission path: losing the audio sink (unplugged, or switched to a
+   device still binding) fired a real "volume changed to 0%" OSD that never actually
+   happened. Fixed: `_debounce`'s `changed()` emission now also checks `root.available`.
+3. **`_pastStartupBurst` was set once and never reset**, so the 500ms startup-burst
+   suppression only worked on the very first Pipewire connection. A real
+   pipewire/wireplumber restart mid-session (`Pipewire.ready` false -> true) re-arms the
+   500ms timer correctly, but the flag was already `true` throughout that window, so the
+   reconnect's own re-enumeration burst leaked straight through as a stream of real OSD
+   pops. Fixed: a `Connections` on `Pipewire.readyChanged` resets the flag to `false`
+   whenever `Pipewire.ready` goes false.
+
+Both fixes verified live (real PipeWire, real `wpctl`): OSD still pops correctly for a
+genuine volume change.
+
+## Slice 4.5 attempted, reverted: reserved-space exclusiveZone hangs niri
+
+Haziq asked for the compact pill's height to be reserved space (tiled windows shouldn't
+render directly under the clock), matching how other Dynamic Island implementations
+behave, and matching what the original plan itself anticipated
+(`exclusiveZone: Config.reserveSpace ? Theme.compactH + Theme.topInset : 0`).
+
+**Do not just set `ui/IslandWindow.qml`'s `exclusiveZone` to a nonzero value.** Confirmed
+live, reproducibly, by toggling it back and forth: `exclusiveZone: Theme.compactH +
+Theme.topInset` (44) makes the nested niri session **hang** during the layer-shell
+configure handshake (`qs` sits at 0% CPU, `Configuration Loaded` never prints, niri
+itself becomes unresponsive to input, though `niri msg` IPC still worked in the one case
+this was checked, so the compositor's own event loop wasn't fully dead, just stuck on
+this client). `exclusiveZone: 0` loads instantly, every time. Likely cause, not fully
+confirmed: this `PanelWindow` is anchored `top` only (not also `left`+`right`), so its
+horizontal position is compositor-decided (centered). Reserving a nonzero exclusive zone
+for a surface whose horizontal position isn't fixed may be creating a circular
+dependency in niri's layout solver (position depends on reserved layout area, reserved
+area depends on the surface, which isn't placed yet). This looks like it could be a niri
+limitation/bug for this specific anchor+exclusiveZone combination, not a bug in our QML,
+but that's not confirmed against niri's own source.
+
+**The likely correct fix, not yet implemented**: the reserved strip and the visible
+capsule need to be two separate layer-shell surfaces. A thin, invisible spacer surface
+anchored `top`+`left`+`right` (unambiguous position, full width) with
+`exclusiveZone: Theme.compactH + Theme.topInset` does the actual space reservation; the
+existing centered, overlay-only (`exclusiveZone: 0`) `PanelWindow` keeps rendering the
+capsule exactly as now, positioned to visually sit inside that reserved strip and morph
+beyond it when expanded. This is a real feature request, not abandoned, just bigger than
+a one-line change and not worth attempting again without confirming the anchor-related
+theory first (e.g. temporarily anchoring `left`+`right` too, spanning full width, and
+checking whether *that* configuration accepts a nonzero exclusiveZone without hanging).
+
+`ui/IslandWindow.qml`'s `exclusiveZone` is back to `0` (committed, safe, current
+behavior). If this comes up again: check `niri --version` for a newer release first (this
+was tested against niri 26.04), and consider filing it against niri upstream if the
+two-surface workaround also hangs, since a compositor hang from a client's `set_exclusive_zone`
+request is not "expected" client-side behavior no matter what the anchor combination is.
+
 ## Status: Slice 4 done (Audio OSD)
 
 Built: `services/Audio.qml` (`Pipewire.defaultAudioSink` bound through a `PwObjectTracker`,
