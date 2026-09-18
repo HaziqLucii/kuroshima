@@ -975,6 +975,43 @@ length (over ~31 years, chosen to sit far below any real sentinel and far above 
 very long finite recording, so plasma-browser-integration's noisy few-hour guesses
 never trip it), rather than trusting any one player's own number.
 
+## Idea for a future slice: swipeable compact-mode pages (not started)
+
+Haziq, 2026-09-19: the compact/idle pill currently shows exactly one fixed layout
+(clock, plus the EQ glyph when media is playing). Idea: let it become swipeable, so
+swiping the compact pill cycles through several different "compact faces," each
+showing a different combination of already-built info, and the user picks which one is
+currently active.
+
+His proposed faces:
+1. Clock + equalizer
+2. Clock + date
+3. Clock + date + equalizer
+4. Media player (title/artist, not just the EQ glyph - closer to what `CompactPage.qml`
+   showed before it was changed to match the design's real idle pill; that content
+   still exists in git history if useful as a starting point)
+5. Open to more ideas
+
+Additional faces worth considering, since the backend already exists for each (nothing
+new to build to support them, unlike the ones above that still need real data):
+- Clock + WIFI/BT status glyph (`services/Toggles.qml`, already has `wifiOn`/`btOn`)
+- Clock + mic-mute indicator (`services/Audio.qml`'s `micMuted`, useful as an at-a-glance
+  "am I muted" check, e.g. mid-call, without opening the full dashboard)
+- Clock + one system stat (CPU or TEMP, `services/SystemStats.qml`) as a minimal system
+  monitor face
+- Clock + workspace indicator, once Slice 7 (Workspaces) lands
+
+Open questions to resolve when this actually gets picked up, not decided yet:
+- Swipe mechanism: a `SwipeView`/`PathView`-driven page cycle, or a `DragHandler`
+  directly on the compact pill re-using the click-to-morph precedent from slice 1.5?
+- Does the currently-selected face persist across reloads/restarts? `app/Island.qml`'s
+  `PersistentProperties` pattern for `expandedPage` is the precedent to follow if so.
+- Fixed, hardcoded order vs. user-configurable (enable/disable/reorder faces)? The
+  latter needs a real settings/config surface that doesn't exist yet anywhere in this
+  project.
+- Should swiping skip a face whose data source isn't currently available (e.g. the
+  media face when nothing's playing), or land on it anyway showing an empty/dim state?
+
 ## Next: Slice 6 (Notifications)
 
 `services/Notifs.qml` (`NotificationServer` inside `Loader { active: Config.notificationServer }`
