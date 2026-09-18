@@ -86,6 +86,20 @@ Item {
         loader.opacity = 0
         loader.scale = Motion.scaleFrom
         loader.visible = true
+        // Re-enable explicitly: this slot may have been the *outgoing*
+        // side of an earlier crossfade and left disabled below.
+        loader.enabled = true
+
+        // Disabled, not just faded: refuter found that when
+        // ui/Capsule.qml's Connections re-points its `target` from
+        // *inside* onPageChanged (which this exact call chain triggers),
+        // Qt updates the target but never tears down the old connection,
+        // so the outgoing page keeps receiving signals and stays
+        // hit-testable for the whole ~140-280ms crossfade even though
+        // it's fading out. Harmless while pages have no controls near
+        // center, a real misfire once one does (slice 6's notification
+        // actions will).
+        outgoing.enabled = false
 
         crossfade.outgoing = outgoing
         crossfade.incoming = loader

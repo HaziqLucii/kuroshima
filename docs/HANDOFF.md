@@ -16,7 +16,11 @@ progress bar, transport controls, reads live from `Media` directly rather than
 now-playing marquee next to the clock when `Media.available` (elided/clamped, no real
 scrolling marquee, that's design-phase polish). `app/Bridges.qml` wires
 `Media.trackChanged` the same pattern as `Audio.changed`, plus clears the `"media"` key
-via `Island.clearKey` when playback stops entirely (no stale empty peek).
+via `Island.clearKey` when `!Media.available`. **Correction, `refuter` caught this
+prose was wrong even though the code is right**: `available` means the *player object
+exists*, not "is playing" or "has content" — pausing a track with the app still open
+leaves `available` true indefinitely, the key is only cleared once the last MPRIS
+client actually quits, not "when playback stops".
 
 **This is also where the slice-3 deferred item finally landed**: `ui/Capsule.qml`'s
 click handling no longer hardcodes `Island.toggle("dummyExpanded")`. It now generically
@@ -48,6 +52,51 @@ does not itself establish a reactive binding to properties it merely reads.
 Verified live against a real MPRIS player (Chromium/YouTube, not simulated): now-playing
 marquee, click-to-expand from both `MediaPeek` and `CompactPage`, play/pause/next/prev
 all functional, transport glyphs render correctly.
+
+## Slice 5 refuter fixes: 2 real Media.qml bugs, plus a PageHost input leak
+
+1. **`trackKey` was keyed on `player.trackTitle`, which can't detect a genuinely new
+   track when the title doesn't change** (a looped track, or two different tracks that
+   happen to share a title). Consequence: no `trackChanged()`, no fresh `MediaPeek`, and
+   `position` never resets for the new track, it just keeps counting up from the
+   previous one until the next 1s tick. Fixed: keyed on `player.uniqueId` instead,
+   confirmed via Quickshell's own doc comment on that property, "an opaque identifier
+   for the current track... NOT `mpris:trackid`, as that is sometimes missing or
+   nonunique in some players", i.e. built specifically to solve this.
+2. **The debounce that fires `trackChanged()` had no content guard**, unlike its sibling
+   `Audio.qml`'s debounce (which the slice-4 refuter pass already gated on `available`
+   for exactly this class of bug). A player can register its MPRIS object before its
+   metadata arrives (Chromium routinely does this); anything past the 500ms startup
+   gate would fire `trackChanged()` with `title === ""`, briefly showing an empty
+   `MediaPeek` until the real metadata coalesced in a moment later. Fixed: the debounce
+   now only actually emits when `!available || title !== ""` (the `!available` branch
+   has to stay reachable, that's what lets `app/Bridges.qml`'s `clearKey("media")` path
+   fire). Also introduced a separate `debounceKey` (trackKey + title + artist combined)
+   to restart the debounce, since metadata arriving *after* the player registers doesn't
+   change `trackKey` by itself and would otherwise never get a second chance to fire.
+   **Repeated the exact underscore-property-handler-naming mistake from earlier in this
+   same file while writing this fix** (`_debounceKey`/`on_DebounceKeyChanged`, which is
+   invalid/ambiguous QML): caught before committing, renamed to a public `debounceKey`.
+
+**Also fixed, found in the same pass, currently harmless but a real problem waiting to
+happen**: when `ui/Capsule.qml`'s `Connections { target: host.currentItem }` re-points
+its own `target` from *inside* the very `onPageChanged` handler that triggers a page
+swap (which is exactly what happens here), Qt updates `target` to the new page but never
+disconnects from the old one. The outgoing page in `ui/PageHost.qml`'s crossfade stays
+`visible: true` and hit-testable for the whole ~140-280ms fade even though it's fading
+out, and paints above the incoming page on half of all transitions (slot declaration
+order). Harmless today (nothing sits within ~18px of a page's vertical center that would
+catch a stray click), but slice 6's notification action buttons will. Fixed:
+`PageHost.handleLoaded` now explicitly sets `outgoing.enabled = false` when a crossfade
+starts (closes both the input-leak and the paint-order overlap, since a disabled Item
+also stops rendering interactively) and `loader.enabled = true` on the incoming side
+(guards against a slot that was previously the *outgoing* half of an earlier cycle
+still being disabled from that).
+
+Also corrected inaccurate prose (not code) from the slice 5 commit/HANDOFF entry above:
+`Island.clearKey("media")` fires on `!Media.available` (the player object is gone
+entirely), not "when playback stops"; pausing a track with the app still open leaves
+`available` true indefinitely.
 
 ## Slice 4 refuter fixes: 2 real Audio.qml bugs, plus scripts/lint.sh was a no-op
 
