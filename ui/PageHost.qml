@@ -1,0 +1,122 @@
+import QtQuick
+import qs.theme
+
+// Two-slot synchronous Loader crossfade. No StackView: its transitions
+// assume the container owns the size, which breaks the "morph the capsule
+// to the incoming page's size" behavior this needs.
+Item {
+    id: root
+
+    // name -> Component, set by the consumer (Capsule.qml).
+    property var pageMap: ({})
+    property string pageName: ""
+    property var pendingPayload: null
+
+    property bool aActive: true
+    property Loader pendingIncoming: null
+
+    readonly property Item currentItem: (aActive ? slotA : slotB).item
+    readonly property real targetWidth: currentItem ? currentItem.implicitWidth : 0
+    readonly property real targetHeight: currentItem ? currentItem.implicitHeight : 0
+
+    implicitWidth: targetWidth
+    implicitHeight: targetHeight
+
+    function setPage(name, payload) {
+        if (name === pageName) {
+            // Same-page payload update (e.g. a coalesced volume OSD):
+            // update in place, no reload, no crossfade.
+            if (currentItem) {
+                currentItem.payload = payload
+            }
+            return
+        }
+
+        const component = pageMap[name]
+        if (!component) {
+            console.warn("PageHost: unknown page", name)
+            return
+        }
+
+        pageName = name
+        pendingPayload = payload
+
+        const incoming = aActive ? slotB : slotA
+        pendingIncoming = incoming
+        incoming.sourceComponent = component
+    }
+
+    function handleLoaded(loader) {
+        if (loader !== pendingIncoming) {
+            return
+        }
+        pendingIncoming = null
+
+        if (loader.item) {
+            loader.item.payload = pendingPayload
+        }
+        pendingPayload = null
+
+        const maxW = Theme.canvasW - 2 * Theme.topInset
+        const maxH = Theme.canvasH - 2 * Theme.topInset
+        if (loader.item && (loader.item.implicitWidth > maxW || loader.item.implicitHeight > maxH)) {
+            console.warn("PageHost: page", pageName, "exceeds canvas bounds")
+        }
+
+        const outgoing = aActive ? slotA : slotB
+
+        loader.opacity = 0
+        loader.scale = Motion.scaleFrom
+        loader.visible = true
+
+        crossfade.outgoing = outgoing
+        crossfade.incoming = loader
+
+        // Flip now, not after the animation: targetWidth/Height must jump
+        // to the incoming page's size in the same frame the crossfade
+        // starts, so the morph and the fade run together.
+        aActive = !aActive
+
+        crossfade.restart()
+    }
+
+    Loader {
+        id: slotA
+        asynchronous: false
+        anchors.centerIn: parent
+        layer.enabled: opacity < 1
+        onLoaded: root.handleLoaded(slotA)
+    }
+    Loader {
+        id: slotB
+        asynchronous: false
+        anchors.centerIn: parent
+        layer.enabled: opacity < 1
+        onLoaded: root.handleLoaded(slotB)
+    }
+
+    ParallelAnimation {
+        id: crossfade
+        property Loader outgoing: null
+        property Loader incoming: null
+
+        ParallelAnimation {
+            NumberAnimation { target: crossfade.outgoing; property: "opacity"; to: 0; duration: Motion.fadeOut }
+            NumberAnimation { target: crossfade.outgoing; property: "scale"; to: Motion.scaleFrom; duration: Motion.fadeOut }
+        }
+        SequentialAnimation {
+            PauseAnimation { duration: Motion.fadeInDelay }
+            ParallelAnimation {
+                NumberAnimation { target: crossfade.incoming; property: "opacity"; to: 1; duration: Motion.fadeIn }
+                NumberAnimation { target: crossfade.incoming; property: "scale"; to: 1; duration: Motion.fadeIn }
+            }
+        }
+
+        onFinished: {
+            if (crossfade.outgoing) {
+                crossfade.outgoing.sourceComponent = null
+                crossfade.outgoing.visible = false
+            }
+        }
+    }
+}

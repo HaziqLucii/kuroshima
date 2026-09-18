@@ -7,12 +7,24 @@ import qs.pages
 Item {
     id: root
 
-    width: page.implicitWidth
-    height: page.implicitHeight
+    function setPage(name, payload) {
+        host.setPage(name, payload)
+    }
 
-    // Slice 0: static size, no morph yet (that's slice 1). The shadow is
-    // safe to leave always-on here because nothing changes geometry every
-    // frame; revisit if morphing later makes this a per-frame cost.
+    Component.onCompleted: setPage("compact", null)
+
+    Component { id: compactComponent; CompactPage {} }
+    Component { id: dummyWideComponent; DummyWide {} }
+
+    width: host.targetWidth
+    height: host.targetHeight
+
+    Behavior on width { MorphAnimation {} }
+    Behavior on height { MorphAnimation {} }
+
+    // Shadow always-on is fine while the capsule morphs at most a few
+    // times a minute; revisit if a future page keeps geometry animating
+    // continuously (see Theme.qml / HANDOFF.md for the 200Hz budget note).
     MultiEffect {
         source: background
         anchors.fill: background
@@ -30,9 +42,13 @@ Item {
         color: Theme.bg
         border.width: 0
 
-        CompactPage {
-            id: page
+        PageHost {
+            id: host
             anchors.centerIn: parent
+            pageMap: ({
+                "compact": compactComponent,
+                "dummyWide": dummyWideComponent
+            })
         }
     }
 }

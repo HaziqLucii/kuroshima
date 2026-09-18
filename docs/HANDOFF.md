@@ -2,6 +2,40 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
+## Status: Slice 1 done (Morph)
+
+Built: `theme/Motion.qml` (morph/fade/scale tokens), `ui/MorphAnimation.qml`
+(reusable `Behavior` animation), `ui/PageHost.qml` (two-slot `Loader`
+crossfade, `pageMap: name -> Component`, same-key payload update without
+reload), `pages/DummyWide.qml` (throwaway test fixture, delete once a real
+wide page exists), `IpcHandler { target: "island" }` in `shell.qml` with
+`page(name: string)`. `Capsule.qml` now sizes itself from
+`host.targetWidth/Height` with `Behavior on width/height { MorphAnimation {} }`.
+
+Verified live in nested niri: `qs -p ~/Projects/dynamic-island ipc call island
+page dummyWide` / `page compact` morphs the capsule width/height smoothly with
+a fade+scale crossfade, confirmed by Haziq ("morphs really nice"). No corner
+clipping artifacts observed mid-morph.
+
+**Deviation from the plan**: no per-page `targetRadius` yet, radius stays
+`Theme.radius` fixed. The plan's `Capsule.qml` spec has radius as a bound,
+morphable value; skipped because no page so far wants a different radius,
+and an unwired `Behavior on radius` binding to a constant is dead code. Add
+it when a real page actually needs a different corner radius, not before.
+
+**Non-obvious tool gap found this slice**: `qmllint` (qt6-declarative 6.11)
+crashes outright (exit 255, no output) on typed function parameters
+(`function f(x: string): void`), which `IpcHandler` requires by contract.
+`shell.qml` is excluded from `scripts/lint.sh` for this reason, not because
+it's unchecked, it's exercised at runtime every dev session instead.
+
+**IPC gotcha for Haziq specifically**: Quickshell's `ipc call` instance
+registry is scoped to the current `$WAYLAND_DISPLAY`. Sending IPC from the
+host Plasma terminal (`wayland-0`) can't see an instance running in the
+nested niri sandbox (`wayland-1`); `export WAYLAND_DISPLAY=wayland-1` in
+that one terminal first. Check `ls /run/user/1000/wayland-*` if the nested
+display number changes between launches.
+
 ## Status: Slice 0 done (Baseline and skeleton)
 
 Built:
@@ -49,10 +83,11 @@ no IPC. Window-focus-title and MPRIS now-playing (both working in the pre-plan r
 prototype) are intentionally dropped for now; now-playing comes back in slice 5 as part
 of `CompactPage`, per the plan. There is currently no page showing anything but a clock.
 
-## Next: Slice 1 (Morph)
+## Next: Slice 2 (Controller)
 
-`Motion.qml`, `MorphAnimation.qml`, `PageHost.qml`, two dummy pages of different sizes,
-IPC `island page <name>`. See the plan for the full verification checklist.
+`IslandController`, `Kinds`, `tests/tst_controller.qml`, `scripts/test.sh` green with
+durations injected at 50ms. No UI change this slice. See the plan for the full rule
+list (coalesce, expanded gate, preempt, enqueue, hover-hold, cap 6, clearKey).
 
 ## Environment notes worth not rediscovering
 
