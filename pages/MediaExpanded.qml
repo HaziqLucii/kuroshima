@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Widgets
 import qs.theme
 import qs.services
+import qs.ui
 
 // Reached via Island.expand("MediaExpanded"), a persistent view, not a
 // transient peek, so it reads live from the Media service directly rather
@@ -11,16 +12,21 @@ import qs.services
 // required by the page contract even though unused here.
 //
 // Real so far: the identity header ("01", services/System.qml), the MEDIA
-// section ("02", services/Media.qml, since slice 5), and CONTROLS ("03",
-// VOL/MIC via services/Audio.qml; BRI deliberately left out, see
+// section ("02", services/Media.qml, since slice 5, with click-and-drag
+// seeking via ui/ScrubBar.qml), CONTROLS ("03", VOL/MIC via
+// services/Audio.qml, also ScrubBar-driven; BRI deliberately left out, see
 // docs/HANDOFF.md - this desktop has no backlight, and the DDC/CI
 // alternative measured ~8s round-trip per read/write, too slow to be a
-// usable slider). TOGGLES/SYSTEM/INBOX/SESSION are still one placeholder
-// box: real backend work spanning several future slices, not a style pass.
-// The box itself has no border, per Haziq's Capsule.qml preference (no
-// borders anywhere on this page) - if a refuter run flags the missing
-// border again, that's this comment being right and the review being
-// stale, not a regression.
+// usable slider), SYSTEM ("05", services/SystemStats.qml), and TOGGLES
+// ("04", WIFI/BT via services/Toggles.qml and MIC via services/Audio.qml;
+// DND/NIGHT/VPN/CAPS/IDLE render dimmed, no real backend for any of them
+// on this machine). INBOX/SESSION are still one placeholder box: real
+// backend work spanning future slices, not a style pass. That box itself
+// has no border, matching Capsule.qml's no-border capsule, but
+// ui/ToggleButton.qml's 8 cells DO have a 1px border each (that's the
+// design's own toggle-cell styling, not the placeholder-box convention
+// above) - a refuter run flagging a border on THOSE specifically would be
+// a real finding, not a stale review.
 Item {
     id: root
 
@@ -225,27 +231,59 @@ Item {
                         }
                     }
 
-                    // Display only: services/Media.qml doesn't expose a
-                    // seek method yet (MPRIS SetPosition), so this isn't
-                    // click-to-seek like the design's version. Real seeking
-                    // is new service work, not a style pass.
-                    //
-                    // Live content has no real "total length" to be a
-                    // fraction of (Media.isLive), so the fill just pins
-                    // full: you're always at the live edge, which is also
-                    // the only direction there's nothing further to seek.
-                    Rectangle {
+                    // Live content has no real "total length" to seek into
+                    // (Media.isLive), and some players report canSeek:false
+                    // even for non-live content (Quickshell's
+                    // MprisPlayer.setPosition silently no-ops, with a
+                    // qWarning, when the player itself can't seek) - both
+                    // get the plain display bar pinned full/no-interaction;
+                    // only a genuinely seekable, non-live player gets the
+                    // real ScrubBar. Wrapped in a matching-height Item so
+                    // the two don't shift everything below them by
+                    // ScrubBar's larger (18px) hit-area height when
+                    // swapping between the two (refuter-caught).
+                    ScrubBar {
+                        id: mediaScrub
                         width: parent.width
-                        height: 3
-                        radius: 2
-                        color: Theme.trackBg
+                        trackHeight: 3
+                        hitHeight: 18
+                        visible: !Media.isLive && Media.canSeek
+                        value: Media.length > 0 ? Math.min(1, Media.position / Media.length) : 0
+                        popoverLabel: root.fmt(mediaScrub.previewValue * Media.length)
+                        // Not onScrub: refuter measured one real MPRIS
+                        // SetPosition D-Bus call per pointer-move event,
+                        // 60-180 calls for a one-second drag, i.e.
+                        // continuous re-seek/re-buffer for the whole drag.
+                        // scrubFinished fires once, on release or a plain
+                        // click; the fill bar already tracks the live drag
+                        // via previewValue without needing to actually seek
+                        // on every frame.
+                        onScrubFinished: (pct) => Media.seek((pct / 100) * Media.length)
+                    }
+                    Item {
+                        width: parent.width
+                        height: 18
+                        visible: Media.isLive || !Media.canSeek
 
                         Rectangle {
-                            width: Media.isLive ? parent.width
-                                : (Media.length > 0 ? parent.width * Math.min(1, Media.position / Media.length) : 0)
-                            height: parent.height
-                            radius: parent.radius
-                            color: Theme.ink
+                            anchors.centerIn: parent
+                            width: parent.width
+                            height: 3
+                            radius: 2
+                            color: Theme.trackBg
+
+                            // Full width for live (always "at the live
+                            // edge"); actual position/length ratio for a
+                            // finite track that just doesn't support
+                            // seeking, so a non-interactive player doesn't
+                            // misleadingly look pinned at the very end.
+                            Rectangle {
+                                width: Media.isLive ? parent.width
+                                    : (Media.length > 0 ? parent.width * Math.min(1, Media.position / Media.length) : 0)
+                                height: parent.height
+                                radius: parent.radius
+                                color: Theme.ink
+                            }
                         }
                     }
 
@@ -358,10 +396,10 @@ Item {
             // the design's `grid-template-columns: 1fr 1px 1fr` (a content
             // column, a 1px divider, a content column, 16px gaps either
             // side of the divider - a plain Row with spacing:16 and these
-            // three children reproduces that exactly). Only CONTROLS is
-            // real; TOGGLES stays a placeholder in its own reserved half,
-            // not stacked below, so it doesn't need reflowing again once
-            // it's built for real.
+            // three children reproduces that exactly). Both real now
+            // (ui/ToggleButton.qml, services/Toggles.qml); the half-width
+            // reservation was set up ahead of TOGGLES actually landing
+            // specifically so it wouldn't need reflowing once it did.
             Row {
                 id: controlsTogglesRow
                 width: parent.width
@@ -421,33 +459,10 @@ Item {
                             text: Math.round((Audio.muted ? 0 : Audio.volume) * 100)
                         }
                     }
-                    // The visual track stays a 3px hairline (matching OSD/
-                    // media's own bars), but a 3px-tall tap target is a
-                    // refuter-caught real usability problem, so the
-                    // TapHandler lives on a taller invisible parent instead
-                    // of the bar itself.
-                    Item {
-                        id: volHitArea
+                    ScrubBar {
                         width: parent.width
-                        height: 18
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: parent.width
-                            height: 3
-                            radius: 2
-                            color: Theme.trackBg
-
-                            Rectangle {
-                                width: parent.width * (Audio.muted ? 0 : Audio.volume)
-                                height: parent.height
-                                radius: parent.radius
-                                color: Theme.ink
-                            }
-                        }
-                        TapHandler {
-                            onTapped: (eventPoint) => Audio.setVolume((eventPoint.position.x / volHitArea.width) * 100)
-                        }
+                        value: Audio.muted ? 0 : Audio.volume
+                        onScrub: (pct) => Audio.setVolume(pct)
                     }
                 }
 
@@ -478,28 +493,10 @@ Item {
                             text: Math.round((Audio.micMuted ? 0 : Audio.micVolume) * 100)
                         }
                     }
-                    Item {
-                        id: micHitArea
+                    ScrubBar {
                         width: parent.width
-                        height: 18
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: parent.width
-                            height: 3
-                            radius: 2
-                            color: Theme.trackBg
-
-                            Rectangle {
-                                width: parent.width * (Audio.micMuted ? 0 : Audio.micVolume)
-                                height: parent.height
-                                radius: parent.radius
-                                color: Theme.ink
-                            }
-                        }
-                        TapHandler {
-                            onTapped: (eventPoint) => Audio.setMicVolume((eventPoint.position.x / micHitArea.width) * 100)
-                        }
+                        value: Audio.micMuted ? 0 : Audio.micVolume
+                        onScrub: (pct) => Audio.setMicVolume(pct)
                     }
                 }
                 }
@@ -531,12 +528,84 @@ Item {
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "TOGGLES"; color: Theme.inkMuted; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "切替"; color: Theme.inkDim; font.family: Theme.fontFamilyJp; font.pixelSize: 9 }
                     }
-                    Text {
-                        color: Theme.inkDim
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 9
-                        font.letterSpacing: 1
-                        text: "PLACEHOLDER"
+
+                    // Only WIFI/BT/MIC are real (services/Toggles.qml,
+                    // services/Audio.qml). DND needs the not-yet-built
+                    // notification server, NIGHT has no gamma daemon
+                    // installed on this machine, VPN has no connection
+                    // profile configured, CAPS is a passive indicator (not
+                    // sensibly a click-toggle), and IDLE has no idle-inhibit
+                    // daemon running - all five render `available: false`
+                    // (dimmed, not clickable) rather than being dropped
+                    // from the grid, per Haziq: keep the full 4x2 look
+                    // rather than shrinking to only what's real.
+                    Grid {
+                        id: toggleGrid
+                        width: parent.width
+                        columns: 4
+                        rowSpacing: 7
+                        columnSpacing: 7
+
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "WIFI"
+                            available: Toggles.wifiAvailable
+                            isOn: Toggles.wifiOn
+                            onIconCodepoint: 0xf05a9
+                            offIconCodepoint: 0xf05aa
+                            onClicked: Toggles.setWifi(!Toggles.wifiOn)
+                        }
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "BT"
+                            available: Toggles.btAvailable
+                            isOn: Toggles.btOn
+                            onIconCodepoint: 0xf00af
+                            offIconCodepoint: 0xf00b2
+                            onClicked: Toggles.setBt(!Toggles.btOn)
+                        }
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "DND"
+                            available: false
+                            onIconCodepoint: 0xf009b
+                            offIconCodepoint: 0xf0f3
+                        }
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "NIGHT"
+                            available: false
+                            onIconCodepoint: 0xf186
+                            offIconCodepoint: 0xf185
+                        }
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "MIC"
+                            available: Audio.micAvailable
+                            isOn: Audio.micAvailable && !Audio.micMuted
+                            onIconCodepoint: 0xf130
+                            offIconCodepoint: 0xf131
+                            onClicked: Audio.toggleMicMuted()
+                        }
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "VPN"
+                            available: false
+                            onIconCodepoint: 0xf0582
+                        }
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "CAPS"
+                            available: false
+                            onIconCodepoint: 0xf0a9b
+                        }
+                        ToggleButton {
+                            width: (toggleGrid.width - 3 * 7) / 4
+                            label: "IDLE"
+                            available: false
+                            onIconCodepoint: 0xf0176
+                            offIconCodepoint: 0xf0faa
+                        }
                     }
                 }
             }

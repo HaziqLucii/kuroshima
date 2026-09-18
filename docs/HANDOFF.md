@@ -700,6 +700,15 @@ artifact (browsers clamp computed height at 0 the same way). Not chasing this: f
 would mean deviating from the design's specified curve for a genuinely cosmetic
 mid-animation blink.
 
+**Superseded**: the bezier-overshoot morph described in this whole section (and the
+canvas-headroom/collapse-blink consequences above) was reverted back to the original
+`SpringAnimation` in a later pass, see "Revert capsule morph to the original spring
+feel" further down. `Theme.canvasW/H`'s headroom is still correct (the spring doesn't
+overshoot at all, confirmed by refuter round 5 by driving it numerically under the real
+runtime), and the collapse-blink artifact this section describes no longer happens.
+Left this section as-is rather than rewritten: it's an accurate record of what was
+found and fixed at the time, just no longer describing current behavior.
+
 **`pages/MediaExpanded.qml`'s placeholder was too broad.** Haziq caught that the "empty
 box" instruction had swallowed real, working functionality (title/artist/progress/
 transport, backed by `services/Media.qml` since slice 5), not just the design's new,
@@ -834,6 +843,137 @@ Quickshell runtime), just a different warning code because this is a property re
 the unresolved reference rather than a bare reference or method call. Confirmed real at
 runtime (`Island.isExpanded`/`expandedPage` both genuinely exist, `app/Island.qml`), not
 a new baseline count to chase down.
+
+## Revert capsule morph to the original spring feel
+
+The bezier-overshoot morph (previous sections) read as too bouncy once actually seen
+live, in both the expand and collapse directions. Reverted `theme/Motion.qml` +
+`ui/MorphAnimation.qml` to the original pre-redesign `SpringAnimation`
+(spring:18, damping:3.5, mass:1.0), closer to how macOS's actual Dynamic Island moves.
+`ui/Capsule.qml` needed no change (it already delegates to `ui/MorphAnimation.qml` via
+`Behavior`). Refuter round 5 drove the reverted spring numerically under the real
+runtime across all four state-pair transitions: it never overshoots the target at all
+(peak == target exactly in every direction), so the canvas headroom (`Theme.canvasW/H`)
+is still more than enough and the bezier-era collapse-blink artifact is gone entirely,
+not just reduced.
+
+## Real compact/idle pill: animated EQ bars, not title/artist text
+
+Haziq caught that `pages/CompactPage.qml`'s title/artist marquee wasn't what the actual
+design does in its collapsed/idle pill: that state is clock + an animated 4-bar EQ
+glyph reflecting play state; title/artist only ever appears in the expanded view. New
+`ui/EqualizerBars.qml` reproduces the design's staggered scale-oscillation keyframes:
+each bar loops scale 0.3->1.0->0.3 forever while `active`, staggered 120ms apart. The
+stagger is a ONE-SHOT `PauseAnimation` outside the looping `SequentialAnimation`, not
+inside it - putting it inside would re-insert the delay every single loop instead of
+just before the first, breaking the "continuous wave" look. Made reusable since the
+design reuses the same glyph in the expanded media section too (not yet wired there).
+
+## 04 TOGGLES: WIFI/BT/MIC real, five others deliberately dimmed
+
+New `services/Toggles.qml` (WIFI via `nmcli radio wifi`, BT via `bluetoothctl power` /
+`bluetoothctl show`, both polled every 5s plus an immediate re-poll after this page's
+own toggle actions) and new `ui/ToggleButton.qml`. MIC reuses `services/Audio.qml`
+directly (`toggleMicMuted()`, new this round). DND (needs the not-yet-built
+notification server), NIGHT (no gamma daemon installed on this machine), VPN (no
+connection profile configured at all), CAPS (a passive indicator, not sensibly a
+click-toggle), and IDLE (no idle-inhibit daemon running - the "idle_inject" kernel
+threads found while checking are CPU power management, unrelated) all render
+`available: false` (dimmed, not clickable) rather than being dropped from the grid, per
+Haziq: keep the full 4x2 look rather than shrinking to only what's real (the opposite
+call from the earlier BRI decision, which just left VOL/MIC as two rows with no BRI
+slot at all - context-dependent, not a rule either way).
+
+**Real icons, not text abbreviations**, per Haziq. All 8 use JetBrainsMono Nerd Font
+glyphs (`String.fromCodePoint(codepoint)`; several are above the BMP and need this, not
+a `\uXXXX` literal). Codepoints were verified against this exact installed font's cmap
+via a Python fontTools script before shipping, not guessed from memory or copied from a
+generic Nerd Font cheatsheet (patch versions can differ in exactly which glyphs/
+codepoints they bundle). Refuter round 5 independently re-verified all 14 codepoints
+(some toggles have separate on/off glyphs, e.g. wifi vs wifi_off) against
+`fc-match "JetBrainsMono Nerd Font"`'s actual resolved file and confirmed live rendering
+(each rasterizes real ink, unlike a genuinely-missing codepoint which renders zero
+width) - both independently correct.
+
+refuter round 5 found no bugs in the polling/action logic itself; the optimistic-set
+race (a click's optimistic value getting clobbered by an in-flight poll from before the
+click, then corrected ~15-25ms later by the action's own re-poll) measured at roughly
+0.2% of clicks and is sub-perceptual, not worth a suppression flag.
+
+## Click-and-drag scrub bars with a live popover, plus real media seeking
+
+Haziq: "make it like a slider behaviour too... when i drag, it can show popover it is
+currently on what percent volume." New `ui/ScrubBar.qml` replaces the click-to-set-only
+bars for VOL, MIC, and the (non-live) media progress bar. Two handlers layered on the
+same track: a `TapHandler` (a plain click with zero pointer movement might never
+register as a "drag" even with `dragThreshold: 0`) and a `DragHandler` with
+`target: null` (the standard QtQuick idiom for tracking pointer position without
+actually moving anything) for continuous tracking while dragging. Exposes
+`previewValue` (what the pointer is CURRENTLY over during a drag, not the possibly-
+lagging committed `value` - a caller like `Audio.setVolume` writes through Pipewire and
+the property binding round-trips back, which can lag a live drag by a frame) and a
+`popoverLabel` shown above the drag point while active, overridable per call site (the
+media bar formats it as a time string via the page's own `fmt()`, not a percentage).
+
+New `services/Media.qml` function `seek(seconds)`, writing through Quickshell's
+`MprisPlayer.position` setter (confirmed by refuter round 6 to perform a real MPRIS
+seek, not just change the local QML property - verify again if this session's setup
+ever changes). Guarded on `!isLive`: live content has no real "total length" to seek
+into, so its progress bar stays the plain non-interactive display `Rectangle` pinned
+full from earlier rounds, with the ScrubBar swapped in only for `!Media.isLive`.
+
+Synthetic-input tools (`ydotool`) exist on this machine but operate at the global
+uinput level regardless of which window has focus, so this session could not safely
+simulate a real drag gesture to verify the interaction end-to-end; refuter round 6
+verified what it could statically/via scratch harnesses (grabToImage rendering,
+numeric driving of the handlers, live MPRIS position checks) and the user confirmed the
+actual drag feel live themselves.
+
+## Refuter round 6 fixes, plus a real isLive bug caught live by Haziq
+
+refuter round 6 reviewed `ui/ScrubBar.qml`/`services/Media.qml`/the ScrubBar call sites
+and found two real bugs, both fixed:
+
+- **A fast flick could silently do nothing.** `DragHandler.centroidChanged` fires for
+  the very pointer move that *causes* activation, before `active` actually flips true,
+  so `onCentroidChanged`'s `if (active)` guard discarded that first move; if Qt
+  compressed a quick flick into press + one move + release, neither handler ever called
+  `scrub()`. Fixed by also firing on `onActiveChanged` using the now-current centroid
+  position, which catches exactly the move `onCentroidChanged` had to skip (no double-
+  fire: that guard only skips it while `active` is still false).
+- **Dragging the media progress bar fired a real MPRIS `SetPosition` D-Bus call per
+  pointer-move event** - 60-180 calls for a one-second drag, i.e. continuous re-seek/
+  re-buffer for the whole gesture, confirmed live by refuter via `dbus-monitor` against
+  a throwaway MPRIS player. `ui/ScrubBar.qml` gained a second signal, `scrubFinished`
+  (fires once, on release or a plain click), and the media call site switched to it for
+  the actual `Media.seek()` call; VOL/MIC keep using the continuous `scrub` signal since
+  applying volume live while dragging is desired there. The fill bar itself now tracks
+  `previewValue` instead of `value` so it still visually follows the drag in real time
+  even though the actual seek only commits on release (this also benefits VOL/MIC,
+  whose fill no longer waits on Pipewire's write-then-bind-round-trip during a drag).
+- Also added `Media.canSeek` (from `player.canSeek`) since Quickshell's
+  `MprisPlayer.setPosition` silently no-ops (with a `qWarning`) on a player that reports
+  it can't seek; `pages/MediaExpanded.qml`'s media bar now shows the real interactive
+  `ScrubBar` only when `!Media.isLive && Media.canSeek`, and a plain display bar
+  otherwise (full-pinned for live, actual position/length ratio for a seek-incapable
+  finite track, so it doesn't misleadingly look parked at the end). The two variants are
+  wrapped to the same height so switching between them doesn't shift the rest of the
+  section by ScrubBar's larger hit-area height.
+
+**Separately, a real bug Haziq caught live, not by refuter**: opening a second YouTube
+livestream didn't show the LIVE badge at all. `Media.isLive`'s original heuristic
+checked only the *selected* player's own `length` against a fixed threshold (4 hours),
+picked from the first livestream's numbers. Diagnosed via `playerctl`: on the second
+stream, `plasma-browser-integration` (preferred for its richer metadata) reported a
+placeholder length of only ~2.35 hours, under that threshold - so plasma-browser-
+integration's "unknown duration" guess isn't a fixed convention, it's apparently
+arbitrary per stream. What IS consistent across both streams: Chromium's own raw MPRIS
+handle reports the literal documented "unknown length" sentinel (int64 max
+microseconds, ~292471 years) both times. Fixed `isLive` to check every currently-
+*playing* MPRIS player (not just the one selected for display) for an outright absurd
+length (over ~31 years, chosen to sit far below any real sentinel and far above even a
+very long finite recording, so plasma-browser-integration's noisy few-hour guesses
+never trip it), rather than trusting any one player's own number.
 
 ## Next: Slice 6 (Notifications)
 

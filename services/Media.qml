@@ -42,20 +42,31 @@ QtObject {
     readonly property bool canGoNext: available ? player.canGoNext : false
     readonly property bool canGoPrevious: available ? player.canGoPrevious : false
     readonly property bool canTogglePlaying: available ? player.canTogglePlaying : false
+    readonly property bool canSeek: available ? player.canSeek : false
     readonly property real length: available ? player.length : 0
 
     // MPRIS has no explicit "this is a live stream" flag, and players
-    // signal an unknown/live duration inconsistently: confirmed live on a
-    // YouTube livestream, Chromium's own raw MPRIS handle reports the
-    // documented sentinel for "unknown length" (int64 max microseconds,
-    // ~292471 years), while plasma-browser-integration (preferred above
-    // for richer metadata) instead reports some arbitrary large placeholder
-    // (13 hours, that same stream) rather than the sentinel or 0. Matching
-    // both without hardcoding either convention: no real track/video runs
-    // longer than a few hours, so anything past this threshold isn't a
-    // real duration regardless of which sentinel (or non-sentinel) a given
-    // player used to say so.
-    readonly property bool isLive: available && length > 4 * 60 * 60
+    // signal an unknown/live duration INCONSISTENTLY BETWEEN STREAMS, not
+    // just between players: confirmed on one YouTube livestream, Chromium's
+    // raw MPRIS handle reports the documented sentinel (int64 max
+    // microseconds, ~292471 years) while plasma-browser-integration
+    // (preferred above for richer metadata) reports an arbitrary large
+    // placeholder (13 hours, that stream) instead of the sentinel or 0 -
+    // but on a SECOND livestream, plasma-browser-integration's own
+    // placeholder was only ~2.35 hours, under the first stream's threshold,
+    // so checking a fixed cutoff against the SELECTED player's own length
+    // isn't reliable: plasma-browser-integration's guess appears to be
+    // arbitrary per-stream, not a fixed convention. Chromium's raw handle's
+    // sentinel, in contrast, was identical (the literal int64 max) both
+    // times - it's a hardcoded, documented value, not a guess. So this
+    // checks every currently-*playing* MPRIS player (not just the one
+    // selected for display), and treats anything with an outright
+    // absurd length (over ~31 years, chosen to sit far below any real
+    // sentinel value and far above even a very long finite recording, so
+    // plasma-browser-integration's noisy few-hour guesses never trip it)
+    // as proof the content is live, regardless of which player reports it.
+    readonly property bool isLive: available
+        && Mpris.players.values.some(p => p.isPlaying && p.length > 1000000000)
 
     // Not a live binding to player.position: MPRIS doesn't push continuous
     // position updates, only on seek/state-change, so a binding to it
@@ -70,6 +81,20 @@ QtObject {
     function togglePlaying() { if (available) player.togglePlaying() }
     function next() { if (available) player.next() }
     function previous() { if (available) player.previous() }
+
+    // Not meaningful for isLive content (there's no real "position within
+    // a known total" to seek into), and the expanded view's progress bar
+    // is a plain display for live anyway, not an interactive ScrubBar.
+    // canSeek matters too: Quickshell's MprisPlayer.setPosition silently
+    // no-ops (with a qWarning) when the player itself reports it can't
+    // seek, which the UI needs to know to not render an interactive bar
+    // that quietly does nothing (refuter-caught).
+    function seek(seconds) {
+        if (!available || isLive || !canSeek) return
+        const clamped = Math.max(0, Math.min(length, seconds))
+        player.position = clamped
+        root.position = clamped // don't wait for the next 1s poll tick
+    }
 
     // Public (not underscore-prefixed) specifically so the plain
     // onTrackKeyChanged handler syntax below is unambiguous. Keyed on

@@ -30,6 +30,11 @@ QtObject {
         source.audio.volume = Math.max(0, Math.min(1, pct / 100))
     }
 
+    function toggleMicMuted() {
+        if (!micAvailable) return
+        source.audio.muted = !source.audio.muted
+    }
+
     // Fires after Motion.debounceOsd once volume/muted settles, and only
     // once Pipewire itself has been ready for 500ms: without this gate,
     // enumerating existing devices at startup fires a burst of volume
