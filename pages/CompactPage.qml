@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import qs.theme
 import qs.services
+import qs.ui
 
 Item {
     id: root
@@ -49,18 +50,17 @@ Item {
             visible: Media.available
         }
 
-        // No marquee/scroll for a long title in this slice, deliberately:
-        // elided and clamped instead. A real marquee is Haziq's
-        // design-phase polish, not functional scope.
-        Text {
+        // Matches the design's real compact/idle pill: no title/artist
+        // text at all (that only appears in the expanded media section),
+        // just this animated EQ glyph signaling "media is here, and
+        // whether it's playing". Haziq specifically called this out as his
+        // favorite piece of the design after seeing the title/artist
+        // version this project had built before.
+        EqualizerBars {
             anchors.verticalCenter: parent.verticalCenter
             visible: Media.available
-            color: Media.isPlaying ? Theme.ink : Theme.inkFaint
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            elide: Text.ElideRight
-            width: Math.min(implicitWidth, 160)
-            text: Media.artist ? (Media.artist + " · " + Media.title) : Media.title
+            active: Media.isPlaying
+            barHeight: 11
         }
     }
 

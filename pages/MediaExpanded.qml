@@ -506,7 +506,17 @@ Item {
 
                 Rectangle {
                     width: 1
-                    height: Math.max(controlsCol.implicitHeight, togglesCol.implicitHeight)
+                    // Gated on controlsCol specifically, not just sized
+                    // from it: an invisible Column still reports a real
+                    // implicitHeight, so without this gate the divider
+                    // rendered as an orphan hairline pinned at the left
+                    // edge whenever CONTROLS hides (the ~2-3s Pipewire
+                    // startup window, or permanently on a machine with no
+                    // audio device at all) - refuter-caught, a real hole in
+                    // the "hides when absent" rule this page otherwise
+                    // follows everywhere else.
+                    visible: controlsCol.visible
+                    height: controlsCol.visible ? Math.max(controlsCol.implicitHeight, togglesCol.implicitHeight) : togglesCol.implicitHeight
                     color: Theme.hairline
                 }
 
@@ -536,6 +546,117 @@ Item {
                 height: 1
                 color: Theme.hairline
             }
+
+            // 05 SYSTEM: read-only, unlike CONTROLS above it, no
+            // destructive-action or latency tradeoffs to weigh, so all four
+            // stats land in one pass. Each cell hides independently if its
+            // own source isn't there (services/SystemStats.qml keeps
+            // missing stats at -1). Row skips invisible children (and their
+            // spacing) entirely, so a hidden cell doesn't leave a gap where
+            // it sat, the remaining cells just close up and shift left,
+            // same as everywhere else on this page a field can go missing
+            // (the identity row's optional userHost/uptime/niri fields
+            // included). Since every cell keeps its own fixed width rather
+            // than growing to redistribute the freed space, the row simply
+            // narrows and the empty space lands as trailing space on the
+            // right, not between cells.
+            Column {
+                width: parent.width
+                spacing: 11
+                visible: SystemStats.cpuPercent >= 0 || SystemStats.memPercent >= 0
+                    || SystemStats.diskPercent >= 0 || SystemStats.tempCelsius >= 0
+
+                Row {
+                    spacing: 9
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "05"; color: Theme.inkDim; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "SYSTEM"; color: Theme.inkMuted; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "系統"; color: Theme.inkDim; font.family: Theme.fontFamilyJp; font.pixelSize: 9 }
+                }
+
+                Row {
+                    id: statsRow
+                    width: parent.width
+                    spacing: 14
+
+                    Column {
+                        width: (statsRow.width - 3 * 14) / 4
+                        spacing: 6
+                        visible: SystemStats.cpuPercent >= 0
+
+                        Item {
+                            width: parent.width
+                            height: cpuValue.implicitHeight
+                            Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; color: Theme.inkFaint; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 1; text: "CPU" }
+                            Text { id: cpuValue; anchors.right: parent.right; color: Theme.ink; font.family: Theme.fontFamily; font.pixelSize: 11; text: SystemStats.cpuPercent + "%" }
+                        }
+                        Rectangle {
+                            width: parent.width; height: 2; color: Theme.trackBg
+                            Rectangle { width: parent.width * Math.min(1, SystemStats.cpuPercent / 100); height: parent.height; color: Qt.rgba(1, 1, 1, 0.45) }
+                        }
+                    }
+
+                    Column {
+                        width: (statsRow.width - 3 * 14) / 4
+                        spacing: 6
+                        visible: SystemStats.memPercent >= 0
+
+                        Item {
+                            width: parent.width
+                            height: memValue.implicitHeight
+                            Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; color: Theme.inkFaint; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 1; text: "MEM" }
+                            Text { id: memValue; anchors.right: parent.right; color: Theme.ink; font.family: Theme.fontFamily; font.pixelSize: 11; text: SystemStats.memUsedLabel }
+                        }
+                        Rectangle {
+                            width: parent.width; height: 2; color: Theme.trackBg
+                            Rectangle { width: parent.width * Math.min(1, SystemStats.memPercent / 100); height: parent.height; color: Qt.rgba(1, 1, 1, 0.45) }
+                        }
+                    }
+
+                    Column {
+                        width: (statsRow.width - 3 * 14) / 4
+                        spacing: 6
+                        visible: SystemStats.tempCelsius >= 0
+
+                        Item {
+                            width: parent.width
+                            height: tempValue.implicitHeight
+                            Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; color: Theme.inkFaint; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 1; text: "TEMP" }
+                            Text { id: tempValue; anchors.right: parent.right; color: Theme.ink; font.family: Theme.fontFamily; font.pixelSize: 11; text: SystemStats.tempCelsius + "°C" }
+                        }
+                        Rectangle {
+                            width: parent.width; height: 2; color: Theme.trackBg
+                            // 90C as the top of the bar, not 100: a CPU
+                            // "full" temp reading meaningfully lower than
+                            // its actual throttle point makes the bar
+                            // useless as an at-a-glance signal.
+                            Rectangle { width: parent.width * Math.min(1, SystemStats.tempCelsius / 90); height: parent.height; color: Qt.rgba(1, 1, 1, 0.45) }
+                        }
+                    }
+
+                    Column {
+                        width: (statsRow.width - 3 * 14) / 4
+                        spacing: 6
+                        visible: SystemStats.diskPercent >= 0
+
+                        Item {
+                            width: parent.width
+                            height: diskValue.implicitHeight
+                            Text { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; color: Theme.inkFaint; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 1; text: "DISK" }
+                            Text { id: diskValue; anchors.right: parent.right; color: Theme.ink; font.family: Theme.fontFamily; font.pixelSize: 11; text: SystemStats.diskPercent + "%" }
+                        }
+                        Rectangle {
+                            width: parent.width; height: 2; color: Theme.trackBg
+                            Rectangle { width: parent.width * Math.min(1, SystemStats.diskPercent / 100); height: parent.height; color: Qt.rgba(1, 1, 1, 0.45) }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Theme.hairline
+            }
         }
 
         Rectangle {
@@ -556,7 +677,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: 10
                 font.letterSpacing: 2
-                text: "SYSTEM · INBOX · SESSION · PLACEHOLDER"
+                text: "INBOX · SESSION · PLACEHOLDER"
             }
         }
     }
