@@ -16,13 +16,14 @@ import qs.ui
 // jobs from one shared reference point. exclusiveZone is a distance from
 // the anchored edge, independent of the surface's own height, so a tall
 // (Theme.canvasH) surface reserving only the compact row's height is
-// protocol-legal; refuter confirmed this in the wlr-layer-shell spec
-// directly (top-only anchoring is the CANONICAL valid case for a
-// positive exclusive zone, contradicting this file's earlier "centered
-// anchor can't resolve a positive zone" theory, which was wrong: the
-// niri hang encountered while building this is very likely a genuine
-// niri bug on a spec-legal request, not something we tried that wasn't
-// spec-legal in the first place).
+// protocol-legal. For history (this window is full-width now, not
+// top-only): refuter confirmed in the wlr-layer-shell spec that top-only
+// anchoring was ALSO always the canonical valid case for a positive
+// exclusive zone, contradicting an earlier "centered anchor can't
+// resolve a positive zone" theory tried on the old version of this file.
+// That theory was wrong: the niri hang encountered while building this
+// is very likely a genuine niri bug on a spec-legal request, not
+// something that wasn't spec-legal in the first place.
 PanelWindow {
     id: root
 

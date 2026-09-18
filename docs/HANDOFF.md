@@ -95,14 +95,20 @@ exclusive zone is a distance from the anchored edge, independent of the surface'
 height, so a tall surface reserving only the compact row is protocol-legal. The capsule
 content is unaffected, still centered via `anchors.horizontalCenter` inside whatever
 width the compositor stretches the window to, still masked via
-`mask: Region { item: capsule } }` so clicks outside it pass through. One surface, one
+`mask: Region { item: capsule }` so clicks outside it pass through. One surface, one
 shared reference point, nothing left to disagree.
 
 Verified live at each step with a bounded `timeout` wrapper on the launch (given the
 hang history): isolated full-width+positive-zone test loaded instantly outside this
 repo; the real consolidated window then loaded cleanly in the actual project; niri
 stayed responsive (`niri msg` instant) throughout. Visually confirmed by Haziq: pill
-renders, positions, and morphs exactly as before.
+renders, positions, and morphs exactly as before. A third `refuter` pass on this exact
+fix came back clean (no must-fix items); worth knowing for later, not a defect: stacking
+order between same-layer positive-zone surfaces (this window vs. noctalia's bar) is
+determined by which one mapped first, not any priority, so restarting one while the
+other is running can flip which one renders visually on top of the other (they still
+never overlap in *position*, exclusive zones guarantee that; only paint order can
+change). If "the pill moved relative to noctalia's bar" ever gets reported, that's why.
 
 **Vertical spacing tuned live, non-obvious finding along the way**: `Theme.topInset`
 settled at `5` (tried `14` first per an ambiguous "a little lower" request that turned
