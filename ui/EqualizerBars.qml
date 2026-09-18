@@ -6,6 +6,13 @@ import qs.theme
 // loop, staggered by 120ms per bar (CSS `animation-delay`), only while
 // `active`; paused (not just stopped) at the dim 0.3 scale otherwise,
 // matching the design's own `opacity: playing ? 0.9 : 0.3`.
+//
+// Each bar is filled with an ordered (Bayer) dither instead of a flat
+// color, per Haziq's standing love of a dithered/halftone texture. A 2x2
+// matrix at native pixel resolution: the bar is only 2px wide, too small
+// an area for a larger matrix to read as anything but noise. Adjacent bars
+// start from an inverted phase (index % 2) so they don't all line up into
+// one solid-looking block.
 Row {
     id: root
 
@@ -17,17 +24,37 @@ Row {
     Repeater {
         model: 4
 
-        Rectangle {
+        Item {
             id: bar
             required property int index
 
             width: 2
             height: root.barHeight
-            radius: 1
-            color: Theme.ink
             opacity: root.active ? 0.9 : 0.3
             transformOrigin: Item.Bottom
             scale: 0.3
+
+            Canvas {
+                anchors.fill: parent
+                // Static pattern: the Canvas paints once at its fixed
+                // pixel size, and the visible "growing/shrinking" comes
+                // from the parent Item's `scale` transform stretching that
+                // painted content, same as the flat-color version this
+                // replaced did with its color fill.
+                onPaint: {
+                    const ctx = getContext("2d")
+                    ctx.reset()
+                    ctx.fillStyle = Theme.ink
+                    const bayer = (bar.index % 2 === 0) ? [[0, 2], [3, 1]] : [[1, 3], [2, 0]]
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            if (bayer[y % 2][x % 2] < 2) {
+                                ctx.fillRect(x, y, 1, 1)
+                            }
+                        }
+                    }
+                }
+            }
 
             // Nested, not one flat looping sequence: a PauseAnimation
             // directly inside a `loops: Infinite` SequentialAnimation would
