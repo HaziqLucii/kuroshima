@@ -40,44 +40,84 @@ fixed, plus a meta-finding that undermines trust in every prior "lint clean" cla
 Both fixes verified live (real PipeWire, real `wpctl`): OSD still pops correctly for a
 genuine volume change.
 
-## Slice 4.5 attempted, reverted: reserved-space exclusiveZone hangs niri
+## Slice 4.5 done: reserved space via a separate spacer surface
 
 Haziq asked for the compact pill's height to be reserved space (tiled windows shouldn't
 render directly under the clock), matching how other Dynamic Island implementations
 behave, and matching what the original plan itself anticipated
 (`exclusiveZone: Config.reserveSpace ? Theme.compactH + Theme.topInset : 0`).
 
-**Do not just set `ui/IslandWindow.qml`'s `exclusiveZone` to a nonzero value.** Confirmed
-live, reproducibly, by toggling it back and forth: `exclusiveZone: Theme.compactH +
-Theme.topInset` (44) makes the nested niri session **hang** during the layer-shell
-configure handshake (`qs` sits at 0% CPU, `Configuration Loaded` never prints, niri
-itself becomes unresponsive to input, though `niri msg` IPC still worked in the one case
-this was checked, so the compositor's own event loop wasn't fully dead, just stuck on
-this client). `exclusiveZone: 0` loads instantly, every time. Likely cause, not fully
-confirmed: this `PanelWindow` is anchored `top` only (not also `left`+`right`), so its
-horizontal position is compositor-decided (centered). Reserving a nonzero exclusive zone
-for a surface whose horizontal position isn't fixed may be creating a circular
-dependency in niri's layout solver (position depends on reserved layout area, reserved
-area depends on the surface, which isn't placed yet). This looks like it could be a niri
-limitation/bug for this specific anchor+exclusiveZone combination, not a bug in our QML,
-but that's not confirmed against niri's own source.
+**The naive one-line version genuinely hangs niri, this is real, don't try it again**:
+setting `ui/IslandWindow.qml`'s `exclusiveZone` directly to `Theme.compactH +
+Theme.topInset` (44) hung the whole nested niri session's layer-shell configure
+handshake, confirmed reproducibly multiple times (toggling the value back and forth;
+`qs` sits at 0% CPU, `Configuration Loaded` never prints). niri itself recovered on its
+own within a few seconds of the client dying each time (`niri msg` IPC came back), so it
+wasn't a permanent deadlock, but it visibly froze the session while stuck. Root cause,
+confirmed by isolated testing (a minimal throwaway `qs` config outside this repo, not
+found in either niri's or Quickshell's issue trackers): a `PanelWindow` anchored `top`
+only (not also `left`+`right`) has a compositor-decided, centered horizontal position;
+reserving a nonzero exclusive zone for a surface whose position isn't fixed apparently
+creates something niri's layout solver can't resolve. Anchoring `top`+`left`+`right`
+(full width) with the identical `exclusiveZone` value loaded instantly in the same
+isolated test; centered top-only reproduced the hang every time. Not confirmed against
+niri's own source, and not filed upstream (Haziq's call if that's ever wanted), but the
+empirical A/B result was clean enough to build on.
 
-**The likely correct fix, not yet implemented**: the reserved strip and the visible
-capsule need to be two separate layer-shell surfaces. A thin, invisible spacer surface
-anchored `top`+`left`+`right` (unambiguous position, full width) with
-`exclusiveZone: Theme.compactH + Theme.topInset` does the actual space reservation; the
-existing centered, overlay-only (`exclusiveZone: 0`) `PanelWindow` keeps rendering the
-capsule exactly as now, positioned to visually sit inside that reserved strip and morph
-beyond it when expanded. This is a real feature request, not abandoned, just bigger than
-a one-line change and not worth attempting again without confirming the anchor-related
-theory first (e.g. temporarily anchoring `left`+`right` too, spanning full width, and
-checking whether *that* configuration accepts a nonzero exclusiveZone without hanging).
+**The fix**: two separate layer-shell surfaces, not one.
+`ui/ReservedSpaceWindow.qml` is a new, invisible, `mask: Region {}` (fully click-through)
+`PanelWindow` anchored `top`+`left`+`right`, with `exclusiveZone: Theme.compactH +
+Theme.topInset`: it does nothing but reserve the layout space. `ui/IslandWindow.qml`
+keeps rendering and animating the capsule exactly as before, still centered
+(`anchors.top` only). Both are instantiated from `shell.qml`. This sidesteps the hang
+entirely (the reserving surface's position is never ambiguous) while keeping the
+capsule's own morph/overlay behavior exactly as designed: it can still grow past the
+reserved strip's height for a peek or the expanded state, since only the *reservation*
+is fixed at compact height, not the capsule's own rendering surface.
 
-`ui/IslandWindow.qml`'s `exclusiveZone` is back to `0` (committed, safe, current
-behavior). If this comes up again: check `niri --version` for a newer release first (this
-was tested against niri 26.04), and consider filing it against niri upstream if the
-two-surface workaround also hangs, since a compositor hang from a client's `set_exclusive_zone`
-request is not "expected" client-side behavior no matter what the anchor combination is.
+**One more real bug this surfaced, fixed immediately after**: with the spacer surface
+in place, the pill rendered *below* the reserved strip instead of inside it.
+`IslandWindow.qml`'s `exclusiveZone` was `0`, and per wlr-layer-shell semantics, `0`
+means "I don't reserve space myself, but I still respect *other* surfaces'
+reservations", so it was getting pushed down by `ReservedSpaceWindow`'s zone instead of
+overlaying inside it. `-1` means "ignore other surfaces' exclusive zones, anchor to the
+true edge regardless", which is what a floating overlay actually needs once a sibling
+surface is reserving space at all; `IslandWindow.qml` is now `exclusiveZone: -1`.
+Verified live, same bounded-`timeout` caution as the rest of this incident (this is the
+same window that hung on a *positive* exclusiveZone; `-1` specifically hadn't been
+tested yet): loaded cleanly, no hang, and visually confirmed by Haziq the pill now sits
+inside the reserved gap correctly.
+
+**Vertical spacing tuned live, non-obvious finding along the way**: `Theme.topInset`
+settled at `5` (tried `14` first per an ambiguous "a little lower" request that turned
+out to mean "less gap", then `5` per "looks more minimalist"). The *bottom* gap (pill's
+bottom edge to where tiled windows start) turned out not to just be `topInset` again:
+a mathematically symmetric reserved strip (`compactH + 2*topInset`) looked visibly
+*bottom-heavy* despite the equal math. Cause, found by Haziq: **niri's own `gaps`
+setting** (`~/.config/niri/cfg/layout.kdl`, currently `12`) adds spacing "between
+windows and to screen edges", which stacks on top of whatever `Theme.qml` reserves for
+the bottom, since the reserved strip's lower boundary is now effectively a screen edge
+from niri's layout perspective. Nothing analogous exists for the *top* gap, there's no
+window above it to trigger niri's own gap logic, so top and bottom were never going to
+match by using one symmetric formula. Fixed: added a separate `Theme.bottomInset`
+(distinct from `topInset`, tuned independently, not derived from it), set to `0` so
+niri's own `12px` gap is the entire bottom spacing. `ui/ReservedSpaceWindow.qml`'s
+height/`exclusiveZone` is now `Theme.compactH + Theme.topInset + Theme.bottomInset`.
+**If `~/.config/niri/cfg/layout.kdl`'s `gaps` value ever changes, re-check this balance,
+it's tuned against `12` specifically, not derived from it.**
+
+Verified live throughout, safely, with a bounded `timeout` wrapper on every test launch
+specifically because of the hang risk: isolated minimal repro confirmed the anchor
+theory (A: full width, loaded; B: centered, hung) before touching the real project; the
+two-surface version then loaded cleanly; the `exclusiveZone: -1` follow-up also loaded
+cleanly; screenshots at each step confirmed tiled windows starting below the pill's row,
+then the pill itself sitting correctly inside that reserved gap.
+
+**Incidental discovery while debugging this**: some of the session's earlier "stale
+instance" / hot-reload flakiness was likely two concurrent `qs` processes (one launched
+by Claude via a scripting shell, one Haziq had separately running in his own terminal)
+both watching and reloading on the same file edits at once, not a Quickshell bug. Keep
+to one running instance at a time when both are actively iterating on this repo.
 
 ## Status: Slice 4 done (Audio OSD)
 

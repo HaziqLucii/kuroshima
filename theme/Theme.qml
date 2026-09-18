@@ -14,7 +14,15 @@ QtObject {
 
     readonly property int radius: 18
     readonly property int compactH: 36
-    readonly property int topInset: 8
+    readonly property int topInset: 5
+    // 0, not a positive value: niri's own `gaps` setting (currently 12px,
+    // ~/.config/niri/cfg/layout.kdl) already adds spacing "between windows
+    // and to screen edges", which stacks on top of whatever we reserve
+    // here for the bottom (nothing analogous exists for the top, there's
+    // no window above it to trigger that gap), which is the entire reason
+    // a mathematically symmetric reserved strip looked visually
+    // bottom-heavy. Letting niri's own gap be the full bottom spacing.
+    readonly property int bottomInset: 0
 
     // Fixed layer-shell canvas size (slice 1 morphs the capsule inside it,
     // the surface itself never resizes).

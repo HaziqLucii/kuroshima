@@ -8,17 +8,19 @@ PanelWindow {
     id: root
 
     anchors.top: true
-    // Floating overlay: reserves no space, tiled windows can render
-    // directly under it. A nonzero value here (tried: Theme.compactH +
-    // Theme.topInset, to reserve just the compact pill's row) hung the
-    // whole niri session's layer-shell configure handshake, reproducibly,
-    // likely because this surface is centered (anchored top only, not
-    // also left+right) and exclusiveZone may need a horizontally-fixed
-    // surface to resolve. See docs/HANDOFF.md ("exclusiveZone hangs
-    // niri") before trying this again: the fix is a separate,
-    // full-width, invisible spacer surface doing the reservation, not
-    // this window.
-    exclusiveZone: 0
+    // -1, not 0: per wlr-layer-shell semantics, 0 means "I don't reserve
+    // space myself, but I still respect other surfaces' reservations",
+    // which pushed this window below ui/ReservedSpaceWindow.qml's strip
+    // instead of overlaying inside it (the actual bug behind the pill
+    // rendering below the reserved gap instead of inside it). -1 means
+    // "ignore other surfaces' exclusive zones, anchor to the true edge
+    // regardless", which is what a floating overlay actually needs once
+    // a sibling surface is reserving space. A nonzero *positive* value
+    // here (tried: Theme.compactH + Theme.topInset) hung niri's
+    // layer-shell configure handshake outright; see docs/HANDOFF.md
+    // ("exclusiveZone hangs niri") before ever trying that again, on
+    // this window specifically.
+    exclusiveZone: -1
     color: "transparent"
 
     implicitWidth: Theme.canvasW

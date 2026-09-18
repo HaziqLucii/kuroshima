@@ -6,6 +6,7 @@ import qs.ui
 
 ShellRoot {
     IslandWindow {}
+    ReservedSpaceWindow {}
 
     // Instantiating this is what makes the otherwise-lazy Audio singleton
     // actually start; nothing else references it.
