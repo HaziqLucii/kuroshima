@@ -7,8 +7,8 @@ import qs.services
 // imports, core/ stays Quickshell-free for tests).
 //
 // A plain (non-singleton) type: instantiate it once from shell.qml so it
-// exists at all. Referencing Audio here (even just as a Connections
-// target) is what makes the otherwise-lazy Audio singleton actually start;
+// exists at all. Referencing Audio/Media here (even just as Connections
+// targets) is what makes the otherwise-lazy singletons actually start;
 // a service nothing references never initializes.
 Item {
     Connections {
@@ -19,6 +19,22 @@ Item {
                 value: Audio.volume,
                 muted: Audio.muted
             }, { key: "osd:volume" })
+        }
+    }
+
+    Connections {
+        target: Media
+        function onTrackChanged() {
+            if (!Media.available) {
+                Island.clearKey("media")
+                return
+            }
+            Island.show("media.track", {
+                title: Media.title,
+                artist: Media.artist,
+                artUrl: Media.artUrl,
+                isPlaying: Media.isPlaying
+            }, { key: "media" })
         }
     }
 }

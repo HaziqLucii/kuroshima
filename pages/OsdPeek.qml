@@ -8,6 +8,10 @@ Item {
     id: root
 
     property var payload: null
+    // Declared but unused: an OSD peek isn't click-to-expand. Present so
+    // ui/Capsule.qml's generic Connections to whatever page is current
+    // doesn't warn about a missing signal every time this page is shown.
+    signal requestExpand(string pageId)
 
     readonly property string kind: payload ? payload.kind : "volume"
     readonly property real value: payload ? payload.value : 0

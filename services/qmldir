@@ -1,2 +1,3 @@
 singleton Demo 1.0 Demo.qml
 singleton Audio 1.0 Audio.qml
+singleton Media 1.0 Media.qml

@@ -3,9 +3,9 @@ import QtQuick
 
 // Fake payload factories so every kind can be previewed (`ipc call island
 // demo <kind>`) before the real service producing it exists. Pages that
-// exist for real (OsdPeek as of slice 4) get real-shaped payloads; the
-// rest still render on the shared DummyWide placeholder via `payload.label`
-// until their slice lands.
+// exist for real (OsdPeek since slice 4, MediaPeek since slice 5) get
+// real-shaped payloads; the rest still render on the shared DummyWide
+// placeholder via `payload.label` until their slice lands.
 QtObject {
     function payloadFor(kind) {
         switch (kind) {
@@ -16,7 +16,7 @@ QtObject {
         case "power":
             return { label: "POWER", charging: true, percent: 55 }
         case "media.track":
-            return { label: "MEDIA TRACK", title: "Song Title", artist: "Some Artist" }
+            return { title: "Song Title", artist: "Some Artist", artUrl: "", isPlaying: true }
         case "workspace":
             return { label: "WORKSPACE", index: 2, name: "code" }
         case "notification":

@@ -2,6 +2,53 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
+## Status: Slice 5 done (Media)
+
+Built: `services/Media.qml` (active player chosen reactively from `Mpris.players.values`,
+preferring `isPlaying` else the first known player; `trackChanged()` gated the same way
+`Audio.changed()` is, debounced + suppressed until 500ms after start; `position` is a
+plain property refreshed by a 1s `Timer` while playing, not a live binding, since MPRIS
+doesn't push continuous position updates so a binding to `player.position` would just
+sit frozen), `pages/MediaPeek.qml` (art placeholder + title/artist, the first page to
+actually emit `requestExpand`), `pages/MediaExpanded.qml` (art placeholder, title/artist,
+progress bar, transport controls, reads live from `Media` directly rather than
+`payload`, since `expand()` carries no payload). `CompactPage.qml` now shows a
+now-playing marquee next to the clock when `Media.available` (elided/clamped, no real
+scrolling marquee, that's design-phase polish). `app/Bridges.qml` wires
+`Media.trackChanged` the same pattern as `Audio.changed`, plus clears the `"media"` key
+via `Island.clearKey` when playback stops entirely (no stale empty peek).
+
+**This is also where the slice-3 deferred item finally landed**: `ui/Capsule.qml`'s
+click handling no longer hardcodes `Island.toggle("dummyExpanded")`. It now generically
+connects to `host.currentItem`'s `requestExpand(pageId)` signal (`Connections.target`
+tracks `currentItem` automatically as pages swap) and routes through
+`Island.expand(pageId); Island.dismiss()`, the plan's actual rule-8 example. Every
+existing page (`CompactPage`, `OsdPeek`, `DummyWide`, `MediaExpanded`) now declares
+`signal requestExpand(string pageId)` even where unused, specifically so this generic
+`Connections` doesn't warn about a missing signal every time one of them is current.
+
+**Real UX gap found live by Haziq, fixed same session**: clicking only worked during
+`MediaPeek`'s brief ~3s transient window right when a track changes. The now-playing
+marquee that's actually visible most of the time lives on `CompactPage`, which had no
+click handling at all. Added a `TapHandler` there too (`enabled: Media.available`,
+`requestExpand("MediaExpanded")`), so clicking the persistent compact view works, not
+just the narrow peek window.
+
+**Transport controls redesigned live, twice, per Haziq's aesthetic direction**: v1 was
+plain text labels (PREV/PLAY/NEXT). v2 was a solid white filled circle with a black
+play/pause glyph, Haziq's own suggestion, but a filled circle plus solid white breaks
+his established palette (bone-on-black, hairline rules instead of color blocks,
+near-sharp 2px corners not soft circles). Final ("go all out"): all three controls are
+matching hairline-bordered near-square buttons (`radius: 2`), bone-`Theme.ink` glyphs on
+transparent, drawn on `Canvas` rather than Unicode play/pause/skip characters (font
+glyph coverage for those isn't guaranteed). Play/pause repaints on `Media.isPlaying`
+via an explicit `onPlayingChanged: requestPaint()`, not automatic: `Canvas.onPaint`
+does not itself establish a reactive binding to properties it merely reads.
+
+Verified live against a real MPRIS player (Chromium/YouTube, not simulated): now-playing
+marquee, click-to-expand from both `MediaPeek` and `CompactPage`, play/pause/next/prev
+all functional, transport glyphs render correctly.
+
 ## Slice 4 refuter fixes: 2 real Audio.qml bugs, plus scripts/lint.sh was a no-op
 
 A `refuter` pass on the slice 4 commit found two real bugs in `services/Audio.qml`, both
@@ -492,22 +539,19 @@ no IPC. Window-focus-title and MPRIS now-playing (both working in the pre-plan r
 prototype) are intentionally dropped for now; now-playing comes back in slice 5 as part
 of `CompactPage`, per the plan. There is currently no page showing anything but a clock.
 
-## Next: Slice 5 (Media)
+## Next: Slice 6 (Notifications)
 
-`services/Media.qml` (`Mpris.players`, active player chosen reactively preferring
-`isPlaying` else most recently changed; `trackChanged()` gated on readiness the same way
-`Audio` gates on `Pipewire.ready`; a 1s `Timer` for `positionChanged` while playing),
-`pages/MediaPeek.qml` (art + title/artist) and `pages/MediaExpanded.qml` (art, controls,
-progress), `CompactPage`'s now-playing marquee (per the plan's file layout, `CompactPage`
-ultimately shows clock + now-playing, not clock alone). Verify: `playerctl next` peeks;
-switching the playing app switches the active player; progress advances.
-
-**This is also where the deferred slice-3 item finally gets resolved**: the click
-contract still routes through a hardcoded `Island.toggle("dummyExpanded")` in
-`ui/Capsule.qml` rather than a page emitting `requestExpand()`, because no page that
-would plausibly want click-to-expand has existed until now. `MediaPeek` clicked ->
-`Island.expand("MediaExpanded")` then `Island.dismiss()` is the plan's actual rule 8
-example; wire the real contract here and remove the placeholder toggle.
+`services/Notifs.qml` (`NotificationServer` inside `Loader { active: Config.notificationServer }`
+per the plan, but `Config.qml` doesn't exist yet, hardcode `active: true` for now and
+revisit when Config lands; `keepOnReload: true`, `actionsSupported`/`imageSupported`/
+`bodySupported: true`), `pages/NotificationPeek.qml` (icon/summary/body/actions,
+`RetainableLock` on the payload so a notification destroyed mid-fade doesn't crash).
+This is the first kind with a real per-instance key (`notif:<id>`, no static key in
+`Kinds.table`, `show()` already rejects a missing key since slice 2's refuter fixes).
+Verify under `scripts/dev.sh --isolated-bus` (doesn't exist yet either, see the plan):
+`notify-send -A ok=OK hi body` peeks; the action invokes; a critical notification stays
+until dismissed (`duration: -1` override, already correctly handled per slice 3's
+`_isInfiniteDuration` fix); an external close clears the peek via `Island.clearKey`.
 
 **Standing reminder for every future slice** (found 3 times now: `PersistentProperties`
 in `app/Island.qml`, a debug `Connections` in `services/Audio.qml`, and the `_timer` in

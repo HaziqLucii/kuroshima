@@ -11,6 +11,8 @@ Item {
     Component { id: compactComponent; CompactPage {} }
     Component { id: dummyWideComponent; DummyWide {} }
     Component { id: osdPeekComponent; OsdPeek {} }
+    Component { id: mediaPeekComponent; MediaPeek {} }
+    Component { id: mediaExpandedComponent; MediaExpanded {} }
 
     // The animated value is kept separate from the rendered width/height,
     // and the render size is hard-clamped to the fixed layer-shell canvas.
@@ -52,13 +54,13 @@ Item {
             anchors.centerIn: parent
             // Real peek pages land one per slice (4-8); until each one
             // exists, its Kinds.table page name maps to the shared
-            // placeholder. OsdPeek is real as of slice 4.
+            // placeholder. OsdPeek (slice 4) and MediaPeek/MediaExpanded
+            // (slice 5) are real.
             pageMap: ({
                 "compact": compactComponent,
-                "dummyExpanded": dummyWideComponent,
                 "OsdPeek": osdPeekComponent,
-                "MediaPeek": dummyWideComponent,
-                "MediaExpanded": dummyWideComponent,
+                "MediaPeek": mediaPeekComponent,
+                "MediaExpanded": mediaExpandedComponent,
                 "NotificationPeek": dummyWideComponent,
                 "WorkspacePeek": dummyWideComponent,
                 "PowerPeek": dummyWideComponent
@@ -70,15 +72,21 @@ Item {
                 function onPageChanged() { host.setPage(Island.page, Island.payload) }
                 function onPayloadChanged() { host.setPage(Island.page, Island.payload) }
             }
-        }
 
-        // Real click contract (plan rule 8) needs a page to emit
-        // requestExpand(pageId) for the view to route through
-        // Island.expand()/dismiss(); no page does that yet (only
-        // CompactPage and the DummyWide placeholder exist), so this
-        // toggles a stand-in "dummyExpanded" page directly for now.
-        TapHandler {
-            onTapped: Island.toggle("dummyExpanded")
+            // The real click contract (plan rule 8): whatever page is
+            // currently shown emits requestExpand(pageId) if it wants to
+            // (optional per the page contract; CompactPage/OsdPeek/
+            // DummyWide/MediaExpanded declare it unused specifically so
+            // this Connections doesn't warn about a missing signal every
+            // time one of them is current). Connections.target tracks
+            // host.currentItem automatically as pages swap.
+            Connections {
+                target: host.currentItem
+                function onRequestExpand(pageId) {
+                    Island.expand(pageId)
+                    Island.dismiss()
+                }
+            }
         }
 
         // Drives rule 7 (hover-hold): pauses a transient's dismiss timer
