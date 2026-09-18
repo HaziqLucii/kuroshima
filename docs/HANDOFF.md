@@ -2,6 +2,42 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
+## Status: Slice 4 done (Audio OSD)
+
+Built: `services/Audio.qml` (`Pipewire.defaultAudioSink` bound through a `PwObjectTracker`,
+which is required for its properties to actually populate; `volume`/`muted`/`available`;
+a `changed()` signal gated two ways: `Motion.debounceOsd` (16ms) debounce, and suppressed
+entirely until 500ms after `Pipewire.ready` to swallow the startup enumeration burst),
+`app/Bridges.qml` (first real service -> `Island.show()` wiring, lives in `app/` not
+`core/`, same reasoning as `Island.qml`), `pages/OsdPeek.qml` (the first *real* peek page,
+icon text + bar, payload `{kind: "volume"|"brightness", value, muted?}`, since
+`Kinds.table` maps both `osd.volume` and `osd.brightness` to the same `"OsdPeek"` page
+name). `ui/Capsule.qml`'s `pageMap["OsdPeek"]` now points at the real page instead of
+`DummyWide`. `services/Demo.qml`'s osd payloads updated to the real shape.
+
+**Where "coalesces into one bar" actually happens, worth not re-deriving**: it is NOT
+`Audio.qml`'s job to suppress rapid user-paced volume changes (`debounceOsd` is only
+16ms, purely for collapsing PipeWire's own redundant same-instant signals, e.g. a single
+logical change firing both a volume and a channels update). Rapid `wpctl` presses each
+legitimately call `Island.show("osd.volume", ..., {key:"osd:volume"})`; the actual
+coalescing is `IslandController`'s rule 1 (same key as current updates payload in place,
+restarts the timer, no re-animation), already built and tested in slice 2. Verified live:
+5 rapid `wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%+` calls produced one continuously-
+updating bar, not five flickering peeks; no OSD fired during the startup window.
+
+**Another `QtObject`-has-no-default-property hit, same class of bug as `app/Island.qml`'s
+`PersistentProperties` in slice 3**: a debug `Connections {}` added directly as an
+unnamed child of `Audio.qml`'s root `QtObject` failed the same way
+(`Cannot assign to non-existent default property`). Same fix pattern: a named property
+(`property Connections _x: Connections {...}`). Worth remembering as a standing rule for
+this codebase: **any QtObject-rooted singleton needs named properties for its children,
+never bare unnamed ones**, only `Item`-rooted types (and Quickshell's own `Singleton`/
+`ReloadPropagator`) have a default property to receive them.
+
+Deliberately left minimal, confirmed with Haziq: `OsdPeek` shows an icon label + bar, no
+percentage readout. Visual polish is explicitly his design-phase work after slice 9, this
+slice's job was proving the real PipeWire data path end to end, which it now does.
+
 ## Status: Slice 3.5 done (auto-collapse on cursor-away, inserted by Haziq)
 
 Not in the original plan; Haziq asked whether hovering *off* the island for a while
@@ -316,21 +352,30 @@ no IPC. Window-focus-title and MPRIS now-playing (both working in the pre-plan r
 prototype) are intentionally dropped for now; now-playing comes back in slice 5 as part
 of `CompactPage`, per the plan. There is currently no page showing anything but a clock.
 
-## Next: Slice 4 (Audio OSD)
+## Next: Slice 5 (Media)
 
-`Audio` service (`Pipewire.defaultAudioSink` via `PwObjectTracker`), `pages/OsdPeek.qml`
-(the first *real* peek page, replacing the `DummyWide` placeholder mapping for
-`OsdPeek` in `ui/Capsule.qml`'s `pageMap`), `core/Bridges.qml` (first real service ->
-`Island.show()` wiring; doesn't exist yet, slice 3 didn't need it since `Demo` is
-called directly from the IPC handler). Verify: `wpctl set-volume @DEFAULT_AUDIO_SINK@
-5%+` repeated fast coalesces into one bar (rule 1); no OSD burst on startup (debounce
-500ms after `Pipewire.ready`).
+`services/Media.qml` (`Mpris.players`, active player chosen reactively preferring
+`isPlaying` else most recently changed; `trackChanged()` gated on readiness the same way
+`Audio` gates on `Pipewire.ready`; a 1s `Timer` for `positionChanged` while playing),
+`pages/MediaPeek.qml` (art + title/artist) and `pages/MediaExpanded.qml` (art, controls,
+progress), `CompactPage`'s now-playing marquee (per the plan's file layout, `CompactPage`
+ultimately shows clock + now-playing, not clock alone). Verify: `playerctl next` peeks;
+switching the playing app switches the active player; progress advances.
 
-Still open from slice 3, deferred, not forgotten: the click contract still routes
-through a hardcoded `Island.toggle("dummyExpanded")` rather than a real page emitting
-`requestExpand()`, because no page that would plausibly want click-to-expand exists yet.
-Revisit once `MediaPeek` (slice 5) exists, since "click the now-playing peek to expand
-it" is the plan's actual rule 8 example.
+**This is also where the deferred slice-3 item finally gets resolved**: the click
+contract still routes through a hardcoded `Island.toggle("dummyExpanded")` in
+`ui/Capsule.qml` rather than a page emitting `requestExpand()`, because no page that
+would plausibly want click-to-expand has existed until now. `MediaPeek` clicked ->
+`Island.expand("MediaExpanded")` then `Island.dismiss()` is the plan's actual rule 8
+example; wire the real contract here and remove the placeholder toggle.
+
+**Standing reminder for every future slice** (found 3 times now: `PersistentProperties`
+in `app/Island.qml`, a debug `Connections` in `services/Audio.qml`, and the `_timer` in
+`core/IslandController.qml` got it right from the start): a `QtObject`-rooted
+singleton/service has no default property, so any child object needs a named property
+(`property Foo _x: Foo {...}`), never an unnamed one, or it fails to load with "Cannot
+assign to non-existent default property". Only `Item`-rooted types and Quickshell's own
+`Singleton`/`ReloadPropagator` accept bare unnamed children.
 
 ## Environment notes worth not rediscovering
 

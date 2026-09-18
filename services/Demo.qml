@@ -2,16 +2,17 @@ pragma Singleton
 import QtQuick
 
 // Fake payload factories so every kind can be previewed (`ipc call island
-// demo <kind>`) before the real service producing it exists. Real pages
-// for most of these kinds don't exist yet either (slices 4-8); until then
-// they render on the shared DummyWide placeholder via `payload.label`.
+// demo <kind>`) before the real service producing it exists. Pages that
+// exist for real (OsdPeek as of slice 4) get real-shaped payloads; the
+// rest still render on the shared DummyWide placeholder via `payload.label`
+// until their slice lands.
 QtObject {
     function payloadFor(kind) {
         switch (kind) {
         case "osd.volume":
-            return { label: "OSD VOLUME", value: 42 }
+            return { kind: "volume", value: 0.42, muted: false }
         case "osd.brightness":
-            return { label: "OSD BRIGHTNESS", value: 70 }
+            return { kind: "brightness", value: 0.70 }
         case "power":
             return { label: "POWER", charging: true, percent: 55 }
         case "media.track":

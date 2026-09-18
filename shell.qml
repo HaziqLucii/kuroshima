@@ -7,6 +7,10 @@ import qs.ui
 ShellRoot {
     IslandWindow {}
 
+    // Instantiating this is what makes the otherwise-lazy Audio singleton
+    // actually start; nothing else references it.
+    Bridges {}
+
     IpcHandler {
         target: "island"
 

@@ -10,6 +10,7 @@ Item {
 
     Component { id: compactComponent; CompactPage {} }
     Component { id: dummyWideComponent; DummyWide {} }
+    Component { id: osdPeekComponent; OsdPeek {} }
 
     // The animated value is kept separate from the rendered width/height,
     // and the render size is hard-clamped to the fixed layer-shell canvas.
@@ -49,12 +50,13 @@ Item {
         PageHost {
             id: host
             anchors.centerIn: parent
-            // Real peek pages land in slices 4-8; until each one exists,
-            // its Kinds.table page name maps to the shared placeholder.
+            // Real peek pages land one per slice (4-8); until each one
+            // exists, its Kinds.table page name maps to the shared
+            // placeholder. OsdPeek is real as of slice 4.
             pageMap: ({
                 "compact": compactComponent,
                 "dummyExpanded": dummyWideComponent,
-                "OsdPeek": dummyWideComponent,
+                "OsdPeek": osdPeekComponent,
                 "MediaPeek": dummyWideComponent,
                 "MediaExpanded": dummyWideComponent,
                 "NotificationPeek": dummyWideComponent,
