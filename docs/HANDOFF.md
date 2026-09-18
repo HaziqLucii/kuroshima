@@ -2,6 +2,83 @@
 
 Read this first when resuming (new session, or after `/compact`).
 
+## Status: Slice 3 done (Wire)
+
+Built: `app/Island.qml` (the singleton `IslandController` instance the real app uses,
+`PersistentProperties` for `expandedPage` surviving hot reload), `services/Demo.qml`
+(fake payload factories per kind), full `IpcHandler` surface in `shell.qml`
+(`page`/`demo`/`expand`/`collapse`/`toggle`/`dismiss`), `ui/Capsule.qml` now reacts to
+`Island.page`/`Island.payload` instead of being poked directly, click routes through
+`Island.toggle("dummyExpanded")` instead of the slice-1.5 raw toggle. `DummyWide`
+(the temporary placeholder every not-yet-built peek page maps to) now renders
+`payload.label` and sizes itself to it, both width AND height, so it doubles as a
+crude preview for every kind in `Kinds.table`.
+
+**Deviation from the plan's file layout, load-bearing, not cosmetic**: `Island.qml`
+moved from `core/` to a new `app/` directory. The plan lists it under `core/`, but a
+qmldir `singleton` declaration is resolved eagerly, and `Island.qml` needs Quickshell
+(`PersistentProperties`, `qs.theme`) which plain `qmltestrunner` doesn't have. Adding it
+to `core/qmldir` broke `import "../core"` under the test runner entirely (collateral
+failure, not just Island itself failing to resolve) even though no test ever references
+`Island`. `core/` stays exactly what its own file comments already promised:
+Quickshell-free. `core/qmldir` now also explicitly lists `IslandController` as a plain
+type: a manual qmldir disables Quickshell's automatic per-directory type synthesis
+entirely, so once one singleton was declared there, the *other* file in the directory
+needed an explicit entry too, or it stops being visible to any importer including tests.
+
+**Also found a second unrelated QtObject gotcha while wiring Island**: `QtObject` (what
+`IslandController` extends) has no default property, so nesting `PersistentProperties {}`
+as an unnamed child inside `IslandController { ... }` fails ("Cannot assign to
+non-existent default property"). Fixed the same way `IslandController.qml` itself
+already handles its internal `Timer`: a named property (`property PersistentProperties
+_persisted: PersistentProperties {...}`), not an unnamed child.
+
+### A real incident: a bad spring value froze the desktop
+
+While chasing a "the morph feels sluggish" complaint, `Motion.morphSpring` was set to
+`300` on the (wrong) assumption that UI springs generally want stiffness in the
+hundreds. For this specific `SpringAnimation` integrator that is numerically unstable:
+the capsule's bound `width` diverged past 1,000,000px within one animation cycle
+(confirmed in the quickshell log: `455 -> -1274 -> 5296 -> -19671 -> 75207 -> -285332 ->
+1084718`), and the `MultiEffect` shadow tried to allocate a GPU texture the same size,
+logged as `QSGRhiLayer: Unsupported size requested: [1084783, 411997]. Maximum texture
+size: 65536`. This happened live, on Haziq's actual desktop GPU (the nested-niri sandbox
+shares hardware with the real session), and caused real, repeated system freezing until
+the process crashed on its own.
+
+Fixed two ways: `Motion.morphSpring`/`morphDamping` retuned to `18`/`3.5` (measured
+settling in 250-500ms, verified stable via a temporary instrumented log, since removed);
+and, independent of tuning correctness, `ui/Capsule.qml` now hard-clamps its rendered
+`width`/`height` to `Theme.canvasW`/`Theme.canvasH` (the fixed layer-shell canvas size),
+via a separate `animatedWidth`/`animatedHeight` pair that the spring actually animates,
+clamped down into the real `width`/`height`. That clamp is the load-bearing fix: it holds
+even if a future Motion.qml value is wrong again, whereas "use a good spring value" only
+holds until the next tuning mistake.
+
+**Process lesson**: don't tune animation feel by guessing and asking "does this look
+better", verify with an instrumented measurement (timestamped width log) before showing
+a change, especially before applying an untested extreme parameter value to a live
+process on real hardware.
+
+### Environment flakiness fighting this slice (not a code bug, but cost real time)
+
+- `qs -n` (`--no-duplicate`) leaves a stale "already running" lock after a process is
+  killed abnormally (crash, `kill -9`); `qs list --all` can *also* claim "No running
+  instances" while stale entries are shown as "Dead instances" even though the current
+  process is genuinely alive and healthy. When this happens, don't fight it: kill
+  whatever's running, relaunch without `-n`, or accept the churn and relaunch clean.
+- A `qs` instance that has survived many hot-reloads across large structural changes
+  (directories added/moved, `qmldir` changes) can end up in a state where `qs ipc call`
+  succeeds (exit 0) against it but the shell is actually unresponsive/stale. Confirmed
+  twice this slice (once as the root cause of a "payload always renders as the fallback
+  text" false alarm). If behavior doesn't match a source change after a save, restart
+  the process fully before debugging the QML.
+- A bare `qs -p .` launched from a shell whose `WAYLAND_DISPLAY` is set but
+  `QT_QPA_PLATFORM` isn't can silently fall back to the `xcb` platform (logs a WARN, easy
+  to miss), producing a real running instance that responds to IPC but isn't visible in
+  the intended Wayland session at all. Always pass `QT_QPA_PLATFORM=wayland` explicitly
+  when scripting a launch.
+
 ## Status: Slice 2 done (Controller), including a refuter pass that found real bugs
 
 Built: `core/IslandController.qml` (pure `QtObject`, imports only `QtQuick`), `core/Kinds.qml`
@@ -177,14 +254,21 @@ no IPC. Window-focus-title and MPRIS now-playing (both working in the pre-plan r
 prototype) are intentionally dropped for now; now-playing comes back in slice 5 as part
 of `CompactPage`, per the plan. There is currently no page showing anything but a clock.
 
-## Next: Slice 3 (Wire)
+## Next: Slice 4 (Audio OSD)
 
-`Island` singleton (`core/Island.qml`, `pragma Singleton` + `PersistentProperties` for
-`expandedPage`), view binds to `Island.page`/`Island.payload`, `Demo` service, IPC
-`demo/expand/collapse/toggle/dismiss`. This is also where slice 1.5's temporary
-`TapHandler` toggle in `Capsule.qml` gets replaced with the real click contract
-(`requestExpand()` -> `Island.expand()`). Verify: `qs -p . ipc call island demo <kind>`
-previews every page; hover pauses the timeout; `expandedPage` survives a hot reload.
+`Audio` service (`Pipewire.defaultAudioSink` via `PwObjectTracker`), `pages/OsdPeek.qml`
+(the first *real* peek page, replacing the `DummyWide` placeholder mapping for
+`OsdPeek` in `ui/Capsule.qml`'s `pageMap`), `core/Bridges.qml` (first real service ->
+`Island.show()` wiring; doesn't exist yet, slice 3 didn't need it since `Demo` is
+called directly from the IPC handler). Verify: `wpctl set-volume @DEFAULT_AUDIO_SINK@
+5%+` repeated fast coalesces into one bar (rule 1); no OSD burst on startup (debounce
+500ms after `Pipewire.ready`).
+
+Still open from slice 3, deferred, not forgotten: the click contract still routes
+through a hardcoded `Island.toggle("dummyExpanded")` rather than a real page emitting
+`requestExpand()`, because no page that would plausibly want click-to-expand exists yet.
+Revisit once `MediaPeek` (slice 5) exists, since "click the now-playing peek to expand
+it" is the plan's actual rule 8 example.
 
 ## Environment notes worth not rediscovering
 

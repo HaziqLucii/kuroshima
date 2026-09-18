@@ -7,10 +7,6 @@ import qs.ui
 PanelWindow {
     id: root
 
-    function setPage(name, payload) {
-        capsule.setPage(name, payload)
-    }
-
     anchors.top: true
     exclusiveZone: 0
     color: "transparent"
