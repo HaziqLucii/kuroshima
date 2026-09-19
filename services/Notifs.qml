@@ -29,14 +29,13 @@ QtObject {
         root.history = []
     }
 
-    // `Loader { active: Config.notificationServer }` per the plan, but
-    // Config.qml doesn't exist yet in this project - hardcoded true for
-    // now, revisit once a real config surface lands (see docs/HANDOFF.md).
     // QtObject has no default property (this codebase's standing gotcha,
     // hit 3+ times already): the Loader needs a named property, not a bare
-    // unnamed child.
+    // unnamed child. `active` gates on Config.notificationServer (default
+    // false, see Config.qml and docs/HANDOFF.md's D-Bus-name-already-owned
+    // pitfall) rather than being hardcoded on.
     property Loader _serverLoader: Loader {
-        active: true
+        active: Config.notificationServer
         sourceComponent: NotificationServer {
             keepOnReload: true
             actionsSupported: true

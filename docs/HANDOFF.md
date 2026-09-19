@@ -1362,13 +1362,60 @@ caught and precisely measured), and live checks via `grim` screenshots against t
 existing nested niri instance (never spun up an extra one; `niri msg action` was never
 used, per the standing rule above).
 
-## Foundation frozen: Slice 9 (Ship) next
+## Slice 9 done (Ship). Foundation frozen.
 
 With all 7 numbered dashboard sections real, the plan's own milestone is reached:
-"after slice 9 the foundation is frozen and Haziq's design work starts." Slice 9 covers
-`scripts/install.sh`, `config.example.json`, a README with niri autostart/layer-rule
-snippets, and a final clean `lint.sh` pass - infrastructure to make the existing build
-installable, not new dashboard features.
+"after slice 9 the foundation is frozen and Haziq's design work starts." Shipped:
+`services/Config.qml`, `config.example.json`, `scripts/install.sh`, `README.md`. Verified
+via `./scripts/lint.sh` (clean, no new warning categories), `./scripts/test.sh` (24
+passed), a refuter pass, and live checks against both the nested niri instance and, for
+`install.sh` specifically, this machine's real `$HOME` (low-risk, reversible: it only
+ever creates a new symlink and a new config file, never touches niri's or Noctalia's own
+config - those stay print-only per the plan's own wording).
+
+`services/Config.qml` reads `~/.config/dynamic-island/config.json` (falls back to
+defaults on a missing file or bad JSON, read once at startup, no live-reload) and
+exposes exactly one key, `notificationServer` (default `false`), even though the plan's
+"JSON config (under 8 keys)" scoped room for more (`screen`, `reserveSpace`, `offsetX`,
+`osdEnabled`, `workspacesEnabled`, `debug` were all on the table). Deliberate: those
+other keys have no corresponding real toggle in the codebase yet (e.g.
+`ui/IslandWindow.qml`'s `exclusiveZone` is still hardcoded, not
+`Config.reserveSpace`-gated) - shipping a config key with nothing behind it is a fake
+feature, not a config surface. `notificationServer` is the one key `Notifs.qml` actually
+consumes (gates the real `NotificationServer`'s `Loader.active`, replacing a hardcoded
+`true`). Add more keys only once there's a real toggle for them to drive.
+
+`Notifs.qml` references the sibling `Config` singleton with no explicit `import
+qs.services` - relies on QML's same-directory implicit visibility for qmldir-registered
+singletons. Confirmed sound, not a fluke, by refuter via a standalone `qml` runtime
+harness: resolves with no import, resolves identically through the `qs -c
+dynamic-island` symlink path, returns the SAME singleton instance either way (no
+duplicate-Config hazard), and a negative control (removing the `qmldir` line) correctly
+makes it `undefined` rather than silently succeeding. Both defaults happen to coincide
+if that qmldir line is ever lost by accident (`Config.notificationServer` ->
+`undefined` -> `active: false`, same as the intended off-by-default), so a future
+accidental breakage there would fail silently rather than loudly - noted here rather
+than "fixed" with a speculative `import` for a maintenance mistake that hasn't happened
+and isn't expected to.
+
+**One real bug caught by refuter, fixed before commit**: `scripts/install.sh` used
+`REPO_DIR="$(pwd)"` (logical path) after `cd`-ing into the repo. Running the script a
+*second* time from its own already-installed location
+(`~/.config/quickshell/dynamic-island/scripts/install.sh` - exactly the path a user
+re-runs it from) resolved `REPO_DIR` to that same symlinked path, so `ln -sfn` linked it
+to itself: exits 0, prints `linked X -> X`, looks like success, and silently destroys a
+working install (`qs -c dynamic-island` then fails with "Too many levels of symbolic
+links"). Fixed with `pwd -P` (physical path, symlinks resolved) plus an explicit
+same-path guard that skips relinking entirely. Verified idempotent afterward (including
+this exact self-referential re-run case) via refuter running the script twice against a
+scratch `$HOME`, never the real one.
+
+Also live-verified (30-second check, not just inferred from the read pattern) that
+flipping `notificationServer` to `true` in the real `~/.config/dynamic-island/config.json`
+genuinely re-triggers the "Could not register notification server" warning on this
+machine (something else already owns `org.freedesktop.Notifications` on this session
+bus) - confirming the config value actually reaches the `Loader`, not just that the
+default happens to look right. Restored to the shipped `false` default afterward.
 
 ## Environment notes worth not rediscovering
 
