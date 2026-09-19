@@ -5,3 +5,4 @@ singleton System 1.0 System.qml
 singleton SystemStats 1.0 SystemStats.qml
 singleton Toggles 1.0 Toggles.qml
 singleton Notifs 1.0 Notifs.qml
+singleton Workspaces 1.0 Workspaces.qml

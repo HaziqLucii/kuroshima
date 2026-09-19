@@ -18,7 +18,12 @@ QtObject {
         case "media.track":
             return { title: "Song Title", artist: "Some Artist", artUrl: "", isPlaying: true }
         case "workspace":
-            return { label: "WORKSPACE", index: 2, name: "code" }
+            // Unused by the real page: pages/WorkspacePeek.qml reads the
+            // live services/Workspaces.qml singleton directly, same as
+            // notifications read a live object rather than a snapshot.
+            // Demoing this kind just shows whatever niri's real current
+            // workspace state actually is, not a fake one.
+            return {}
         case "notification":
             // Not the same shape as a real one (services/Notifs.qml wraps
             // a live Quickshell Notification object, isCreatable: false so

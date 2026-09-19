@@ -114,4 +114,14 @@ Item {
             // error refuter found on the action-invoke double-dismiss.
         }
     }
+
+    // Slice 7. No payload: pages/WorkspacePeek.qml reads the live
+    // services/Workspaces.qml singleton directly, same as the notification
+    // page reads its live Notification object.
+    Connections {
+        target: Workspaces
+        function onActiveChanged() {
+            Island.show("workspace", {}, {})
+        }
+    }
 }

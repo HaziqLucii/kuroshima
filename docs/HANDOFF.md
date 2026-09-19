@@ -1121,6 +1121,78 @@ singleton/service has no default property, so any child object needs a named pro
 assign to non-existent default property". Only `Item`-rooted types and Quickshell's own
 `Singleton`/`ReloadPropagator` accept bare unnamed children.
 
+## Slice 7 done (Workspaces)
+
+Tried `Quickshell.WindowManager.windowsets` first; on this test setup it only ever
+reflected a single windowset. Inconclusive at the time (the sandbox genuinely only had
+one real workspace, confirmed against `niri msg --json workspaces`), and refuter later
+proved a differently-configured niri instance reports `windowsets` fine - so this is not
+a real WindowManager/niri incompatibility, just an untested case. Went with niri's own
+event-stream regardless, per the plan's documented fallback for exactly this
+uncertainty: new `services/Workspaces.qml` spawns `niri msg --json event-stream` as a
+long-running `Process` with a `SplitParser` (not the raw `NIRI_SOCKET` wire protocol the
+plan describes - the CLI already implements that handshake correctly, no need to
+reimplement it blind). Confirmed live (by refuter, with 4 real workspaces, not the
+1-workspace sandbox): the startup burst of 6 events arrives as 6 separate `onRead`
+calls within 2ms, never a partial or merged line, and `Workspaces.list` matches a
+simultaneous `niri msg --json workspaces` query exactly, sorted by niri's own per-output
+`idx`.
+
+New `pages/WorkspacePeek.qml`: no payload, reads the live singleton directly (same
+pattern as `NotificationPeek`/`MediaExpanded`). 190x34, r17 (already exactly
+`Theme.peekH`/`Theme.radius`'s existing peek-family defaults, no new tokens needed).
+
+**Two refuter-caught bugs, both fixed:**
+
+- **A phantom WORKSPACE peek fired on every shell startup.** The event stream's first
+  line is always a full `WorkspacesChanged` snapshot; `_lastActiveId` starting at -1
+  meant that snapshot always looked like a "change" and fired `activeChanged()` ~25ms
+  after launch, popping a peek nobody triggered. Fixed: a `_seeded` flag suppresses
+  exactly the first check (establishing the starting state isn't a switch), regardless
+  of which event type arrives first.
+- **The active-workspace dot never actually animated, just snapped.** Every handled
+  event assigns `Workspaces.list` a brand new array of brand new objects, even when only
+  one workspace's `active` flag moved. A `Repeater` whose `model` IS that array tears
+  down and rebuilds every delegate on each such change (refuter instrumented this: each
+  new dot is constructed already at its final width, and a `Behavior` can't animate a
+  freshly-created object's very first binding evaluation - there are no intermediate
+  frames to animate through). Fixed by keying the `Repeater` off `Workspaces.list.length`
+  (an int, stable across a pure activation switch since the workspace count doesn't
+  change) instead of the array itself, with each delegate reading `Workspaces.list[index]`
+  via its own live binding - delegates now persist across an activation change, so the
+  `Behavior on width` has an actual in-place property change to animate.
+
+Also fixed on the same pass, both cheap: `_checkActiveChanged()` now ignores an
+`activeIndex < 0` result (no workspace currently flagged active - reachable via an
+ordering race between the two handled event types, which is exactly what a real bug
+would look like, not a made-up edge case: refuter reproduced it with a
+`WorkspaceActivated` for an id not yet in `list`) rather than firing a peek for a
+broken-looking state; and the "N / total" text falls back to a plain dash instead of
+"0 / 0" when the list is empty (only reachable via the demo/IPC path or a non-niri host,
+since `app/Bridges.qml`'s real trigger can no longer fire before at least one workspace
+is confirmed active).
+
+**Known, accepted simplifications** (single-monitor machine, per system-spec.md):
+`_normalize` sorts by `idx` globally, which niri scopes per-output, so a second monitor
+would interleave both outputs' workspaces into one list; `WorkspaceActivated`'s patch
+sets `active` across the whole list by id, which would clobber the OTHER output's own
+active workspace on a multi-monitor setup (niri tracks one `is_active` per output, plus
+a separate global `is_focused` this code doesn't use). Also unhandled: niri's
+`WorkspaceUrgencyChanged` event, so `urgent` goes stale after the first snapshot -
+harmless only because the page doesn't render it yet.
+
+**Standing reminder, reconfirmed this slice**: `niri msg action <anything>` (e.g.
+`focus-workspace-down`) reproducibly wedged this project's nested-niri test instance's
+entire IPC socket during manual testing - not just the one client; killing the stray
+client did NOT recover it, `niri msg --json version` kept timing out with zero
+niri-msg processes running, and only a full niri restart fixed it. refuter separately
+stress-tested the actual `Process`/`SplitParser` design this slice ships with (6
+connect/SIGKILL churn cycles, 4 simultaneous long-lived event-stream clients) and
+exonerated it - niri stayed responsive throughout all of that. The hang is specifically
+tied to the `action` subcommand, not to querying or streaming. Avoid `niri msg action`
+against this test environment; read-only query commands (`workspaces`, `version`,
+`outputs`, `event-stream`) are the ones confirmed safe.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
