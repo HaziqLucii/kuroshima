@@ -20,7 +20,33 @@ QtObject {
         case "workspace":
             return { label: "WORKSPACE", index: 2, name: "code" }
         case "notification":
-            return { label: "NOTIFICATION", summary: "Demo notification", body: "This is a demo body." }
+            // Not the same shape as a real one (services/Notifs.qml wraps
+            // a live Quickshell Notification object, isCreatable: false so
+            // there's no way to fake a real instance): a plain JS object
+            // matching what pages/NotificationPeek.qml itself reads, plus
+            // expire()/dismiss() no-ops. Those two ARE needed even on this
+            // bypassed-Bridges.qml.onReceived demo path: app/Bridges.qml's
+            // onTransientEnded handler reacts to Island.transientEnded for
+            // ANY "notification" kind transient, demo or real, and calls
+            // whichever of the two matches how it ended (this demo one
+            // will genuinely time out and hit expire() on its own) -
+            // omitting either here throws "Property 'X' ... is not a
+            // function" the first time this demo transient ends.
+            // `closed`/`tracked` genuinely aren't needed: those are read
+            // only by onReceived, which this demo path never goes through
+            // (the IPC handler calls Island.show() directly).
+            return {
+                notification: {
+                    appName: "Demo",
+                    summary: "Demo notification",
+                    body: "This is a demo body.",
+                    appIcon: "",
+                    image: "",
+                    actions: [],
+                    expire: function () {},
+                    dismiss: function () {}
+                }
+            }
         default:
             return { label: kind }
         }

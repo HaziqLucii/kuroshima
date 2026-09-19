@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell.Services.Notifications
 import qs.services
 
 // The only file that knows both services and the controller: one
@@ -48,6 +49,69 @@ Item {
                 artUrl: Media.artUrl,
                 isPlaying: Media.isPlaying
             }, { key: "media" })
+        }
+    }
+
+    // Slice 6. Urgency-specific priority/duration per the plan's Kinds
+    // table (critical: priority 60, stays until dismissed; normal/low:
+    // priority 50, 5000/3000ms), passed as per-call overrides rather than
+    // baked into core/Kinds.qml's generic "notification" entry, since
+    // those vary per notification, not per kind. `requeue: true` on that
+    // entry already handles a lower-priority current transient getting
+    // preempted and re-shown after.
+    Connections {
+        target: Notifs
+        function onReceived(notification) {
+            const isCritical = notification.urgency === NotificationUrgency.Critical
+            const isLow = notification.urgency === NotificationUrgency.Low
+            const key = "notif:" + notification.id
+
+            Island.show("notification", { notification: notification }, {
+                key: key,
+                priority: isCritical ? 60 : 50,
+                duration: isCritical ? -1 : (isLow ? 3000 : 5000)
+            })
+
+            // Dynamic connection, not a Connections block: notifications
+            // arrive and are destroyed at runtime, one at a time, so there's
+            // no fixed target to declare a Connections{} against ahead of
+            // time. Covers both an external close (the sending app calls
+            // CloseNotification, or the user dismisses it some other way)
+            // and NotificationPeek.qml's own action-invoke dismiss.
+            notification.closed.connect(function () {
+                Island.clearKey(key)
+            })
+        }
+    }
+
+    // refuter-caught: setting `tracked = true` above takes on responsibility
+    // for eventually closing the notification ourselves - Quickshell's
+    // NotificationServer doesn't implement expiry, it just hands the shell
+    // `expireTimeout` and expects it to act. Without this, a notification
+    // that timed out in our UI (or got queue-cap evicted before ever
+    // showing) stayed tracked forever: unbounded growth, and any sender
+    // waiting on the D-Bus NotificationClosed signal (e.g. notify-send
+    // --wait) hung indefinitely.
+    Connections {
+        target: Island
+        function onTransientEnded(t, reason) {
+            if (t.kind !== "notification") return
+            const n = t.payload && t.payload.notification
+            if (!n) return
+            if (reason === "timeout" || reason === "dropped") {
+                n.expire()
+            } else if (reason === "dismissed") {
+                n.dismiss()
+            }
+            // "preempted": requeue:true on this kind means it's still
+            // queued and will show again later - not actually done yet.
+            // "cleared": only reachable here because Island.clearKey was
+            // already called, which for this kind only ever happens from
+            // the notification's own `closed` signal above (or
+            // NotificationPeek.qml's dismiss()/invoke() calls, which also
+            // route through `closed`) - i.e. it's already closed. Closing
+            // it again hits the same "Cannot close destroyed notification"
+            // error refuter found on the action-invoke double-dismiss.
         }
     }
 }

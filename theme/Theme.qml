@@ -50,6 +50,9 @@ QtObject {
     readonly property int expandedW: 700
     readonly property int expandedH: 604
     readonly property int expandedRadius: 30
+    readonly property int notificationW: 412
+    readonly property int notificationH: 100
+    readonly property int notificationRadius: 22
 
     readonly property int topInset: 5
     // 0, not a positive value: niri's own `gaps` setting (currently 12px,

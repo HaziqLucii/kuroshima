@@ -1012,19 +1012,106 @@ Open questions to resolve when this actually gets picked up, not decided yet:
 - Should swiping skip a face whose data source isn't currently available (e.g. the
   media face when nothing's playing), or land on it anyway showing an empty/dim state?
 
-## Next: Slice 6 (Notifications)
+## Slice 6 done (Notifications)
 
-`services/Notifs.qml` (`NotificationServer` inside `Loader { active: Config.notificationServer }`
-per the plan, but `Config.qml` doesn't exist yet, hardcode `active: true` for now and
-revisit when Config lands; `keepOnReload: true`, `actionsSupported`/`imageSupported`/
-`bodySupported: true`), `pages/NotificationPeek.qml` (icon/summary/body/actions,
-`RetainableLock` on the payload so a notification destroyed mid-fade doesn't crash).
+`services/Notifs.qml`: `NotificationServer` inside `Loader { active: true }` (the plan says
+`Loader { active: Config.notificationServer } `, but `Config.qml` doesn't exist in this
+project yet - hardcoded true, revisit when a real config surface lands).
+`keepOnReload: true`, `actionsSupported`/`imageSupported`/`bodySupported: true`. On arrival,
+sets `notification.tracked = true` and re-emits via a plain `received(var notification)`
+signal; doesn't know about `Island` at all, same shape as Audio/Media.
+
+`app/Bridges.qml` computes urgency-specific priority/duration as per-call overrides
+(critical: 60 / -1 "stays until dismissed"; normal: 50 / 5000; low: 50 / 3000 - these vary
+per notification, not per kind, so `core/Kinds.qml`'s generic `"notification"` entry doesn't
+encode them), calls `Island.show("notification", { notification }, {...})`, and does a
+DYNAMIC `notification.closed.connect(...)` (not a declarative `Connections{}`, since
+notifications arrive/die one at a time at runtime with no fixed target to declare ahead of
+time) to call `Island.clearKey(key)` on close, whatever closed it.
+
+`pages/NotificationPeek.qml`: payload is `{ notification }`, and the page binds straight to
+the LIVE object's properties (not a snapshot like Audio/Media use), so a sender updating an
+existing notification in place (same id) reactively updates the peek. Fixed 412x100, r22
+(new `Theme.notificationW/H/notificationRadius`). Icon: `notification.image` first, else
+`Quickshell.iconPath(notification.appIcon, true)`, else a letter-monogram fallback. Shows
+appName/NOW header, summary, then EITHER body OR an actions row (not both - the fixed 100px
+height has no room budgeted for both, and an actionable button beats uninteractable text at
+this size). `RetainableLock` guards against the notification being destroyed while this page
+is still crossfading out, per the plan.
+
 This is the first kind with a real per-instance key (`notif:<id>`, no static key in
 `Kinds.table`, `show()` already rejects a missing key since slice 2's refuter fixes).
-Verify under `scripts/dev.sh --isolated-bus` (doesn't exist yet either, see the plan):
-`notify-send -A ok=OK hi body` peeks; the action invokes; a critical notification stays
-until dismissed (`duration: -1` override, already correctly handled per slice 3's
-`_isInfiniteDuration` fix); an external close clears the peek via `Island.clearKey`.
+`services/Demo.qml`'s old `"notification"` fake payload (`{label, summary, body}`, matching
+the pre-slice-6 `DummyWide` placeholder) was updated to the real shape:
+`{ notification: {appName, summary, body, appIcon, image, actions, expire(), dismiss()} }` -
+a plain JS object, not a real instance (`Notification` itself is `isCreatable: false`), shaped
+to satisfy only what the page and (see below) `Bridges.qml`'s cleanup handler read.
+
+**Three refuter rounds on this slice, all real bugs, all fixed:**
+
+- **Round 1, action tap double-closed the notification.** `NotificationAction.invoke()`
+  already closes/destroys it (standard desktop-notification convention); the action
+  button's tap handler also called `root.n.dismiss()` right after, hitting "Cannot close
+  destroyed notification" on every action tap. Fixed: dropped the extra `dismiss()` call.
+- **Round 1, a critical notification permanently bricked the island.** `duration: -1` +
+  no dismiss gesture on the peek + nothing else ever closing it = unrecoverable from the
+  UI (refuter proved this with byte-identical screenshots over 20s while other transients
+  queued and never showed). Fixed: added a `TapHandler` on the whole card that calls
+  `root.n.dismiss()`.
+- **Round 1, tracked notifications never released.** Quickshell's `NotificationServer`
+  doesn't implement expiry itself - it hands the shell `expireTimeout` and expects it to
+  act. Setting `tracked = true` on arrival took on that responsibility, and nothing ever
+  called `expire()`/`dismiss()` afterward: unbounded `trackedNotifications` growth, and any
+  sender waiting on the D-Bus `NotificationClosed` signal (`notify-send --wait`) hung
+  forever. Fixed: `app/Bridges.qml` now listens to `Island.transientEnded` and closes the
+  notification on reason `timeout`/`dropped` (`expire()`) or `dismissed` (`dismiss()`) -
+  deliberately NOT on `preempted` (this kind has `requeue: true`, so it's still queued and
+  will show again) or `cleared` (only reachable here because the notification was already
+  closed by something else first - the dynamic `closed.connect` above, or this page's own
+  dismiss()/invoke() calls, both of which route through `closed`; closing it again would
+  double-close it, same bug class as the action-tap one). refuter verified this reasoning
+  is airtight (only two `clearKey` callers in the whole codebase, disjoint key namespaces)
+  and verified all four reasons live via real D-Bus round-trips.
+- **Round 1, broken-image checkerboard on an unresolvable icon.**
+  `Quickshell.iconPath(name, fallbackString)` doesn't check the icon actually resolves, so
+  a bad name still produced a loadable-looking URL that failed at render time; the
+  monogram fallback was only gated on an empty `iconSource`, never true for a bad name.
+  First attempted fix (gate on `IconImage.status === Image.Ready`) was itself proven a
+  no-op in round 2: Quickshell's `image://icon/` provider hands back a placeholder image
+  for an unresolvable name rather than failing, so `status` stays `Image.Ready` regardless.
+  Real fix: `Quickshell.iconPath(name, true)` - the 3-arg-bool overload - genuinely checks
+  existence and returns `""` when it can't resolve, which is what actually lets the plain
+  `iconSource === ""` gate work.
+- **Round 2, the round-1 critical-notification fix reintroduced the round-1 action-tap
+  bug.** The new card-level dismiss `TapHandler` was assumed to not fire for action-button
+  taps because "child handlers grab first" - refuter proved this assumption wrong: a plain
+  `TapHandler`'s default `gesturePolicy` (`DragThreshold`) only takes a *passive* grab, so
+  both the action button's handler and the card's ancestor handler fired for the same tap,
+  reintroducing invoke()+dismiss() on every action tap via a different path than round 1's
+  original bug. Fixed: the action button's `TapHandler` now sets
+  `gesturePolicy: TapHandler.ReleaseWithinBounds`, an exclusive grab that actually
+  suppresses the ancestor's handler (refuter verified this via a full gesturePolicy matrix
+  live, not just theory: only the CHILD's policy matters, and `WithinBounds`/
+  `ReleaseWithinBounds`/`DragWithinBounds` all correctly suppress it while `DragThreshold`
+  never does).
+
+**Reviewed and accepted, not fixed (round 2)**: one unreproducible "Cannot close destroyed
+notification" appeared in 1 of 3 full live refuter runs, not reproduced in a byte-identical
+rerun or a targeted 5-case race matrix (0/8). Plausible mechanism: `onTransientEnded` calls
+`expire()`/`dismiss()` unconditionally with no guard against the notification having already
+been closed by a racing external `CloseNotification` landing in the same tick. Left
+unguarded: the failure mode is a benign log warning, not a crash, and it didn't reproduce
+under deliberate stress. Worth a defensive guard (e.g. a small "already closing" id set
+shared between the `closed.connect` handler and `onTransientEnded`) if it's ever seen again
+in real use.
+
+**Standing reminder for every future slice** (found 3 times now: `PersistentProperties`
+in `app/Island.qml`, a debug `Connections` in `services/Audio.qml`, and the `_timer` in
+`core/IslandController.qml` got it right from the start): a `QtObject`-rooted
+singleton/service has no default property, so any child object needs a named property
+(`property Foo _x: Foo {...}`), never an unnamed one, or it fails to load with "Cannot
+assign to non-existent default property". Only `Item`-rooted types and Quickshell's own
+`Singleton`/`ReloadPropagator` accept bare unnamed children.
 
 **Standing reminder for every future slice** (found 3 times now: `PersistentProperties`
 in `app/Island.qml`, a debug `Connections` in `services/Audio.qml`, and the `_timer` in
