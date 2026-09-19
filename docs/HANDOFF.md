@@ -1273,6 +1273,103 @@ that on a busy boot. Replaced with `device.ready`, Quickshell's own deterministi
 "this device's properties have actually finished populating" signal - no arbitrary
 window to get wrong.
 
+## 06 INBOX + the rest of 07 SESSION landed, all 7 numbered sections now real
+
+Closed out the two placeholders left over from Slice 8: `pages/MediaExpanded.qml`'s "06
+INBOX" (notification history) and the rest of "07 SESSION" (workspace pills,
+ETH/VPN/SYNC + battery%; LOCK/SLEEP/POWER were already real from Slice 8 and untouched
+here beyond being re-parented). The whole dashboard has no placeholder box left.
+
+`services/Notifs.qml` gained `history`/`historyCap`(20)/`clearHistory()`. Deliberately
+separate from `NotificationServer.trackedNotifications`: `app/Bridges.qml`'s Slice-6
+cleanup calls `expire()`/`dismiss()` on a notification the moment its peek ends, which
+destroys it and drops it out of `trackedNotifications` almost immediately - that list
+only ever holds the ONE currently-showing notification, never a history. `history` is a
+plain-data snapshot array the sender-facing notification lifecycle never touches.
+
+INBOX shows up to 2 cards (`Notifs.history.slice(0, 2)`), matching the design
+reference's own `hint-placeholder-count="2"` for this list, not an arbitrary choice.
+CLEAR ALL empties the whole history, not just what's visible.
+
+**Two real bugs found live (by literally watching the panel in the nested niri
+instance) and one more from refuter, all fixed before commit:**
+
+- **Layout overflow, silently clipped by the capsule's own rounded-rect mask.** Adding
+  06+07 pushed `builtSections.implicitHeight` to 616px against a 568px budget (604 -
+  36px margins) - the excess wasn't visible as an error, 07 SESSION just failed to
+  render at all (clipped entirely below the visible frame), which is a much easier bug
+  to miss than a compile error. Caught by a temporary debug `Text` bound to
+  `builtSections.implicitHeight`/`content.height`, screenshotted via `grim` against the
+  nested niri output. Fixed by bumping `Theme.expandedH` 604->660 and `Theme.canvasH`
+  680->736 (same +56 delta, preserving the ~76px shadow-bleed slack the original 680
+  value was tuned for - see that token's own comment).
+- **SESSION row floated under SYSTEM with a dead gap below it whenever INBOX was short
+  or empty**, instead of sitting at the panel's true bottom edge. The design's own CSS
+  has INBOX as `flex:1` inside a fixed-height flex column, so it (invisibly) absorbs
+  whatever space is left and 07 always lands at the bottom - a plain top-down QML
+  `Column` can't reproduce that without a real flex-shrink implementation, so instead
+  `sessionFooter` was pulled out of `builtSections` into its own `Column`, anchored
+  `anchors.bottom: parent.bottom` on the shared `content` Item, independent of how much
+  `builtSections` above it actually fills. Confirmed via live screenshots with 0, and 2
+  populated inbox items: SESSION pins to the bottom in both cases, no dead gap, no
+  overlap.
+- **refuter caught what the live check above didn't: inbox card height was
+  content-driven with no line cap**, so a real multi-line body (or one with embedded
+  `<b>`/`<br>` parsed as rich text under the default `Text.AutoText`) grows the card
+  height without bound - refuter measured a 4-line body producing 60px of overlap into
+  `sessionFooter`, i.e. the exact clipping bug above, reintroduced through content
+  rather than through section count. Fixed: `textFormat: Text.PlainText` +
+  `maximumLineCount: 1` on both the title and body `Text`s (elide still truncates
+  single-line overflow correctly). Also fixed a smaller bug in the same area the same
+  pass surfaced: the per-card `implicitHeight` formula only added 9px of bottom
+  padding instead of 18px (forgot the inner `Column`'s own `anchors.margins: 9`), which
+  had been silently donating slack toward the overflow bug above - now `+ 18`.
+  Re-verified live with the same adversarial multi-line/long-single-line bodies refuter
+  used: both cards now truncate to one line each, no overlap.
+
+Also fixed on the same pass: the SESSION-row workspace-pill `Repeater` had a leftover
+`visible: !modelData.active || true` (always-true, clearly a stray edit artifact - just
+deleted) and a width formula that made the ACTIVE pill narrower (14px) than inactive
+ones sized to fit their label - backwards for a pill that contains visible label text
+(unlike `WorkspacePeek.qml`'s plain unlabeled dots, where "active = wider" is fine).
+Both states now size uniformly via `Math.max(20, wsLabel.implicitWidth + 8)`, matching
+the design reference's own uniform numbered-square session-row pills (only
+color/border differ by active state there, not size).
+
+**refuter also flagged two non-blocking items, deliberately left as-is for now:**
+
+- The workspace-pill Row (left) and the centered ETH/VPN/SYNC Row can collide once
+  there are enough workspaces that the left row's width exceeds the center row's start
+  x - measured at 12 numeric workspaces on the current 20px-floor pill width (this
+  desktop's niri config declares no named workspaces, so pills stay at the floor;
+  named workspaces would trigger it around 5). The session row has no width
+  arbitration between its three independently-anchored Rows at all. Not touched this
+  pass since it needs actual workspaces to reproduce and isn't hit on this machine
+  today; worth a real fix (e.g. clamping the center Row's position, or giving the left
+  Row a max width) before this ships anywhere with more than a handful of workspaces.
+- `services/Notifs.qml` has no dedupe on notifications that replace an existing one via
+  `replaces_id` (progress bars, volume/brightness OSD daemons, some media players re-
+  sending on every tick) - each resend adds a new history entry, so the 20-deep cap can
+  fill with repeats of the same logical notification and push real ones out. Left as a
+  deliberate simplicity call; revisit if it turns out to matter in practice.
+
+Verification: `./scripts/lint.sh` (no new warning categories beyond the established
+`qs.*` import-resolution baseline present in every page file), `./scripts/test.sh` (24
+passed), a dedicated refuter pass (built an offscreen `qmltestrunner` harness with
+stubbed `qs.services`/`Quickshell` modules to measure actual computed heights rather
+than trust screenshots - this is how the multi-line overflow bug above was actually
+caught and precisely measured), and live checks via `grim` screenshots against the
+existing nested niri instance (never spun up an extra one; `niri msg action` was never
+used, per the standing rule above).
+
+## Foundation frozen: Slice 9 (Ship) next
+
+With all 7 numbered dashboard sections real, the plan's own milestone is reached:
+"after slice 9 the foundation is frozen and Haziq's design work starts." Slice 9 covers
+`scripts/install.sh`, `config.example.json`, a README with niri autostart/layer-rule
+snippets, and a final clean `lint.sh` pass - infrastructure to make the existing build
+installable, not new dashboard features.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

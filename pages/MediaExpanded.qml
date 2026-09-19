@@ -11,29 +11,29 @@ import qs.ui
 // whenever there's no current transient). `payload` is still declared,
 // required by the page contract even though unused here.
 //
-// Real so far: the identity header ("01", services/System.qml), the MEDIA
-// section ("02", services/Media.qml, since slice 5, with click-and-drag
-// seeking via ui/ScrubBar.qml), CONTROLS ("03", VOL/MIC via
-// services/Audio.qml and BRI via services/Brightness.qml's DDC/CI path,
-// all ScrubBar-driven - BRI specifically commit-on-release
-// (scrubFinished) rather than continuous, since every ddcutil call
-// measures ~8s on this hardware and a continuous drag would queue up
-// dozens of them), SYSTEM ("05", services/SystemStats.qml), and TOGGLES
-// ("04", WIFI/BT via services/Toggles.qml and MIC via services/Audio.qml;
+// Real so far, all 7 numbered sections: the identity header ("01",
+// services/System.qml), the MEDIA section ("02", services/Media.qml,
+// since slice 5, with click-and-drag seeking via ui/ScrubBar.qml),
+// CONTROLS ("03", VOL/MIC via services/Audio.qml and BRI via
+// services/Brightness.qml's DDC/CI path, all ScrubBar-driven - BRI
+// specifically commit-on-release (scrubFinished) rather than continuous,
+// since every ddcutil call measures ~8s on this hardware and a
+// continuous drag would queue up dozens of them), TOGGLES ("04",
+// WIFI/BT via services/Toggles.qml and MIC via services/Audio.qml;
 // DND/NIGHT/VPN/CAPS/IDLE render dimmed, no real backend for any of them
-// on this machine), PowerPeek's battery/charging transient
-// (services/Battery.qml, never reachable on this desktop's real
-// hardware - no battery at all), and 07 SESSION's LOCK/SLEEP/POWER
-// actions (loginctl/systemctl via Quickshell.execDetached, SLEEP/POWER
-// tap-to-arm-tap-to-confirm). Workspace pills, network/VPN/sync tray
-// status, and battery% (the rest of the design's session row) plus 06
-// INBOX are still one placeholder box: real backend work spanning future
-// slices, not a style pass. That box itself has no border, matching
-// Capsule.qml's no-border capsule, but
+// on this machine), SYSTEM ("05", services/SystemStats.qml), INBOX
+// ("06", services/Notifs.qml's history array, capped to 2 shown here vs
+// its own 20-deep cap - separate from NotificationServer.trackedNotifications,
+// see Notifs.qml's own comment for why), and SESSION ("07": workspace
+// pills read live from services/Workspaces.qml, dimmed
+// ETH/VPN/SYNC labels matching the TOGGLES no-real-backend convention,
+// battery% from services/Battery.qml - never reachable on this
+// desktop's real hardware, no battery at all - and the LOCK/SLEEP/POWER
+// actions via loginctl/systemctl through Quickshell.execDetached,
+// SLEEP/POWER tap-to-arm-tap-to-confirm). No more placeholder box.
 // ui/ToggleButton.qml's 8 cells DO have a 1px border each (that's the
-// design's own toggle-cell styling, not the placeholder-box convention
-// above) - a refuter run flagging a border on THOSE specifically would be
-// a real finding, not a stale review.
+// design's own toggle-cell styling) - a refuter run flagging a border on
+// THOSE specifically would be a real finding, not a stale review.
 Item {
     id: root
 
@@ -783,10 +783,165 @@ Item {
                 color: Theme.hairline
             }
 
-            // 07 SESSION, partial: only the LOCK/SLEEP/POWER actions.
-            // Workspace pills, network/VPN/sync tray status, and battery%
-            // (the rest of the design's session row) need real backend
-            // work this pass didn't cover - still the placeholder below.
+            // 06 INBOX: services/Notifs.qml's own history array, not
+            // NotificationServer.trackedNotifications (that list only ever
+            // holds the ONE currently-showing notification, since
+            // app/Bridges.qml's Slice-6 cleanup expires/dismisses each one
+            // as soon as its peek ends - see that file's own comment).
+            // Capped at 2 visible rows (matches the design reference's own
+            // `hint-placeholder-count="2"` for this list) to keep this
+            // fixed-height page from needing to scroll and to leave room
+            // for 07 SESSION below it; CLEAR ALL empties the whole
+            // history, not just what's visible.
+            Column {
+                width: parent.width
+                spacing: 9
+                visible: Notifs.history.length > 0
+
+                Item {
+                    width: parent.width
+                    height: inboxCountText.implicitHeight
+
+                    Row {
+                        anchors.left: parent.left
+                        spacing: 9
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "06"; color: Theme.inkDim; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "INBOX"; color: Theme.inkMuted; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "通知"; color: Theme.inkDim; font.family: Theme.fontFamilyJp; font.pixelSize: 9 }
+                        Text {
+                            id: inboxCountText
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: Theme.inkDim
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 9
+                            text: Notifs.history.length
+                        }
+                    }
+                    Text {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.inkSubtle
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 9
+                        font.letterSpacing: 2
+                        text: "CLEAR ALL"
+                        TapHandler { onTapped: Notifs.clearHistory() }
+                    }
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: 7
+
+                    Repeater {
+                        model: Notifs.history.slice(0, 2)
+
+                        Rectangle {
+                            required property var modelData
+
+                            width: parent.width
+                            implicitHeight: inboxBody.y + inboxBody.implicitHeight + 18
+                            color: "transparent"
+                            border.width: 1
+                            border.color: Theme.hairline
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 3
+                                color: Theme.divider
+                            }
+
+                            Column {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 9
+                                anchors.leftMargin: 11
+                                spacing: 3
+
+                                Item {
+                                    width: parent.width
+                                    height: inboxApp.implicitHeight
+                                    Text {
+                                        id: inboxApp
+                                        anchors.left: parent.left
+                                        color: Theme.inkSubtle
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 8
+                                        font.letterSpacing: 2
+                                        text: modelData.appName.toUpperCase()
+                                    }
+                                    Text {
+                                        anchors.right: parent.right
+                                        color: Theme.inkSubtle
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 8
+                                        text: modelData.time
+                                    }
+                                }
+                                Text {
+                                    width: parent.width
+                                    color: Theme.ink
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
+                                    textFormat: Text.PlainText
+                                    text: modelData.title
+                                }
+                                Text {
+                                    id: inboxBody
+                                    width: parent.width
+                                    color: Theme.inkFaint
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 10
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
+                                    textFormat: Text.PlainText
+                                    text: modelData.body
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+
+        // Anchored to content's own bottom, deliberately OUTSIDE
+        // builtSections' top-down Column: with 06 INBOX hidden (no
+        // notifications) or short (1-2 items), a plain top-down flow left
+        // this row floating right under 05 SYSTEM with a large dead gap
+        // below it. The design's own flexbox has INBOX as `flex:1` so it
+        // (invisibly) absorbs whatever's left and this row always lands
+        // at the true bottom - anchoring this row directly reproduces
+        // that outcome without needing a real flex-shrink implementation.
+        Column {
+            id: sessionFooter
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            spacing: 16
+
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Theme.hairline
+            }
+
+            // 07 SESSION: workspace pills (left, read-only - deliberately
+            // NOT click-to-switch: `niri msg action <anything>` reproducibly
+            // wedged this project's whole nested-niri test IPC socket
+            // earlier this session, see docs/HANDOFF.md's Slice 7 notes,
+            // and that risk isn't worth a footer convenience click),
+            // ETH/VPN/SYNC (middle, dimmed placeholders - no real network/
+            // VPN/sync-status backend exists, same "keep the visual
+            // completeness, dim what's not real" call already made for
+            // TOGGLES' DND/NIGHT/VPN/CAPS/IDLE) plus battery% (real,
+            // hidden when unavailable - permanently the case on this
+            // desktop), and LOCK/SLEEP/POWER (right, real).
             //
             // SLEEP and POWER need a tap-to-arm, tap-again-to-confirm step
             // (LOCK doesn't: it's instant, harmless, trivially reversible).
@@ -798,7 +953,71 @@ Item {
             // outcomes are self-evident (the screen locks, the system
             // suspends, or it's off) and none of them ever fail in a way
             // worth designing a recovery path for.
-            Row {
+            Item {
+                width: parent.width
+                height: 20
+
+                Row {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 5
+
+                    Repeater {
+                        model: Workspaces.list
+
+                        Rectangle {
+                            required property var modelData
+
+                            // Unlike WorkspacePeek.qml's plain dots (where
+                            // "active" can just mean "wider"), each pill
+                            // here contains a label - active/inactive is
+                            // carried by color/border only, both size the
+                            // same so the active state can't clip its text.
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.max(20, wsLabel.implicitWidth + 8)
+                            height: 20
+                            radius: 2
+                            color: modelData.active ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                            border.width: 1
+                            border.color: modelData.active ? Theme.divider : Theme.hairline
+
+                            Text {
+                                id: wsLabel
+                                anchors.centerIn: parent
+                                color: modelData.active ? Theme.ink : Theme.inkDim
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 9
+                                text: modelData.name
+                            }
+                        }
+                    }
+                }
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 13
+
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "ETH"; color: Theme.inkSubtle; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "VPN"; color: Theme.inkDim; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "SYNC"; color: Theme.inkDim; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
+                    Rectangle {
+                        width: 1
+                        height: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.divider
+                        visible: Battery.available
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Battery.available
+                        color: Theme.ink
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 9
+                        text: Math.round(Battery.percentage) + "%"
+                    }
+                }
+
+                Row {
                 anchors.right: parent.right
                 spacing: 7
 
@@ -902,28 +1121,7 @@ Item {
                         }
                     }
                 }
-            }
-        }
-
-        Rectangle {
-            anchors.top: builtSections.bottom
-            anchors.topMargin: 16
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            color: "transparent"
-            border.width: 0
-
-            Text {
-                anchors.centerIn: parent
-                width: parent.width * 0.6
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                color: Theme.inkDim
-                font.family: Theme.fontFamily
-                font.pixelSize: 10
-                font.letterSpacing: 2
-                text: "INBOX · PLACEHOLDER"
+                }
             }
         }
     }

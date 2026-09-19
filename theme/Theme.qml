@@ -48,7 +48,11 @@ QtObject {
     readonly property int osdH: 58
     readonly property int osdRadius: 20
     readonly property int expandedW: 700
-    readonly property int expandedH: 604
+    // Bumped from the design's literal 604 once 06 INBOX + the full 07
+    // SESSION row landed: live-measured builtSections.implicitHeight hit
+    // 616 against a 568 available (content minus margins) budget, a 48px
+    // real overflow the capsule's own clip was silently swallowing.
+    readonly property int expandedH: 660
     readonly property int expandedRadius: 30
     readonly property int notificationW: 412
     readonly property int notificationH: 100
@@ -77,7 +81,7 @@ QtObject {
     // topInset(5) only left ~11px of bottom margin, well under what even a
     // modest blur needs, hence the cutoff. 60px of slack accounts for it.
     readonly property int canvasW: 800
-    readonly property int canvasH: 680
+    readonly property int canvasH: 736
 
     // Floating-overlay shadow: `0 24px 60px -18px rgba(0,0,0,0.95)` from the
     // design. MultiEffect has no spread parameter, so CSS's -18px spread

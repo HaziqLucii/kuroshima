@@ -11,6 +11,24 @@ QtObject {
 
     signal received(var notification)
 
+    // Backs the design's "06 INBOX" list. Deliberately NOT
+    // `NotificationServer.trackedNotifications`: app/Bridges.qml's
+    // Slice-6 cleanup calls `expire()`/`dismiss()` on a notification as
+    // soon as its peek transient ends (correctly, per the D-Bus
+    // NotificationClosed contract with the sender), which destroys it and
+    // drops it out of `trackedNotifications` almost immediately - that
+    // list only ever has the ONE currently-showing notification, not a
+    // history. This is a separate, plain-data snapshot array the sender-
+    // facing lifecycle doesn't touch, capped like the queue elsewhere in
+    // this project (core/IslandController.qml's queueCap) so it can't
+    // grow unbounded.
+    readonly property int historyCap: 20
+    property var history: [] // [{id, appName, title, body, time}], newest first
+
+    function clearHistory() {
+        root.history = []
+    }
+
     // `Loader { active: Config.notificationServer }` per the plan, but
     // Config.qml doesn't exist yet in this project - hardcoded true for
     // now, revisit once a real config surface lands (see docs/HANDOFF.md).
@@ -26,6 +44,13 @@ QtObject {
             bodySupported: true
             onNotification: (notification) => {
                 notification.tracked = true
+                root.history = [{
+                    id: notification.id,
+                    appName: notification.appName || "",
+                    title: notification.summary || "",
+                    body: notification.body || "",
+                    time: Qt.formatDateTime(new Date(), "hh:mm")
+                }].concat(root.history).slice(0, root.historyCap)
                 root.received(notification)
             }
         }
