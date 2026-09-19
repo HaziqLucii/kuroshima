@@ -782,20 +782,40 @@ silently reading zero forever without that). `pages/MediaExpanded.qml` "03 CONTR
 section: VOL/MIC as click-to-set bars (`TapHandler.onTapped`'s `eventPoint.position.x`
 against the bar's own width), each independently hidden when its source isn't available.
 
-**BRI is not built, on purpose, not just deferred.** This desktop has no
-`/sys/class/backlight` (confirmed earlier in this doc). Investigated the only real
-alternative, DDC/CI over the monitor's I2C bus (`ddcutil`): it actually works, found the
-real monitor (`ddcutil detect` -> Acer XZ306C X on `/dev/i2c-7`, no root needed, a udev
-ACL already grants the seat user access) and both `getvcp 10`/`setvcp 10 <n>` round-trip
-correctly. But every single call measured **~8 seconds** on this hardware (confirmed 3x,
-consistent to the tenth of a second, reads like a fixed retry/backoff policy on
-`ddcutil`'s side more than raw I2C latency). Asked Haziq how to handle it (skip / show a
-pending state / fire-and-forget with drift); he chose skip. If this ever gets revisited
-(different monitor, faster DDC path, or accept the latency with a visible "pending"
-state), `Audio.qml`'s pattern doesn't transfer directly: DDC calls need to go through a
-`Quickshell.Io.Process`, not a live property binding, so a `Brightness.qml` service
-would look more like `services/System.qml`'s niri-version `Process` than like the
-audio/mic sliders next to it.
+**BRI was initially skipped, then built anyway once Haziq reconsidered the latency
+tradeoff.** This desktop has no `/sys/class/backlight` (confirmed earlier in this doc).
+Investigated the only real alternative, DDC/CI over the monitor's I2C bus (`ddcutil`):
+it actually works, found the real monitor (`ddcutil detect` -> Acer XZ306C X on
+`/dev/i2c-7`, no root needed, a udev ACL already grants the seat user access) and both
+`getvcp 10`/`setvcp 10 <n>` round-trip correctly. But every single call measured
+**~8 seconds** on this hardware (confirmed 3x, consistent to the tenth of a second,
+reads like a fixed retry/backoff policy on `ddcutil`'s side more than raw I2C latency).
+Asked Haziq how to handle it (skip / show a pending state / fire-and-forget with drift);
+he chose skip at the time.
+
+**Later reversed**: Haziq decided the ~8s delay is fine for a "set and let it catch up"
+control (he sees the same lag setting brightness from KDE itself), as long as it's
+commit-on-release, not a live drag. New `services/Brightness.qml` (a `Process`-driven
+service, not a live property binding like `Audio.qml` - confirmed this doesn't transfer
+directly, DDC calls need `Quickshell.Io.Process`, closer in shape to
+`services/System.qml`'s niri-version `Process` than the audio/mic sliders next to it):
+`setBrightness(pct)` optimistically updates `value` immediately then fires
+`ddcutil setvcp 10 <n>` via a reused `Process`; one separate one-shot `ddcutil getvcp 10`
+read at first use (not app startup - Quickshell singletons are lazy, and nothing in the
+always-loaded tree references `Brightness`, only `pages/MediaExpanded.qml` does, which
+is only instantiated on demand). Deliberately NOT re-confirmed via a fresh read after
+every set: a set-then-verify round trip would double every adjustment to ~16s, and a
+silently-failed `setvcp` is rare enough on a working DDC/CI link to accept the risk.
+`pages/MediaExpanded.qml`'s CONTROLS section gained a BRI slider between VOL and MIC
+(matching the design's order), using `ui/ScrubBar.qml`'s `scrubFinished` signal
+(commits once, on release) instead of the continuous `scrub` VOL/MIC use - continuous
+firing would queue up dozens of 8-second `ddcutil` calls per drag, the same class of
+bug already caught and fixed for media seeking. refuter verified the real end-to-end
+path (a real `setvcp` genuinely moves the physical monitor's brightness, confirmed via
+a separate manual `getvcp` after) and confirmed the established Process-reuse
+coalescing behavior holds here too: two rapid successive commits correctly settle on
+the LATEST value, not a stale intermediate one, verified both synthetically and through
+the real ddcutil path.
 
 The "04 TOGGLES · 05 SYSTEM · 06 INBOX · 07 SESSION" placeholder box shrank accordingly
 (it used to also say "CONTROLS", now that section is real).

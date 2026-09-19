@@ -14,10 +14,11 @@ import qs.ui
 // Real so far: the identity header ("01", services/System.qml), the MEDIA
 // section ("02", services/Media.qml, since slice 5, with click-and-drag
 // seeking via ui/ScrubBar.qml), CONTROLS ("03", VOL/MIC via
-// services/Audio.qml, also ScrubBar-driven; BRI deliberately left out, see
-// docs/HANDOFF.md - this desktop has no backlight, and the DDC/CI
-// alternative measured ~8s round-trip per read/write, too slow to be a
-// usable slider), SYSTEM ("05", services/SystemStats.qml), and TOGGLES
+// services/Audio.qml and BRI via services/Brightness.qml's DDC/CI path,
+// all ScrubBar-driven - BRI specifically commit-on-release
+// (scrubFinished) rather than continuous, since every ddcutil call
+// measures ~8s on this hardware and a continuous drag would queue up
+// dozens of them), SYSTEM ("05", services/SystemStats.qml), and TOGGLES
 // ("04", WIFI/BT via services/Toggles.qml and MIC via services/Audio.qml;
 // DND/NIGHT/VPN/CAPS/IDLE render dimmed, no real backend for any of them
 // on this machine). INBOX/SESSION are still one placeholder box: real
@@ -405,14 +406,16 @@ Item {
                 width: parent.width
                 spacing: 16
 
-                // VOL and MIC only. BRI is deliberately left out, not just
-                // hidden: this desktop has no backlight, and the only real
-                // brightness path found is DDC/CI over the monitor's I2C
-                // bus (`ddcutil`), which measured ~8s round-trip per
-                // read/write on this hardware. A click-to-set slider that
-                // takes 8 seconds to visibly respond isn't a style/scope
-                // question, it's a genuinely bad control, so Haziq chose to
-                // skip it rather than ship it pending or fire-and-forget.
+                // VOL, BRI, MIC. BRI is commit-on-release (scrubFinished),
+                // not the continuous scrub VOL/MIC use: this desktop has no
+                // backlight, and the only real brightness path found is
+                // DDC/CI over the monitor's I2C bus (`ddcutil`), which
+                // measures ~8s round-trip per read/write on this hardware.
+                // Haziq accepted the latency for a "set and let it catch
+                // up" control (he sees the same lag setting it from KDE);
+                // a CONTINUOUS drag would instead queue up dozens of 8s
+                // ddcutil calls, exactly the media-seek-spam bug refuter
+                // already caught once for the progress bar.
                 Column {
                 id: controlsCol
                 width: (controlsTogglesRow.width - 32 - 1) / 2
@@ -423,7 +426,7 @@ Item {
                 // measured `Audio.available` still false at 2.5s), which
                 // contradicts "each module hides itself when its source is
                 // absent" same as everything else on this page.
-                visible: Audio.available || Audio.micAvailable
+                visible: Audio.available || Audio.micAvailable || Brightness.value >= 0
 
                 Row {
                     spacing: 9
@@ -463,6 +466,53 @@ Item {
                         width: parent.width
                         value: Audio.muted ? 0 : Audio.volume
                         onScrub: (pct) => Audio.setVolume(pct)
+                    }
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: 5
+                    // value starts at -1 until the first ddcutil read
+                    // completes (~8s after the first time this page is
+                    // expanded, not app startup - see
+                    // services/Brightness.qml) - hidden until then, same
+                    // "don't show a bogus reading" reasoning as everything
+                    // else on this page that waits on a slow real source.
+                    visible: Brightness.value >= 0
+
+                    Item {
+                        width: parent.width
+                        height: briValue.implicitHeight
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: Theme.inkFaint
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 9
+                            font.letterSpacing: 1
+                            text: "BRI"
+                        }
+                        Text {
+                            id: briValue
+                            anchors.right: parent.right
+                            color: Theme.ink
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 9
+                            text: Math.round(Math.max(0, Brightness.value) * 100)
+                        }
+                    }
+                    ScrubBar {
+                        width: parent.width
+                        value: Math.max(0, Brightness.value)
+                        // Not onScrub: an 8s ddcutil call per pointer-move
+                        // event would be the exact same seek-spam bug
+                        // refuter already caught for media, just worse (8s
+                        // vs a cheap MPRIS call). scrubFinished commits once,
+                        // on release or a plain click; the fill still
+                        // tracks the live drag via ScrubBar's own
+                        // previewValue, same as the media bar.
+                        onScrubFinished: (pct) => Brightness.setBrightness(pct)
                     }
                 }
 
