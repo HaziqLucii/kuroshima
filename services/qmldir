@@ -7,3 +7,4 @@ singleton Toggles 1.0 Toggles.qml
 singleton Notifs 1.0 Notifs.qml
 singleton Workspaces 1.0 Workspaces.qml
 singleton Brightness 1.0 Brightness.qml
+singleton Battery 1.0 Battery.qml

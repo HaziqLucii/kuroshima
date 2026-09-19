@@ -53,6 +53,9 @@ QtObject {
     readonly property int notificationW: 412
     readonly property int notificationH: 100
     readonly property int notificationRadius: 22
+    // Battery/charging state: height/radius already match the shared
+    // peek-family defaults (peekH/radius), only the width is distinct.
+    readonly property int batteryW: 300
 
     readonly property int topInset: 5
     // 0, not a positive value: niri's own `gaps` setting (currently 12px,

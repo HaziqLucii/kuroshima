@@ -21,9 +21,15 @@ import qs.ui
 // dozens of them), SYSTEM ("05", services/SystemStats.qml), and TOGGLES
 // ("04", WIFI/BT via services/Toggles.qml and MIC via services/Audio.qml;
 // DND/NIGHT/VPN/CAPS/IDLE render dimmed, no real backend for any of them
-// on this machine). INBOX/SESSION are still one placeholder box: real
-// backend work spanning future slices, not a style pass. That box itself
-// has no border, matching Capsule.qml's no-border capsule, but
+// on this machine), PowerPeek's battery/charging transient
+// (services/Battery.qml, never reachable on this desktop's real
+// hardware - no battery at all), and 07 SESSION's LOCK/SLEEP/POWER
+// actions (loginctl/systemctl via Quickshell.execDetached, SLEEP/POWER
+// tap-to-arm-tap-to-confirm). Workspace pills, network/VPN/sync tray
+// status, and battery% (the rest of the design's session row) plus 06
+// INBOX are still one placeholder box: real backend work spanning future
+// slices, not a style pass. That box itself has no border, matching
+// Capsule.qml's no-border capsule, but
 // ui/ToggleButton.qml's 8 cells DO have a 1px border each (that's the
 // design's own toggle-cell styling, not the placeholder-box convention
 // above) - a refuter run flagging a border on THOSE specifically would be
@@ -776,6 +782,127 @@ Item {
                 height: 1
                 color: Theme.hairline
             }
+
+            // 07 SESSION, partial: only the LOCK/SLEEP/POWER actions.
+            // Workspace pills, network/VPN/sync tray status, and battery%
+            // (the rest of the design's session row) need real backend
+            // work this pass didn't cover - still the placeholder below.
+            //
+            // SLEEP and POWER need a tap-to-arm, tap-again-to-confirm step
+            // (LOCK doesn't: it's instant, harmless, trivially reversible).
+            // The design's own mockup has no confirmation step at all, just
+            // a plain button - a single misclick powering off the machine
+            // is a real risk a design mockup doesn't have to account for.
+            // Quickshell.execDetached fires the action with no
+            // success/failure feedback; acceptable here since all three
+            // outcomes are self-evident (the screen locks, the system
+            // suspends, or it's off) and none of them ever fail in a way
+            // worth designing a recovery path for.
+            Row {
+                anchors.right: parent.right
+                spacing: 7
+
+                Rectangle {
+                    id: lockBtn
+                    implicitWidth: lockLabel.implicitWidth + 18
+                    implicitHeight: 20
+                    radius: 2
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Theme.hairline
+
+                    Text {
+                        id: lockLabel
+                        anchors.centerIn: parent
+                        color: Theme.inkMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 8
+                        font.letterSpacing: 2
+                        text: "LOCK"
+                    }
+                    TapHandler {
+                        onTapped: Quickshell.execDetached(["loginctl", "lock-session"])
+                    }
+                }
+
+                Rectangle {
+                    id: sleepBtn
+                    property bool armed: false
+
+                    implicitWidth: sleepLabel.implicitWidth + 18
+                    implicitHeight: 20
+                    radius: 2
+                    color: "transparent"
+                    border.width: 1
+                    border.color: armed ? Theme.divider : Theme.hairline
+
+                    Timer {
+                        id: sleepArmTimer
+                        interval: 3000
+                        onTriggered: sleepBtn.armed = false
+                    }
+                    Text {
+                        id: sleepLabel
+                        anchors.centerIn: parent
+                        color: sleepBtn.armed ? Theme.ink : Theme.inkMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 8
+                        font.letterSpacing: 2
+                        text: sleepBtn.armed ? "CONFIRM?" : "SLEEP"
+                    }
+                    TapHandler {
+                        onTapped: {
+                            if (sleepBtn.armed) {
+                                sleepArmTimer.stop()
+                                sleepBtn.armed = false
+                                Quickshell.execDetached(["systemctl", "suspend"])
+                            } else {
+                                sleepBtn.armed = true
+                                sleepArmTimer.restart()
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: powerBtn
+                    property bool armed: false
+
+                    implicitWidth: powerLabel.implicitWidth + 18
+                    implicitHeight: 20
+                    radius: 2
+                    color: "transparent"
+                    border.width: 1
+                    border.color: armed ? "#d75f5f" : Theme.hairline
+
+                    Timer {
+                        id: powerArmTimer
+                        interval: 3000
+                        onTriggered: powerBtn.armed = false
+                    }
+                    Text {
+                        id: powerLabel
+                        anchors.centerIn: parent
+                        color: powerBtn.armed ? "#d75f5f" : Theme.inkMuted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 8
+                        font.letterSpacing: 2
+                        text: powerBtn.armed ? "CONFIRM?" : "POWER"
+                    }
+                    TapHandler {
+                        onTapped: {
+                            if (powerBtn.armed) {
+                                powerArmTimer.stop()
+                                powerBtn.armed = false
+                                Quickshell.execDetached(["systemctl", "poweroff"])
+                            } else {
+                                powerBtn.armed = true
+                                powerArmTimer.restart()
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Rectangle {
@@ -796,7 +923,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: 10
                 font.letterSpacing: 2
-                text: "INBOX · SESSION · PLACEHOLDER"
+                text: "INBOX · PLACEHOLDER"
             }
         }
     }

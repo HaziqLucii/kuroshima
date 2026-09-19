@@ -15,6 +15,7 @@ Item {
     Component { id: mediaExpandedComponent; MediaExpanded {} }
     Component { id: notificationPeekComponent; NotificationPeek {} }
     Component { id: workspacePeekComponent; WorkspacePeek {} }
+    Component { id: powerPeekComponent; PowerPeek {} }
 
     // The animated value is kept separate from the rendered width/height,
     // and the render size is hard-clamped to the fixed layer-shell canvas.
@@ -71,11 +72,10 @@ Item {
         PageHost {
             id: host
             anchors.centerIn: parent
-            // Real peek pages land one per slice (4-8); until each one
-            // exists, its Kinds.table page name maps to the shared
-            // placeholder. OsdPeek (slice 4), MediaPeek/MediaExpanded
-            // (slice 5), NotificationPeek (slice 6), and WorkspacePeek
-            // (slice 7) are real.
+            // All real now: OsdPeek (slice 4), MediaPeek/MediaExpanded
+            // (slice 5), NotificationPeek (slice 6), WorkspacePeek
+            // (slice 7), and PowerPeek (slice 8, though never reachable on
+            // this desktop's real hardware - no battery at all).
             pageMap: ({
                 "compact": compactComponent,
                 "OsdPeek": osdPeekComponent,
@@ -83,7 +83,7 @@ Item {
                 "MediaExpanded": mediaExpandedComponent,
                 "NotificationPeek": notificationPeekComponent,
                 "WorkspacePeek": workspacePeekComponent,
-                "PowerPeek": dummyWideComponent
+                "PowerPeek": powerPeekComponent
             })
 
             Component.onCompleted: host.setPage(Island.page, Island.payload)

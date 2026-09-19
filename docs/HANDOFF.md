@@ -1213,6 +1213,66 @@ tied to the `action` subcommand, not to querying or streaming. Avoid `niri msg a
 against this test environment; read-only query commands (`workspaces`, `version`,
 `outputs`, `event-stream`) are the ones confirmed safe.
 
+## Slice 8 done (Power/Brightness), the "power" half
+
+Brightness landed separately (see "BRI slider in CONTROLS..." above). This covers the
+rest: `services/Battery.qml` (UPower's `displayDevice`, `available: isPresent` -
+permanently false on this desktop, no battery hardware at all, confirmed via
+`upower -i`; built for correctness/portability per the plan's own expectation),
+`pages/PowerPeek.qml` (battery/charging transient, 300x34 r17, new `Theme.batteryW`),
+and a LOCK/SLEEP/POWER actions row added to `pages/MediaExpanded.qml`'s "07 SESSION"
+(partial - workspace pills/network-VPN-sync tray status/battery% still placeholder,
+those need real backend work this pass didn't cover).
+
+**Destructive-action safety, taken seriously given the stakes**: `systemctl suspend`/
+`systemctl poweroff` (via `Quickshell.execDetached`) affect the REAL host system with no
+sandboxing regardless of which test niri/qs instance triggers them - unlike every other
+piece of hardware interaction this project has tested live (ddcutil brightness, real
+notifications, real workspace switches), these were never actually executed during
+development or either refuter pass, not even `loginctl lock-session` (least severe, but
+still an unrequested action against the live session). Verified instead by: careful
+manual code read-through of the arm/confirm/timeout state machine before ever
+dispatching refuter, then a refuter pass explicitly instructed to verify ONLY via a
+scratch copy with the three `execDetached` calls stubbed out - confirmed clean
+afterward (`grep` for remaining `execDetached` calls in the scratch copy found only
+the two in comments). LOCK is a single instant tap (harmless, trivially reversible via
+password). SLEEP and POWER need tap-to-arm, tap-again-within-3s-to-confirm (POWER shows
+red once armed, matching the design's own hover-red convention for it); refuter's
+scratch-copy state-machine suite specifically covered the timing edge case that
+mattered most here - a tap landing at 2.9s into the window still confirms, one at 3.1s
+does NOT execute, it just re-arms (no Timer/input race where a late tap could be
+mistaken for a still-valid confirmation).
+
+**Two real bugs in `services/Battery.qml`, caught by refuter, both fixed** (neither
+reproducible on this hardware - `available` is false either way here, so both silently
+had no visible effect on this desktop, but would have been wrong on any machine with a
+real battery):
+
+- **`percentage` was 0..100 but Quickshell actually normalizes UPower's `Percentage` to
+  0..1** (`device.hpp`: "equivalent to energy / energyCapacity"). Read backwards from
+  Quickshell's own source, not verified against it originally. Would have rendered a
+  92%-charged battery as "1%" and left the battery-bar fill permanently near-empty.
+  Fixed: `percentage: available ? device.percentage * 100 : 0`.
+- **`charging` checked only `state === Charging`, missing real UPower transitions that
+  never pass through that exact enum value**: charge completing while still plugged in
+  goes `Charging -> FullyCharged` (still charging, but the check would say no); some
+  hardware with a charge-limit threshold goes `Discharging -> PendingCharge` on plug-in,
+  skipping `Charging` entirely; and `FullyCharged -> Discharging` on unplug is a direct
+  transition that never re-enters `Charging` either, meaning a charged laptop being
+  unplugged would show NO state change and NO peek for the actual unplug event. Fixed:
+  derived from `UPower.onBattery` instead ("is the system currently running on battery
+  power, or discharging" - the semantically correct "is a charger connected" signal,
+  correct across all three transitions) rather than enumerating charging-adjacent state
+  values by hand.
+
+Also tightened the startup-burst guard (same class of bug as `services/Audio.qml`'s
+`_pastStartupBurst`/`services/Workspaces.qml`'s `_seeded`, applied here preemptively
+since it can't be reproduced on battery-less hardware): the original 500ms fixed-`Timer`
+heuristic risked leaking a real startup burst through if UPower resolved slower than
+that on a busy boot. Replaced with `device.ready`, Quickshell's own deterministic
+"this device's properties have actually finished populating" signal - no arbitrary
+window to get wrong.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

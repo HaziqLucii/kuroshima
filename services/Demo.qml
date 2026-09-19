@@ -14,7 +14,13 @@ QtObject {
         case "osd.brightness":
             return { kind: "brightness", value: 0.70 }
         case "power":
-            return { label: "POWER", charging: true, percent: 55 }
+            // Unused by the real page: pages/PowerPeek.qml reads the live
+            // services/Battery.qml singleton directly. This desktop has no
+            // battery at all, so demoing this kind shows Battery.available
+            // === false's rendering (0%, "BATTERY" label), not a fake
+            // charging state - there's no live source to fake it against
+            // meaningfully.
+            return {}
         case "media.track":
             return { title: "Song Title", artist: "Some Artist", artUrl: "", isPlaying: true }
         case "workspace":

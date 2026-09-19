@@ -124,4 +124,15 @@ Item {
             Island.show("workspace", {}, {})
         }
     }
+
+    // Slice 8. No payload: pages/PowerPeek.qml reads the live
+    // services/Battery.qml singleton directly. This desktop has no
+    // battery at all, so this never fires here in practice - only
+    // reachable via the demo/IPC path on this machine.
+    Connections {
+        target: Battery
+        function onChargerChanged() {
+            Island.show("power", {}, {})
+        }
+    }
 }
