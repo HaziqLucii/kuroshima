@@ -18,6 +18,8 @@ Compositor support: niri only, for now.
 |---|---|
 | ![Notification peek](docs/screenshots/island-notification.png) | ![Settings island screen](docs/screenshots/island-settings.png) |
 
+![Wallpaper carousel](docs/screenshots/island-wallpaper.png)
+
 ## Install
 
 ```sh
