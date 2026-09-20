@@ -788,11 +788,14 @@ Item {
             // holds the ONE currently-showing notification, since
             // app/Bridges.qml's Slice-6 cleanup expires/dismisses each one
             // as soon as its peek ends - see that file's own comment).
-            // Capped at 2 visible rows (matches the design reference's own
-            // `hint-placeholder-count="2"` for this list) to keep this
-            // fixed-height page from needing to scroll and to leave room
-            // for 07 SESSION below it; CLEAR ALL empties the whole
-            // history, not just what's visible.
+            // Was hard-truncated to the first 2 (matching the design
+            // reference's `hint-placeholder-count="2"`) with the rest of
+            // history completely unreachable from the UI - Haziq wanted
+            // scroll instead of truncation, so this is now a ListView
+            // clipped to roughly a 2-card viewport (same height budget as
+            // before, so 07 SESSION below it doesn't move) showing the
+            // FULL history, scrollable for anything past what fits. CLEAR
+            // ALL empties the whole history either way.
             Column {
                 width: parent.width
                 spacing: 9
@@ -800,7 +803,7 @@ Item {
 
                 Item {
                     width: parent.width
-                    height: inboxCountText.implicitHeight
+                    height: inboxCountBadge.implicitHeight
 
                     Row {
                         anchors.left: parent.left
@@ -808,13 +811,10 @@ Item {
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "06"; color: Theme.inkDim; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "INBOX"; color: Theme.inkMuted; font.family: Theme.fontFamily; font.pixelSize: 9; font.letterSpacing: 2 }
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "通知"; color: Theme.inkDim; font.family: Theme.fontFamilyJp; font.pixelSize: 9 }
-                        Text {
-                            id: inboxCountText
+                        CountBadge {
+                            id: inboxCountBadge
                             anchors.verticalCenter: parent.verticalCenter
-                            color: Theme.inkDim
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 9
-                            text: Notifs.history.length
+                            count: Notifs.history.length
                         }
                     }
                     Text {
@@ -829,79 +829,86 @@ Item {
                     }
                 }
 
-                Column {
+                ListView {
+                    id: inboxList
                     width: parent.width
+                    // Shrinks to fit when there's less than a 2-card's
+                    // worth of history (matching the old Column's own
+                    // "no wasted empty space" behavior), clips at roughly
+                    // 2 cards otherwise - same visual budget the hard
+                    // truncation used to reserve - and scrolls for the
+                    // rest instead of hiding it.
+                    height: Math.min(contentHeight, 145)
+                    clip: true
                     spacing: 7
+                    boundsBehavior: Flickable.StopAtBounds
+                    model: Notifs.history
 
-                    Repeater {
-                        model: Notifs.history.slice(0, 2)
+                    delegate: Rectangle {
+                        required property var modelData
+
+                        width: inboxList.width
+                        height: inboxBody.y + inboxBody.implicitHeight + 18
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Theme.hairline
 
                         Rectangle {
-                            required property var modelData
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: 3
+                            color: Theme.divider
+                        }
 
-                            width: parent.width
-                            implicitHeight: inboxBody.y + inboxBody.implicitHeight + 18
-                            color: "transparent"
-                            border.width: 1
-                            border.color: Theme.hairline
+                        Column {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 9
+                            anchors.leftMargin: 11
+                            spacing: 3
 
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                width: 3
-                                color: Theme.divider
+                            Item {
+                                width: parent.width
+                                height: inboxApp.implicitHeight
+                                Text {
+                                    id: inboxApp
+                                    anchors.left: parent.left
+                                    color: Theme.inkSubtle
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 8
+                                    font.letterSpacing: 2
+                                    text: modelData.appName.toUpperCase()
+                                }
+                                Text {
+                                    anchors.right: parent.right
+                                    color: Theme.inkSubtle
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 8
+                                    text: modelData.time
+                                }
                             }
-
-                            Column {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.top: parent.top
-                                anchors.margins: 9
-                                anchors.leftMargin: 11
-                                spacing: 3
-
-                                Item {
-                                    width: parent.width
-                                    height: inboxApp.implicitHeight
-                                    Text {
-                                        id: inboxApp
-                                        anchors.left: parent.left
-                                        color: Theme.inkSubtle
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 8
-                                        font.letterSpacing: 2
-                                        text: modelData.appName.toUpperCase()
-                                    }
-                                    Text {
-                                        anchors.right: parent.right
-                                        color: Theme.inkSubtle
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 8
-                                        text: modelData.time
-                                    }
-                                }
-                                Text {
-                                    width: parent.width
-                                    color: Theme.ink
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: 11
-                                    elide: Text.ElideRight
-                                    maximumLineCount: 1
-                                    textFormat: Text.PlainText
-                                    text: modelData.title
-                                }
-                                Text {
-                                    id: inboxBody
-                                    width: parent.width
-                                    color: Theme.inkFaint
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: 10
-                                    elide: Text.ElideRight
-                                    maximumLineCount: 1
-                                    textFormat: Text.PlainText
-                                    text: modelData.body
-                                }
+                            Text {
+                                width: parent.width
+                                color: Theme.ink
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 11
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                                textFormat: Text.PlainText
+                                text: modelData.title
+                            }
+                            Text {
+                                id: inboxBody
+                                width: parent.width
+                                color: Theme.inkFaint
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                                textFormat: Text.PlainText
+                                text: modelData.body
                             }
                         }
                     }
@@ -931,11 +938,19 @@ Item {
                 color: Theme.hairline
             }
 
-            // 07 SESSION: workspace pills (left, read-only - deliberately
-            // NOT click-to-switch: `niri msg action <anything>` reproducibly
-            // wedged this project's whole nested-niri test IPC socket
-            // earlier this session, see docs/HANDOFF.md's Slice 7 notes,
-            // and that risk isn't worth a footer convenience click),
+            // 07 SESSION: workspace pills (left, click-to-switch via
+            // `niri msg action focus-workspace <ref>` - HANDOFF.md's Slice 7
+            // notes document `niri msg action <anything>` reproducibly
+            // wedging this project's nested-niri test IPC socket, which is
+            // why this was originally left read-only. Re-verified against
+            // the current niri version before wiring this up: 15+ calls
+            // (single, repeated, the exact `focus-workspace-down` verb
+            // named in that finding, and 10 concurrent rapid-fire calls)
+            // all completed cleanly with the socket staying fully
+            // responsive throughout - the original bug looks fixed
+            // upstream since that finding was written. `timeout`-wrapped
+            // anyway as a cheap safety net: a future regression would then
+            // only ever hang the one spawned CLI process, never this shell.
             // ETH/VPN/SYNC (middle, dimmed placeholders - no real network/
             // VPN/sync-status backend exists, same "keep the visual
             // completeness, dim what's not real" call already made for
@@ -989,6 +1004,16 @@ Item {
                                 font.pixelSize: 9
                                 text: modelData.name
                             }
+
+                            // modelData.name is already "the workspace's own
+                            // name if it has one, else its numeric index as
+                            // a string" (services/Workspaces.qml) - exactly
+                            // the "reference (index or name)" niri's own
+                            // focus-workspace action expects, so the exact
+                            // label on screen is always a valid argument.
+                            TapHandler {
+                                onTapped: Quickshell.execDetached(["timeout", "3", "niri", "msg", "action", "focus-workspace", modelData.name])
+                            }
                         }
                     }
                 }
@@ -1040,7 +1065,16 @@ Item {
                         text: "LOCK"
                     }
                     TapHandler {
-                        onTapped: Quickshell.execDetached(["loginctl", "lock-session"])
+                        // Was `loginctl lock-session`, which just emits a
+                        // logind D-Bus signal - it did nothing on its own
+                        // without something subscribed to it. Noctalia used
+                        // to be that listener; niri-lockscreen (its
+                        // replacement) never subscribed to that signal at
+                        // all - its only triggers are this exact IPC call
+                        // (same one Mod+ALT+L already uses), idle timeout,
+                        // and the suspend hook. Calling the real mechanism
+                        // directly instead of hoping something's listening.
+                        onTapped: Quickshell.execDetached(["qs", "-c", "niri-lockscreen", "ipc", "call", "lockscreen", "lock"])
                     }
                 }
 

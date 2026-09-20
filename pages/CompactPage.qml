@@ -68,6 +68,40 @@ Item {
             active: Media.isPlaying
             barHeight: 11
         }
+
+        Rectangle {
+            width: 1
+            height: 11
+            anchors.verticalCenter: parent.verticalCenter
+            color: Theme.divider
+            visible: Notifs.history.length > 0
+        }
+
+        // Same "gone when there's genuinely nothing to show" pattern as
+        // the media divider/EQ above. "Unread" here just means "history
+        // isn't empty" - there's no separate read/unread tracking
+        // anywhere else in this project, and CLEAR ALL in the expanded
+        // INBOX (Notifs.clearHistory()) is the only thing that empties
+        // it, so that's also what makes this disappear.
+        Row {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: Notifs.history.length > 0
+            spacing: 4
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                color: Theme.ink
+                font.family: Theme.fontFamily
+                font.pixelSize: 11
+                // Verified codepoint (plain bell), already in use for the
+                // DND toggle's off-state icon in pages/MediaExpanded.qml.
+                text: String.fromCodePoint(0xf0f3)
+            }
+            CountBadge {
+                anchors.verticalCenter: parent.verticalCenter
+                count: Notifs.history.length
+            }
+        }
     }
 
     // MediaExpanded stopped being just the media view once CONTROLS,
