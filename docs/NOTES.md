@@ -2338,6 +2338,17 @@ but not the same as watching it settle live - if a future push/pop ever
 looks like it "hangs" mid-animation or the outgoing page never actually
 disappears, this coordination is the first place to look.
 
+## Fuzzel prompt renamed, corner placement ruled out
+
+Haziq wanted the fuzzel prompt moved to a bottom-right corner "like a
+trademark" and renamed from `//kuro.` to `//kuroshima`. Checked fuzzel
+1.15.0's own `fuzzel.ini` man page rather than trusting the earlier
+"can't pin text to a corner" note at face value - still true: `prompt`/
+`placeholder`/`message` are the only text slots fuzzel has, all tied to
+the input line, no canvas/watermark feature exists. Renamed in place
+(the only real option); corner placement stays out of reach without
+switching off fuzzel entirely, which wasn't asked for.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

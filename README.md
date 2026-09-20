@@ -104,12 +104,12 @@ so restart the island after editing it.
 `fuzzel/fuzzel.ini`, linked to `~/.config/fuzzel/fuzzel.ini` by `install.sh`: bone-on-
 black, sharp corners (`radius=0`), same tokens as `theme/Theme.qml`, and the same full
 invert on the selected entry (bone background, near-black text) as the island's own
-hover/active treatment. Prompt is `//kuro. ` instead of the default `> `. Icons are
+hover/active treatment. Prompt is `//kuroshima ` instead of the default `> `. Icons are
 kept (not disabled) - a strict monochrome palette usually looks cleaner without them,
 but losing at-a-glance app recognition was a real tradeoff, not an obvious win, so this
 keeps them. Fuzzel has no way to pin arbitrary text to a corner of its window (it's a
-plain list launcher, not a custom canvas), so `//kuro.` lives in the prompt slot rather
-than as a separate label.
+plain list launcher, not a custom canvas, confirmed against its own config man page),
+so `//kuroshima` lives in the prompt slot rather than as a separate corner label.
 
 ## Kitty theme
 
