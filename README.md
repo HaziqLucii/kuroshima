@@ -8,6 +8,12 @@ stats, notification inbox, and workspace/session controls.
 
 Compositor support: niri only, for now.
 
+## Screenshots
+
+| Compact pill | Expanded dashboard |
+|---|---|
+| ![Compact idle pill](docs/screenshots/compact-pill.png) | ![Expanded dashboard](docs/screenshots/dashboard-expanded.png) |
+
 ## Install
 
 ```sh
