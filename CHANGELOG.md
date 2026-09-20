@@ -54,6 +54,13 @@ history and `docs/NOTES.md` for decision-level detail.
   stepping back onto a recently-shown wallpaper (reassigning an `Image`
   source to a URL it already held fired no change signal), skipping
   straight past that image instead of crossfading to it.
+- Expanded dashboard's INBOX notification history dropped every
+  notification's `actions` entirely, so an actionable notification (e.g.
+  a `cachy-update` prompt) couldn't be interacted with once it left the
+  transient peek - only `pages/NotificationPeek.qml` had action buttons.
+  `services/Notifs.qml` now keeps a live `actions` reference per history
+  entry, and the INBOX delegate renders the same action-pill UI the peek
+  already had.
 
 ## [0.3.0] - 2026-09-20
 

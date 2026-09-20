@@ -2148,6 +2148,40 @@ comparison-screenshot pattern used throughout this project:
   caption under the current tile entirely - Haziq: "hide the filename too
   below the wallpaper."
 
+## INBOX history dropped notification actions entirely
+
+Haziq: a `cachy-update` notification had an action he should be able to
+interact with, but couldn't click it in the expanded dashboard's INBOX.
+Root cause, not a rendering bug: `services/Notifs.qml`'s `onNotification`
+handler builds each history entry from a fixed subset of fields (`id,
+appName, title, body, time`) and never kept the notification's `actions`
+at all - the INBOX delegate (`pages/MediaExpanded.qml`) had nothing to
+render a button for even if it wanted to. `pages/NotificationPeek.qml`
+(the transient popup) already had the real pattern for this - a `Row` of
+bordered pill `Rectangle`s over `Repeater { model: n.actions }`, each with
+a `TapHandler` calling `modelData.invoke()` - it just never got carried
+over to the persisted history view.
+
+Fixed by keeping `actions: notification.actions || []` as a LIVE
+reference on the history entry (not copied primitives the way the other
+fields are) - `notification.tracked = true`, already set on the line
+above for an unrelated reason (keeping the object alive at all so the
+history snapshot doesn't reference something already destroyed), is
+exactly what also keeps these actions invokable long after the peek
+transient that first showed them is gone. Mirrored
+`NotificationPeek.qml`'s action-pill UI and its
+`TapHandler.ReleaseWithinBounds` gesture policy (an exclusive grab,
+needed so an action tap doesn't also fire some ancestor's dismiss
+handler - see that file's own comment) into the INBOX delegate.
+
+Real, unavoidable tradeoff surfaced by this fix: `Notifs.history` is
+plain in-memory state, `property var history: []`, no `FileView`
+persistence the way `widgets.json`/`wallpaper-state.json` have - a shell
+restart (needed to load ANY code change here, same as everywhere else in
+this project) wipes the whole history, not just this fix's new field.
+Confirmed with Haziq before restarting rather than silently losing his
+actual pending `cachy-update` notification.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

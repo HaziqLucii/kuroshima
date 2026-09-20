@@ -23,7 +23,7 @@ QtObject {
     // this project (core/IslandController.qml's queueCap) so it can't
     // grow unbounded.
     readonly property int historyCap: 20
-    property var history: [] // [{id, appName, title, body, time}], newest first
+    property var history: [] // [{id, appName, title, body, time, actions}], newest first
 
     function clearHistory() {
         root.history = []
@@ -48,7 +48,13 @@ QtObject {
                     appName: notification.appName || "",
                     title: notification.summary || "",
                     body: notification.body || "",
-                    time: Qt.formatDateTime(new Date(), "hh:mm")
+                    time: Qt.formatDateTime(new Date(), "hh:mm"),
+                    // Kept as a live reference (not copied primitives, the
+                    // way the fields above are) so the INBOX list can still
+                    // invoke() an action after the peek transient is long
+                    // gone - `tracked = true` above is exactly what keeps
+                    // this notification (and these actions) alive for that.
+                    actions: notification.actions || []
                 }].concat(root.history).slice(0, root.historyCap)
                 root.received(notification)
             }

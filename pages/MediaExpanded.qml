@@ -1040,10 +1040,12 @@ Item {
                     model: Notifs.history
 
                     delegate: Rectangle {
+                        id: card
                         required property var modelData
+                        readonly property bool hasActions: modelData.actions && modelData.actions.length > 0
 
                         width: inboxList.width
-                        height: inboxBody.y + inboxBody.implicitHeight + 18
+                        height: (hasActions ? inboxActions.y + inboxActions.implicitHeight : inboxBody.y + inboxBody.implicitHeight) + 18
                         color: "transparent"
                         border.width: 1
                         border.color: Theme.hairline
@@ -1104,6 +1106,56 @@ Item {
                                 maximumLineCount: 1
                                 textFormat: Text.PlainText
                                 text: modelData.body
+                            }
+
+                            // Same action-pill pattern as
+                            // pages/NotificationPeek.qml, so an action
+                            // (e.g. cachy-update's) can still be invoked
+                            // from the history, not just the transient
+                            // peek that already scrolled past.
+                            Row {
+                                id: inboxActions
+                                visible: card.hasActions
+                                spacing: 8
+
+                                Repeater {
+                                    model: card.hasActions ? card.modelData.actions : []
+
+                                    Rectangle {
+                                        required property var modelData
+
+                                        implicitWidth: actionLabel.implicitWidth + 16
+                                        implicitHeight: 20
+                                        radius: 2
+                                        color: "transparent"
+                                        border.width: 1
+                                        border.color: Theme.hairline
+
+                                        Text {
+                                            id: actionLabel
+                                            anchors.centerIn: parent
+                                            color: Theme.ink
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: 9
+                                            font.letterSpacing: 1
+                                            text: modelData.text
+                                        }
+
+                                        TapHandler {
+                                            // Same exclusive grab as
+                                            // NotificationPeek.qml's own
+                                            // action pills, same reason:
+                                            // ReleaseWithinBounds actually
+                                            // suppresses this card's own
+                                            // ancestor handlers (if it
+                                            // grows one later) for this
+                                            // tap point, the default
+                                            // passive grab wouldn't.
+                                            gesturePolicy: TapHandler.ReleaseWithinBounds
+                                            onTapped: modelData.invoke()
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
