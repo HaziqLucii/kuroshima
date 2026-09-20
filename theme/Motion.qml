@@ -39,6 +39,14 @@ QtObject {
     // outgoing and incoming page.
     readonly property int fadeInDelay: 60
 
+    // pushRight/popLeft page transitions (ui/PageHost.qml) - a real
+    // Android/iOS stack push, not a crossfade with sideways motion: the
+    // page being covered only travels this fraction of its own width
+    // (iOS's own UINavigationController push convention is ~30%), not
+    // the full distance the incoming page travels, so it visibly recedes
+    // underneath rather than moving in lockstep with what's covering it.
+    readonly property real pushParallax: 0.3
+
     readonly property int hoverGrace: 700
     readonly property int debounceOsd: 16
 

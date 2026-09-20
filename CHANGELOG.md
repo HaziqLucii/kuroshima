@@ -56,6 +56,11 @@ history and `docs/NOTES.md` for decision-level detail.
   `Audio.sinks`/`sources`/`appStreams` (`services/Audio.qml`, from
   `Quickshell.Services.Pipewire`'s `Pipewire.nodes`) and
   `Audio.setDefaultSink()`/`setDefaultSource()`.
+- Settings push/pop transition now reads as a real OS stack push, not a
+  crossfade with sideways motion: solid throughout (no opacity fade),
+  purely horizontal, both pages start moving together, and the outgoing
+  page travels only `Motion.pushParallax` (0.3) of its own width instead
+  of the full distance - matching iOS/Android's own push convention.
 
 ### Fixed
 

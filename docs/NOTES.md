@@ -2266,6 +2266,37 @@ not about timing. What actually needs `PwObjectTracker` is `.audio.volume`/
 `.audio.muted` themselves (`volumesChanged`/`mutedChanged` ARE notifiable)
 - got this backwards in the panel's own comment initially, refuter caught it.
 
+## Settings push/pop: from "crossfade with sideways motion" to a real stack push
+
+Haziq, after seeing the first version: "is it possible to make the
+animation going to the settings island screen, like android/ios stack
+screen animation when opening new app or something?" The pushRight/
+popLeft transition (`ui/PageHost.qml`) had genuinely been a crossfade
+with `riseX` bolted on - both pages still faded through partial opacity,
+the incoming page's motion still started `Motion.fadeInDelay` (60ms)
+after the outgoing page's, and the outgoing page traveled the exact same
+full-width distance as the incoming one. None of that is how a real OS
+stack push looks: it's solid front to back (nothing ever partially
+transparent), both pages start moving in the same instant, and the page
+being covered only shifts a fraction of its own width underneath the one
+covering it (iOS's own UINavigationController push convention is close to
+30%) rather than moving in lockstep.
+
+Fixed by branching the four crossfade parameters (`outgoingTargetOpacity`,
+`outgoingTargetY`, `outgoingTargetX`, `incomingDelay` - all now bindable
+per-transition instead of hardcoded) on `isSlide = direction ===
+"pushRight" || direction === "popLeft"`: opacity stays pinned at 1
+throughout for a slide (no animation at all, not even 1->1 - the incoming
+loader's `opacity` is set to `1` directly before the crossfade starts,
+same for the outgoing target), `riseY` stays 0 (purely horizontal, no
+vertical fadeUp nudge), `incomingDelay` drops to 0 (both pages'
+`ParallelAnimation`s start together - the delay only ever existed to hide
+a fade's transparent gap, and nothing here is ever transparent), and the
+outgoing page's `riseX` target is scaled by a new `Motion.pushParallax`
+(0.3) instead of traveling the full `outgoingW`. The plain "fade" case
+(every other page transition in the app) is untouched - all four
+properties default to their original hardcoded values.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

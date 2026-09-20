@@ -106,8 +106,22 @@ Item {
         const incomingW = loader.item ? loader.item.implicitWidth : 0
         const outgoingW = outgoing.item ? outgoing.item.implicitWidth : 0
 
-        loader.opacity = 0
-        loader.riseY = Motion.fadeRise
+        // pushRight/popLeft read as a real OS stack push/pop, not a
+        // crossfade with sideways motion tacked on: solid throughout (no
+        // opacity animation at all, both pages stay fully opaque - a
+        // native push never fades), no vertical riseY either (purely
+        // horizontal), and the incoming page starts moving in the SAME
+        // instant as the outgoing one (skips the fadeInDelay stagger,
+        // which exists specifically to hide a fade's transparent gap -
+        // nothing here is ever transparent, so there's no gap to hide).
+        // The outgoing page also only travels outgoingParallax of its own
+        // width, not the full width, matching how iOS/Android push: the
+        // covered screen visibly still recedes underneath rather than
+        // moving in lockstep with the one covering it.
+        const isSlide = direction === "pushRight" || direction === "popLeft"
+
+        loader.opacity = isSlide ? 1 : 0
+        loader.riseY = isSlide ? 0 : Motion.fadeRise
         loader.riseX = direction === "pushRight" ? incomingW : direction === "popLeft" ? -incomingW : 0
         loader.visible = true
         // Re-enable explicitly: this slot may have been the *outgoing*
@@ -127,7 +141,11 @@ Item {
 
         crossfade.outgoing = outgoing
         crossfade.incoming = loader
-        crossfade.outgoingTargetX = direction === "pushRight" ? -outgoingW : direction === "popLeft" ? outgoingW : 0
+        crossfade.outgoingTargetX = direction === "pushRight" ? -outgoingW * Motion.pushParallax
+            : direction === "popLeft" ? outgoingW * Motion.pushParallax : 0
+        crossfade.outgoingTargetY = isSlide ? 0 : Motion.fadeRise
+        crossfade.outgoingTargetOpacity = isSlide ? 1 : 0
+        crossfade.incomingDelay = isSlide ? 0 : Motion.fadeInDelay
 
         // Flip now, not after the animation: targetWidth/Height must jump
         // to the incoming page's size in the same frame the crossfade
@@ -167,19 +185,22 @@ Item {
         id: crossfade
         property Loader outgoing: null
         property Loader incoming: null
-        // 0 for a plain fade (outgoing.riseX just animates 0 -> 0, a
-        // no-op) - only pushRight/popLeft ever set this to something else.
+        // Defaults match the plain-fade behavior exactly; handleLoaded
+        // overrides all four for pushRight/popLeft.
         property real outgoingTargetX: 0
+        property real outgoingTargetY: Motion.fadeRise
+        property real outgoingTargetOpacity: 0
+        property int incomingDelay: Motion.fadeInDelay
 
         // The design only specifies the enter keyframe (fadeUp); the exit
         // here mirrors it (fade + drop by fadeRise) for a symmetric feel.
         ParallelAnimation {
             NumberAnimation {
-                target: crossfade.outgoing; property: "opacity"; to: 0
+                target: crossfade.outgoing; property: "opacity"; to: crossfade.outgoingTargetOpacity
                 duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
             }
             NumberAnimation {
-                target: crossfade.outgoing; property: "riseY"; to: Motion.fadeRise
+                target: crossfade.outgoing; property: "riseY"; to: crossfade.outgoingTargetY
                 duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
             }
             NumberAnimation {
@@ -188,7 +209,7 @@ Item {
             }
         }
         SequentialAnimation {
-            PauseAnimation { duration: Motion.fadeInDelay }
+            PauseAnimation { duration: crossfade.incomingDelay }
             ParallelAnimation {
                 NumberAnimation {
                     target: crossfade.incoming; property: "opacity"; to: 1
