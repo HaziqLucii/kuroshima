@@ -64,6 +64,33 @@ Item {
         return hours > 0 ? (hours + ":" + pad(mins) + ":" + pad(secs)) : (mins + ":" + pad(secs))
     }
 
+    // A real player with no valid duration yet is normal for a brief
+    // moment (MPRIS metadata, especially length, often arrives
+    // asynchronously right after a player registers or right after this
+    // shell restarts mid-playback) - the remaining-time label just hides
+    // itself for that window rather than showing a misleading "0:00".
+    // But if it's STILL missing well past that normal window, something's
+    // actually stuck, most often the browser tab's own MPRIS report gone
+    // stale - nothing on this project's side can force a browser to
+    // re-report its own metadata, so after a few seconds this names the
+    // actual fix instead of leaving a permanent blank space with no
+    // explanation. Haziq: "put remark if there's issue on data
+    // querying as fallback... like putting 'please refresh the page'."
+    readonly property bool needsDuration: Media.available && !Media.isLive && Media.length <= 0
+    property bool _durationStuck: false
+    onNeedsDurationChanged: {
+        if (needsDuration) {
+            _durationStuckTimer.restart()
+        } else {
+            _durationStuckTimer.stop()
+            _durationStuck = false
+        }
+    }
+    property Timer _durationStuckTimer: Timer {
+        interval: 4000
+        onTriggered: root._durationStuck = true
+    }
+
     SystemClock {
         id: clock
         precision: SystemClock.Seconds
@@ -458,11 +485,37 @@ Item {
                         Text {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            visible: !Media.isLive
+                            // Media.length > 0, not just !isLive: MPRIS
+                            // metadata (duration especially) often arrives
+                            // asynchronously, slightly after a player
+                            // registers or right after this shell itself
+                            // restarts mid-playback - during that brief
+                            // window length reads as 0, and length-position
+                            // would show a misleading "0:00" (reading as
+                            // "about to end") instead of just not showing
+                            // anything until the real value lands. Haziq
+                            // hit this exact window: "it shows the correct
+                            // end time... suddenly" once metadata caught up.
+                            visible: !Media.isLive && Media.length > 0
                             color: Theme.inkSubtle
                             font.family: Theme.fontFamily
                             font.pixelSize: 10
                             text: root.fmt(Media.length - Media.position)
+                        }
+                        // The fallback for when duration genuinely never
+                        // arrives (see root.needsDuration's own comment) -
+                        // points at the actual fix (the browser tab's own
+                        // MPRIS report is stale) rather than this
+                        // project's own restart, which wouldn't help here.
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: root._durationStuck
+                            color: Theme.inkDim
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 8
+                            font.letterSpacing: 1
+                            text: "REFRESH TAB"
                         }
                     }
                 }
