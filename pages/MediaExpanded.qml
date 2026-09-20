@@ -310,35 +310,98 @@ Item {
                         Row {
                             id: transportRow
                             anchors.centerIn: parent
-                            spacing: 18
+                            spacing: 14
 
-                            Text {
-                                text: "◀◀"
-                                color: Theme.inkMuted
-                                opacity: Media.canGoPrevious ? 1.0 : 0.35
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 11
+                            // "For the media player, the pause play should
+                            // show the bubble as the background when
+                            // hovered" - a fixed-size circular hit area per
+                            // control (so Row's layout never shifts) with a
+                            // bubble that grows/fades in behind the glyph.
+                            Item {
+                                id: prevHit
+                                property bool hovered: false
+                                width: 24
+                                height: 24
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: prevHit.hovered ? 22 : 0
+                                    height: prevHit.hovered ? 22 : 0
+                                    radius: width / 2
+                                    color: Qt.rgba(1, 1, 1, 0.08)
+                                    opacity: prevHit.hovered ? 1 : 0
+                                    Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                    Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                    Behavior on opacity { NumberAnimation { duration: 160 } }
+                                }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "◀◀"
+                                    color: Theme.inkMuted
+                                    opacity: Media.canGoPrevious ? 1.0 : 0.35
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 11
+                                }
                                 TapHandler { enabled: Media.canGoPrevious; onTapped: Media.previous() }
+                                HoverHandler { enabled: Media.canGoPrevious; onHoveredChanged: prevHit.hovered = hovered }
                             }
-                            Text {
-                                text: Media.isPlaying ? "▮▮" : "▶"
-                                color: Theme.ink
-                                opacity: Media.canTogglePlaying ? 1.0 : 0.35
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 12
+                            Item {
+                                id: playHit
+                                property bool hovered: false
+                                width: 26
+                                height: 26
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: playHit.hovered ? 24 : 0
+                                    height: playHit.hovered ? 24 : 0
+                                    radius: width / 2
+                                    color: Qt.rgba(1, 1, 1, 0.08)
+                                    opacity: playHit.hovered ? 1 : 0
+                                    Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                    Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                    Behavior on opacity { NumberAnimation { duration: 160 } }
+                                }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: Media.isPlaying ? "▮▮" : "▶"
+                                    color: Theme.ink
+                                    opacity: Media.canTogglePlaying ? 1.0 : 0.35
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 12
+                                }
                                 TapHandler { enabled: Media.canTogglePlaying; onTapped: Media.togglePlaying() }
+                                HoverHandler { enabled: Media.canTogglePlaying; onHoveredChanged: playHit.hovered = hovered }
                             }
-                            Text {
-                                text: "▶▶"
-                                color: Theme.inkMuted
+                            Item {
+                                id: nextHit
+                                property bool hovered: false
                                 // Forced off for live content regardless of
                                 // MPRIS's own canGoNext: there's nothing
                                 // ahead of the live edge to skip forward
                                 // into, only backward into the buffer.
-                                opacity: (Media.canGoNext && !Media.isLive) ? 1.0 : 0.35
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 11
-                                TapHandler { enabled: Media.canGoNext && !Media.isLive; onTapped: Media.next() }
+                                readonly property bool enabled_: Media.canGoNext && !Media.isLive
+                                width: 24
+                                height: 24
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: nextHit.hovered ? 22 : 0
+                                    height: nextHit.hovered ? 22 : 0
+                                    radius: width / 2
+                                    color: Qt.rgba(1, 1, 1, 0.08)
+                                    opacity: nextHit.hovered ? 1 : 0
+                                    Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                    Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                                    Behavior on opacity { NumberAnimation { duration: 160 } }
+                                }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "▶▶"
+                                    color: Theme.inkMuted
+                                    opacity: nextHit.enabled_ ? 1.0 : 0.35
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 11
+                                }
+                                TapHandler { enabled: nextHit.enabled_; onTapped: Media.next() }
+                                HoverHandler { enabled: nextHit.enabled_; onHoveredChanged: nextHit.hovered = hovered }
                             }
                         }
 
@@ -817,15 +880,41 @@ Item {
                             count: Notifs.history.length
                         }
                     }
-                    Text {
+                    // "For hovering on things that is just text, show the
+                    // text in a badge" - a fixed-size hit area (so the
+                    // right-anchored position never shifts) with a badge
+                    // Rectangle that grows/fades in behind the label on
+                    // hover, rather than a static box always being there.
+                    Item {
+                        id: clearAllHit
+                        property bool hovered: false
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        color: Theme.inkSubtle
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 9
-                        font.letterSpacing: 2
-                        text: "CLEAR ALL"
+                        width: clearAllLabel.implicitWidth + 16
+                        height: 18
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: clearAllLabel.implicitWidth + (clearAllHit.hovered ? 14 : 0)
+                            height: clearAllHit.hovered ? 16 : 0
+                            radius: height / 2
+                            color: Qt.rgba(1, 1, 1, 0.08)
+                            opacity: clearAllHit.hovered ? 1 : 0
+                            Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                            Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                            Behavior on opacity { NumberAnimation { duration: 160 } }
+                        }
+                        Text {
+                            id: clearAllLabel
+                            anchors.centerIn: parent
+                            color: Theme.inkSubtle
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 9
+                            font.letterSpacing: 2
+                            text: "CLEAR ALL"
+                        }
                         TapHandler { onTapped: Notifs.clearHistory() }
+                        HoverHandler { onHoveredChanged: clearAllHit.hovered = hovered }
                     }
                 }
 
@@ -981,7 +1070,9 @@ Item {
                         model: Workspaces.list
 
                         Rectangle {
+                            id: wsPill
                             required property var modelData
+                            property bool hovered: false
 
                             // Unlike WorkspacePeek.qml's plain dots (where
                             // "active" can just mean "wider"), each pill
@@ -991,10 +1082,15 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.max(20, wsLabel.implicitWidth + 8)
                             height: 20
-                            radius: 2
-                            color: modelData.active ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                            // Hover: brighten further and morph the small
+                            // resting radius (2) into a fully rounded pill.
+                            radius: wsPill.hovered ? height / 2 : 2
+                            color: wsPill.hovered ? Qt.rgba(1, 1, 1, 0.1)
+                                : (modelData.active ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
                             border.width: 1
                             border.color: modelData.active ? Theme.divider : Theme.hairline
+                            Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                            Behavior on color { ColorAnimation { duration: 160 } }
 
                             Text {
                                 id: wsLabel
@@ -1013,6 +1109,9 @@ Item {
                             // label on screen is always a valid argument.
                             TapHandler {
                                 onTapped: Quickshell.execDetached(["timeout", "3", "niri", "msg", "action", "focus-workspace", modelData.name])
+                            }
+                            HoverHandler {
+                                onHoveredChanged: wsPill.hovered = hovered
                             }
                         }
                     }
@@ -1048,17 +1147,27 @@ Item {
 
                 Rectangle {
                     id: lockBtn
+                    property bool hovered: false
+
                     implicitWidth: lockLabel.implicitWidth + 18
                     implicitHeight: 20
-                    radius: 2
-                    color: "transparent"
+                    radius: lockBtn.hovered ? height / 2 : 2
+                    color: lockBtn.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
                     border.width: 1
                     border.color: Theme.hairline
+                    Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 160 } }
 
                     Text {
                         id: lockLabel
                         anchors.centerIn: parent
-                        color: Theme.inkMuted
+                        // LOCK/SLEEP/POWER now step up in visual weight
+                        // (dimmest to brightest, staying entirely within
+                        // the ink ramp - no new hue) to read as
+                        // "increasing consequence" at a glance: LOCK is
+                        // instant/harmless/reversible, so it stays the
+                        // calmest of the three.
+                        color: Theme.inkDim
                         font.family: Theme.fontFamily
                         font.pixelSize: 8
                         font.letterSpacing: 2
@@ -1076,18 +1185,24 @@ Item {
                         // directly instead of hoping something's listening.
                         onTapped: Quickshell.execDetached(["qs", "-c", "niri-lockscreen", "ipc", "call", "lockscreen", "lock"])
                     }
+                    HoverHandler {
+                        onHoveredChanged: lockBtn.hovered = hovered
+                    }
                 }
 
                 Rectangle {
                     id: sleepBtn
                     property bool armed: false
+                    property bool hovered: false
 
                     implicitWidth: sleepLabel.implicitWidth + 18
                     implicitHeight: 20
-                    radius: 2
-                    color: "transparent"
+                    radius: sleepBtn.hovered ? height / 2 : 2
+                    color: sleepBtn.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
                     border.width: 1
                     border.color: armed ? Theme.divider : Theme.hairline
+                    Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 160 } }
 
                     Timer {
                         id: sleepArmTimer
@@ -1115,18 +1230,29 @@ Item {
                             }
                         }
                     }
+                    HoverHandler {
+                        onHoveredChanged: sleepBtn.hovered = hovered
+                    }
                 }
 
                 Rectangle {
                     id: powerBtn
                     property bool armed: false
+                    property bool hovered: false
 
                     implicitWidth: powerLabel.implicitWidth + 18
                     implicitHeight: 20
-                    radius: 2
-                    color: "transparent"
+                    radius: powerBtn.hovered ? height / 2 : 2
+                    color: powerBtn.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
                     border.width: 1
-                    border.color: armed ? "#d75f5f" : Theme.hairline
+                    // Brightest of the three at rest (Theme.divider,
+                    // Theme.inkSubtle below), escalating to the existing
+                    // red only once actually armed - POWER is the most
+                    // consequential of the three, so it carries the most
+                    // visual weight before you even touch it.
+                    border.color: armed ? "#d75f5f" : Theme.divider
+                    Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 160 } }
 
                     Timer {
                         id: powerArmTimer
@@ -1136,7 +1262,7 @@ Item {
                     Text {
                         id: powerLabel
                         anchors.centerIn: parent
-                        color: powerBtn.armed ? "#d75f5f" : Theme.inkMuted
+                        color: powerBtn.armed ? "#d75f5f" : Theme.inkSubtle
                         font.family: Theme.fontFamily
                         font.pixelSize: 8
                         font.letterSpacing: 2
@@ -1153,6 +1279,9 @@ Item {
                                 powerArmTimer.restart()
                             }
                         }
+                    }
+                    HoverHandler {
+                        onHoveredChanged: powerBtn.hovered = hovered
                     }
                 }
                 }

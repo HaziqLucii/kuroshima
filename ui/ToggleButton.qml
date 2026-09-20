@@ -23,10 +23,19 @@ Rectangle {
         (!isOn && offIconCodepoint !== 0) ? offIconCodepoint : onIconCodepoint)
     readonly property color contentColor: !available ? Theme.inkDim : (isOn ? Theme.ink : Theme.inkSubtle)
 
+    property bool _hovered: false
+
     implicitHeight: content.implicitHeight + 16
     border.width: 1
     border.color: !available ? Theme.hairline : (isOn ? Theme.divider : Theme.hairline)
-    color: (available && isOn) ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+    // Hover: background brightens further and the sharp (0, default)
+    // corner morphs round - Haziq's "things already in a box: colour the
+    // background, morph the corner into radius" hover language, applied
+    // here since this one component backs all eight TOGGLES cells.
+    color: !available ? "transparent" : (root._hovered ? Qt.rgba(1, 1, 1, 0.08) : (isOn ? Qt.rgba(1, 1, 1, 0.05) : "transparent"))
+    radius: root._hovered ? 8 : 0
+    Behavior on color { ColorAnimation { duration: 160 } }
+    Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
     Column {
         id: content
@@ -53,5 +62,9 @@ Rectangle {
     TapHandler {
         enabled: root.available
         onTapped: root.clicked()
+    }
+    HoverHandler {
+        enabled: root.available
+        onHoveredChanged: root._hovered = hovered
     }
 }
