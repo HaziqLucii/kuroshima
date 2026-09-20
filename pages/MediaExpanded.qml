@@ -938,11 +938,20 @@ Item {
                     width: parent.width
                     // Shrinks to fit when there's less than a 2-card's
                     // worth of history (matching the old Column's own
-                    // "no wasted empty space" behavior), clips at roughly
+                    // "no wasted empty space" behavior), clips at exactly
                     // 2 cards otherwise - same visual budget the hard
                     // truncation used to reserve - and scrolls for the
-                    // rest instead of hiding it.
-                    height: Math.min(contentHeight, 145)
+                    // rest instead of hiding it. 135 = 2 * 64 (a card's
+                    // real measured height - anchors.margins 9 top +
+                    // appName row ~11 + spacing 3 + title ~14 + spacing 3
+                    // + body ~13 + the delegate's own +18 bottom pad) + 7
+                    // (this ListView's own spacing, once, between the two
+                    // cards). The original 145 here was an unmeasured
+                    // guess 10px too generous, which let a sliver of a
+                    // third card's top edge show above the clip line
+                    // before being cut off - Haziq spotted it as "a
+                    // little bit of overflow at the bottom."
+                    height: Math.min(contentHeight, 135)
                     clip: true
                     spacing: 7
                     boundsBehavior: Flickable.StopAtBounds
