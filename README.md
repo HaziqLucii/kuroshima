@@ -17,7 +17,7 @@ Compositor support: niri only, for now.
 This symlinks the repo into `~/.config/quickshell/kuroshima` (so `qs -c
 kuroshima` finds it), seeds `~/.config/kuroshima/config.json` from
 `config.example.json` on first run, and links every bundled dotfile below
-(fuzzel, foot, fastfetch, the fish functions, yazi) to its real config path,
+(fuzzel, kitty, fastfetch, the `y` fish function, yazi) to its real config path,
 unless you already have a real (non-symlink) file there, which it leaves
 alone. It does not touch niri's or Noctalia's config - those are printed for
 you to apply by hand:
@@ -44,10 +44,11 @@ you to apply by hand:
    Noctalia keeps its bar, launcher, lock and wallpaper. No keybind changes: the island
    reads PipeWire directly, so volume keys and `noctalia msg volume-up` keep working.
 
-4. **niri keybind** (`~/.config/niri/cfg/keybinds.kdl`), to make yazi your `Mod+E`
-   file manager instead of whatever you have bound now:
+4. **niri keybinds** (`~/.config/niri/cfg/keybinds.kdl`), to make kitty your terminal
+   and yazi your `Mod+E` file manager instead of whatever you have bound now:
    ```kdl
-   Mod+E hotkey-overlay-title="File Manager: Yazi" { spawn-sh "foot -e yazi"; }
+   Mod+T hotkey-overlay-title="Open Terminal: kitty" { spawn "kitty"; }
+   Mod+E hotkey-overlay-title="File Manager: Yazi" { spawn-sh "kitty yazi"; }
    ```
 
 5. **niri environment** (`~/.config/niri/cfg/misc.kdl`'s `environment{}` block), so
@@ -92,23 +93,30 @@ keeps them. Fuzzel has no way to pin arbitrary text to a corner of its window (i
 plain list launcher, not a custom canvas), so `//kuro.` lives in the prompt slot rather
 than as a separate label.
 
-## Foot theme
+## Kitty theme
 
-`foot/foot.ini`, linked to `~/.config/foot/foot.ini`: same tokens as `theme/Theme.qml`
-exactly (`#050506` background, `#ededed` foreground), fully opaque (`alpha=1.0` - a
-transparent terminal doesn't match a fixed-palette theme, since whatever's behind it
-shows through and breaks the intended contrast).
+`kitty/kitty.conf`, linked to `~/.config/kitty/kitty.conf`: same tokens as
+`theme/Theme.qml` (`#050506` background, `#ededed` foreground). The only terminal
+this repo bundles or targets (foot was dropped - see `docs/NOTES.md` if you're
+wondering why an earlier version of this README mentioned it): kitty supports the
+Drag and Drop protocol (needed to drag files out of yazi into another app) and
+renders fastfetch's bundled image logo natively through its own graphics protocol.
 
-## Fastfetch (foot)
+Two settings here are load-bearing, not preference:
+- `shell fish` - niri's own environment has `SHELL=/usr/bin/zsh` (not the account's
+  real login shell), so without this every kitty window silently launches zsh
+  instead of fish, dropping the `y` function and fastfetch's own greeting.
+- `confirm_os_window_close 0` - kitty's default asks for confirmation whenever a
+  foreground process (yazi, an editor) is still running in the window, which is
+  every single time you exit yazi via `Mod+E`.
 
-`fastfetch/foot.jsonc`, linked to `~/.config/fastfetch/foot.jsonc`: no image logo (foot
-only supports Sixel, not the kitty graphics protocol a default fastfetch config's PNG
-logo usually needs), flat hairline-bordered key/value rows instead, matching the
-dossier style used everywhere else in this repo. `fish/functions/fastfetch.fish`
-(linked to `~/.config/fish/functions/fastfetch.fish`) wraps the real `fastfetch`
-command and injects `-c ~/.config/fastfetch/foot.jsonc` whenever `$TERM` is `foot`,
-so both the shell greeting and a manually-typed `fastfetch` pick it up - the default
-config keeps working unchanged in any other terminal.
+## Fastfetch
+
+`fastfetch/config.jsonc` and `fastfetch/kuroshima-logo-dither.png`, linked to
+`~/.config/fastfetch/`: a dithered "クロシマ" wordmark (Noto Sans CJK JP Black,
+rendered and Floyd-Steinberg dithered to match the halftone-image accent used
+elsewhere in this repo) next to a flat key/value spec box. Renders natively in
+kitty via its own graphics protocol, no per-terminal workaround needed.
 
 ## Yazi
 

@@ -1688,6 +1688,75 @@ ink-tier brightness instead of hue; the three modes (`normal`/`select`/`unset`) 
 bold/underline/italic, since the status bar still needs to say which one is active
 at a glance without color to lean on.
 
+## Switched default terminal from foot to kitty, dropped foot entirely
+
+Haziq wanted yazi's drag-and-drop working, which surfaced that foot doesn't
+implement the Drag and Drop protocol at all (only kitty 0.47.1+, iTerm2 3.7.0
+beta10+, and eventually Ghostty do). Considered Ghostty first since it's the more
+fashionable pick, but its DnD support is only "accepted" upstream, not shipped -
+kitty was the only option that actually solved the reported problem. Once decided,
+Haziq asked to drop foot outright rather than keep both.
+
+Removed from this repo: `foot/`, `fastfetch/foot.jsonc`, and
+`fish/functions/fastfetch.fish` (the $TERM-routing wrapper - no longer needed since
+there's only one terminal to route for, and kitty renders the default
+`~/.config/fastfetch/config.jsonc`'s image logo natively anyway). Reverted
+`config.fish`'s `fish_greeting` override to nothing, since with the wrapper gone it
+was doing exactly what `cachyos-config.fish`'s own default greeting already does
+(plain `fastfetch`) - redundant, not a functional change.
+
+`kitty/kitty.conf` needed two settings that aren't just preference, both would
+otherwise silently break things:
+- `shell fish` - niri's own environment has `SHELL=/usr/bin/zsh` (confirmed via
+  `/proc/<qs-pid>/environ`, not guessed - the account's real login shell per
+  `getent passwd` is fish), and kitty's default `shell .` inherits whatever `$SHELL`
+  says. Without this override every kitty window would launch zsh, silently
+  dropping `y` and fastfetch's greeting. First test spawn (from this session's own
+  shell, itself zsh-flavored) hid this - only caught it by checking niri's actual
+  process environment directly rather than trusting the first successful-looking
+  screenshot.
+- `confirm_os_window_close 0` - Haziq reported this as "are you sure you want to
+  close" firing every time he exited yazi via `Mod+E`. Default asks whenever a
+  foreground process is still running in the window; yazi (or anything else) always
+  counts.
+
+`kitty --version` confirmed 0.48.2, comfortably past the 0.47.1 DnD minimum, so no
+upgrade was needed - just the config and keybind changes (`Mod+T`/`Mod+E` in
+`keybinds.kdl`, `kitty`/`kitty yazi` instead of `foot`/`foot -e yazi`).
+
+**Real mistake caught mid-task, worth recording**: `~/.config/foot` and
+`~/.config/fastfetch` turned out to be whole-directory symlinks into a separate,
+pre-existing dotfiles project (`~/Projects/minimalist`, its own git repo, last
+commit "Add a lock screen"), not standalone config. Every foot/fastfetch edit
+earlier in this session had actually been landing inside that repo, invisibly -
+a directory-level symlink makes files inside it look like ordinary files, so the
+`[ ! -L "$FOOT_TARGET" ]` safety check in `install.sh` (checking the FILE path)
+never caught it. Then "uninstall foot" led to `rm`-ing minimalist's tracked
+`config/foot/foot.ini` directly. Caught it via `ls -la` on the parent directories
+(showing them as symlinks) before going further, restored the deleted file with
+`git checkout` in that repo, and asked Haziq directly rather than guessing what to
+do about the second project - he confirmed minimalist is retired, kuroshima is now
+the one canonical repo. Migrated the one thing worth keeping from it: a
+hand-tuned fastfetch config with a dithered logo, now `fastfetch/config.jsonc` +
+image here, source path repointed from `~/Pictures/...` (this machine only) to
+`~/.config/fastfetch/...` (works for anyone installing this repo). Left
+minimalist's own `config/fastfetch/config.jsonc` local diff alone - dated August
+25, predates this session, not mine to touch.
+
+Then replaced that migrated logo entirely: Haziq wanted the FF7 disc swapped for
+a dithered "クロシマ" (kuroshima in katakana) wordmark, same height as the spec
+box beside it. Rendered with PIL at 4x scale (Noto Sans CJK JP Black,
+`/usr/share/fonts/noto-cjk/NotoSansCJK-Black.ttc` index 0 - a `.ttc` collection,
+had to enumerate indices to find the JP face), stacked vertically (tategaki-style,
+4 katakana characters top to bottom - suits a square frame far better than one
+wide horizontal line, and reads as more deliberately Japanese-typographic than a
+coincidence), then downscaled and run through PIL's default Floyd-Steinberg
+dither (`.convert("1")`) to get the same halftone-edge texture as the original
+disc image rather than hard-jaggy anti-aliasing. Kept it square (308x308, matching
+the disc's own dimensions) specifically so the existing `width: 25` setting in
+`config.jsonc` would reproduce the same rendered height with zero further tuning -
+confirmed live, no padding/width changes needed.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

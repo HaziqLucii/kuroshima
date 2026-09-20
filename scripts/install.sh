@@ -55,39 +55,45 @@ else
     echo "linked $FUZZEL_TARGET -> $REPO_DIR/fuzzel/fuzzel.ini"
 fi
 
-# Bundled foot theme (bone-on-black, matches the island's own palette
-# exactly - same tokens as theme/Theme.qml).
-FOOT_TARGET="$HOME/.config/foot/foot.ini"
-mkdir -p "$HOME/.config/foot"
-if [ -e "$FOOT_TARGET" ] && [ ! -L "$FOOT_TARGET" ]; then
-    echo "$FOOT_TARGET already exists and isn't a symlink, leaving your foot config alone"
-elif [ -L "$FOOT_TARGET" ] && [ "$(readlink -f "$FOOT_TARGET")" = "$REPO_DIR/foot/foot.ini" ]; then
-    echo "foot theme already linked"
+# Bundled kitty theme (bone-on-black, matches the island's own palette
+# exactly - same tokens as theme/Theme.qml). Default terminal: kitty
+# supports the Drag and Drop protocol yazi needs (foot doesn't), and
+# renders the default fastfetch config's image logo natively via its own
+# graphics protocol. `shell fish` is required in kitty.conf, not optional
+# polish: niri's own environment has SHELL=/usr/bin/zsh, so without it
+# every kitty window silently launches zsh instead of fish, dropping the
+# `y` function and fastfetch's own default greeting.
+KITTY_TARGET="$HOME/.config/kitty/kitty.conf"
+mkdir -p "$HOME/.config/kitty"
+if [ -e "$KITTY_TARGET" ] && [ ! -L "$KITTY_TARGET" ]; then
+    echo "$KITTY_TARGET already exists and isn't a symlink, leaving your kitty theme alone"
+elif [ -L "$KITTY_TARGET" ] && [ "$(readlink -f "$KITTY_TARGET")" = "$REPO_DIR/kitty/kitty.conf" ]; then
+    echo "kitty theme already linked"
 else
-    ln -sfn "$REPO_DIR/foot/foot.ini" "$FOOT_TARGET"
-    echo "linked $FOOT_TARGET -> $REPO_DIR/foot/foot.ini"
+    ln -sfn "$REPO_DIR/kitty/kitty.conf" "$KITTY_TARGET"
+    echo "linked $KITTY_TARGET -> $REPO_DIR/kitty/kitty.conf"
 fi
 
-# Bundled fastfetch config for foot specifically (foot only supports Sixel,
-# not the kitty graphics protocol the default fastfetch config's logo
-# needs) - the fish wrapper below picks this over the default automatically
-# whenever $TERM is foot.
-FASTFETCH_TARGET="$HOME/.config/fastfetch/foot.jsonc"
+# Bundled fastfetch config + logo (dithered "クロシマ" wordmark, matching
+# this repo's monochrome/dossier aesthetic): kitty renders the image
+# natively via its own graphics protocol, no per-terminal workaround needed.
 mkdir -p "$HOME/.config/fastfetch"
-if [ -e "$FASTFETCH_TARGET" ] && [ ! -L "$FASTFETCH_TARGET" ]; then
-    echo "$FASTFETCH_TARGET already exists and isn't a symlink, leaving it alone"
-elif [ -L "$FASTFETCH_TARGET" ] && [ "$(readlink -f "$FASTFETCH_TARGET")" = "$REPO_DIR/fastfetch/foot.jsonc" ]; then
-    echo "fastfetch (foot) theme already linked"
-else
-    ln -sfn "$REPO_DIR/fastfetch/foot.jsonc" "$FASTFETCH_TARGET"
-    echo "linked $FASTFETCH_TARGET -> $REPO_DIR/fastfetch/foot.jsonc"
-fi
+for f in config.jsonc kuroshima-logo-dither.png; do
+    FF_TARGET="$HOME/.config/fastfetch/$f"
+    if [ -e "$FF_TARGET" ] && [ ! -L "$FF_TARGET" ]; then
+        echo "$FF_TARGET already exists and isn't a symlink, leaving it alone"
+    elif [ -L "$FF_TARGET" ] && [ "$(readlink -f "$FF_TARGET")" = "$REPO_DIR/fastfetch/$f" ]; then
+        echo "fastfetch/$f already linked"
+    else
+        ln -sfn "$REPO_DIR/fastfetch/$f" "$FF_TARGET"
+        echo "linked $FF_TARGET -> $REPO_DIR/fastfetch/$f"
+    fi
+done
 
-# Fish functions: the fastfetch wrapper (routes to the config above when
-# $TERM is foot) and `y` (cd's the shell to wherever yazi ends up browsing,
-# since exiting yazi normally doesn't).
+# Fish function: `y` cd's the shell to wherever yazi ends up browsing,
+# since exiting yazi normally doesn't.
 mkdir -p "$HOME/.config/fish/functions"
-for fn in fastfetch.fish y.fish; do
+for fn in y.fish; do
     FN_TARGET="$HOME/.config/fish/functions/$fn"
     if [ -e "$FN_TARGET" ] && [ ! -L "$FN_TARGET" ]; then
         echo "$FN_TARGET already exists and isn't a symlink, leaving it alone"
@@ -143,9 +149,11 @@ Next, apply these by hand (not touched by this script):
    toggle off. No keybind changes: the island reads PipeWire directly, so
    volume keys and `noctalia msg volume-up` keep working.
 
-4. niri keybind (~/.config/niri/cfg/keybinds.kdl), to make yazi your
-   Mod+E file manager instead of whatever you have bound now:
-       Mod+E hotkey-overlay-title="File Manager: Yazi" { spawn-sh "foot -e yazi"; }
+4. niri keybinds (~/.config/niri/cfg/keybinds.kdl), to make kitty your
+   terminal and yazi your Mod+E file manager instead of whatever you have
+   bound now:
+       Mod+T hotkey-overlay-title="Open Terminal: kitty" { spawn "kitty"; }
+       Mod+E hotkey-overlay-title="File Manager: Yazi" { spawn-sh "kitty yazi"; }
 
 5. niri environment (~/.config/niri/cfg/misc.kdl's environment{} block),
    so yazi's default "open with $EDITOR" opener has something to run
