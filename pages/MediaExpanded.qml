@@ -907,6 +907,12 @@ Item {
                         CountBadge {
                             id: inboxCountBadge
                             anchors.verticalCenter: parent.verticalCenter
+                            // "For 0 unread, no need... if only there's
+                            // something unread than the badge shown."
+                            // Row already excludes invisible children from
+                            // layout, so hiding this just closes the gap
+                            // rather than leaving a hole.
+                            visible: Notifs.history.length > 0
                             count: Notifs.history.length
                         }
                     }
