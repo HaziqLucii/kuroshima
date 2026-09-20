@@ -2427,6 +2427,21 @@ zero new entries in `~/.cache/quickshell/crashes/`.
   the live desktop shell to pick it up without a restart looks exactly like "the edit
   did nothing." Always restart (`pgrep -x qs` -> `kill` -> relaunch) before judging
   whether a live-shell-only change worked.
+- `pgrep -x qs` misses the ACTUAL system instance: niri's own autostart
+  (`spawn-sh-at-startup "qs -c kuroshima"`) execs into the real binary,
+  which shows up as comm name `quickshell`, not `qs` - `qs` is a thin
+  dispatcher. Every "restart" this session that only checked `pgrep -x
+  qs` was restarting a manually-launched COPY sitting alongside that
+  original autostarted process, never touching it - it kept running
+  stale code the whole time, invisibly, until it and a later manual
+  instance were both alive at once and rendered two full sets of layer
+  surfaces (island + wallpaper-bg + widgets), visible on screen as two
+  overlapping dynamic islands. Confirmed via `niri msg --json layers`
+  (duplicate `"namespace":"kuroshima"` entries) and cross-referencing
+  `/run/user/1000/quickshell/by-pid/*` against which PIDs were actually
+  alive - `ps -eo pid,cmd | grep -iE "quickshell|qs -c kuroshima"` is
+  the check that actually catches every instance, not `pgrep -x qs`
+  alone.
 - A 4th qmllint noise category, alongside the 3 `scripts/lint.sh` already documents:
   `Info: Set "pragma ComponentBehavior: Bound" in order to use IDs from outer
   components in nested components.` Fires for any `Repeater.delegate` (or similar
