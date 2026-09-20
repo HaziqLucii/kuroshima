@@ -880,10 +880,19 @@ Item {
             // before, so 07 SESSION below it doesn't move) showing the
             // FULL history, scrollable for anything past what fits. CLEAR
             // ALL empties the whole history either way.
+            //
+            // The header (INBOX label, badge, CLEAR ALL) always shows,
+            // even with zero notifications - "even there's no
+            // notification, it should just shown the label inbox with
+            // the clear all button and all." Matches this same page's
+            // own "keep the visual completeness, dim what's not real"
+            // rule already applied to ETH/VPN/SYNC. The ListView itself
+            // still naturally collapses to zero height when history is
+            // empty (contentHeight is 0), so nothing forces a fake empty
+            // card into existence - just the header stays put.
             Column {
                 width: parent.width
                 spacing: 9
-                visible: Notifs.history.length > 0
 
                 Item {
                     width: parent.width
