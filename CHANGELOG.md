@@ -44,6 +44,18 @@ history and `docs/NOTES.md` for decision-level detail.
   uniform-width filmstrip. Header and statusline text sit on their own
   bordered backing panel for readability over bright wallpapers; the
   per-tile filename caption is gone.
+- Settings island screen: a new gear button in the dashboard header
+  (`pages/MediaExpanded.qml`) pushes `pages/SettingsExpanded.qml` in with
+  a real slide + back button, not the usual plain crossfade -
+  `ui/PageHost.qml` gained a `direction` param
+  (`"pushRight"`/`"popLeft"`/default `"fade"`, every other page
+  transition unchanged) for it. Left sidebar of icon "bubbles" (Audio
+  today, built to take more categories later without restructuring).
+  `pages/SettingsAudioPanel.qml`: output/input device pickers, master
+  volume, and a per-app volume mixer, backed by new
+  `Audio.sinks`/`sources`/`appStreams` (`services/Audio.qml`, from
+  `Quickshell.Services.Pipewire`'s `Pipewire.nodes`) and
+  `Audio.setDefaultSink()`/`setDefaultSource()`.
 
 ### Fixed
 
@@ -61,6 +73,16 @@ history and `docs/NOTES.md` for decision-level detail.
   `services/Notifs.qml` now keeps a live `actions` reference per history
   entry, and the INBOX delegate renders the same action-pill UI the peek
   already had.
+- `services/Audio.qml`'s new sink/source/app-stream filters used "any bit
+  overlaps" (`!== 0`) instead of mask-equality against `PwNodeType`'s
+  composite bitflags, so every list matched almost every audio node
+  regardless of kind (refuter-caught before this ever shipped, full
+  writeup in `docs/NOTES.md`).
+- `app/Bridges.qml`'s OSD-suppression guard only recognized
+  `"MediaExpanded"` by name, so adjusting volume from the new Settings
+  Audio panel re-triggered the exact "OSD morphs the expanded dashboard
+  down mid-drag" bug its own comment already documented being fixed once.
+  Generalized to plain `Island.isExpanded`.
 
 ## [0.3.0] - 2026-09-20
 

@@ -2182,6 +2182,90 @@ this project) wipes the whole history, not just this fix's new field.
 Confirmed with Haziq before restarting rather than silently losing his
 actual pending `cachy-update` notification.
 
+## Settings island screen: sidebar of category bubbles, Audio first
+
+Haziq wants a way to reach OS-style audio settings from the expanded
+dashboard - his own term for it going forward, "the island screen." Not a
+one-off Audio Settings page: a general **Settings** island screen reached
+by a new gear button, with a **left sidebar of icon bubbles** (Android-
+style, more categories later), Audio being the first (and only, for now).
+Opens with a real slide-right + back button, not the plain crossfade
+every other page transition in this app uses. Planned via `EnterPlanMode`
+given the real architectural surface (a genuinely new transition
+capability, not just reuse) - full plan at the time:
+`/home/deprecated/.claude/plans/wondrous-nibbling-eagle.md`.
+
+Almost everything needed already existed, just unused:
+- Page navigation is already fully generic (`signal requestExpand(string
+  pageId)`, `ui/Capsule.qml`'s `Connections` handling whichever page is
+  current) - a new page is 2 lines of `pageMap` registration plus a
+  button calling `root.requestExpand("SettingsExpanded")`.
+- `Quickshell.Services.Pipewire`'s `Pipewire.nodes` already exposes every
+  device AND per-app stream (`.type` bitflags tell them apart),
+  `Pipewire.preferredDefaultAudioSink`/`Source` are **writable** (the
+  actual device switcher), and `services/Audio.qml` already had the real
+  gotcha documented (`PwObjectTracker` needed before `.audio` populates).
+
+The one genuinely new piece: `ui/PageHost.qml`'s two-slot crossfade was
+the ONLY transition, hardcoded identical for every page switch (opacity +
+a 4px vertical rise). Added a `direction` param to `setPage()` (default
+`"fade"`, every existing call site unchanged), a `riseX` alongside the
+existing `riseY` on both Loader slots, and `"pushRight"`/`"popLeft"`
+variants that slide by each item's own `implicitWidth` (not a fixed theme
+constant, so it's correct regardless of how wide Settings ends up vs.
+MediaExpanded). Direction logic itself lives in `ui/Capsule.qml` (the
+actual page registry), not inside `PageHost` - a `directionFor(next,
+prev)` helper, so `PageHost` stays a fully generic slide/fade host that
+doesn't know any page's name.
+
+### Three real bugs, all refuter-caught, none of which showed up in lint,
+### headless launch, or exercising both page transitions via IPC
+
+1. **`services/Audio.qml`'s node filters were structurally wrong, not
+   just imprecise.** Written as `(n.type & PwNodeType.AudioSink) !== 0`
+   ("any bit overlaps") instead of mask-equality. `PwNodeType` composites
+   share bits - every audio node has the `Audio` bit set, so `!== 0`
+   matched almost everything against almost every mask. Refuter verified
+   the real enum values live (`Audio=1, Stream=4, Sink=16, Source=8,
+   AudioSink=17, AudioSource=9, AudioOutStream=21, AudioInStream=13`) and
+   confirmed `sinks` was literally "every audio node" - the OUTPUT list
+   would have shown microphones and app streams alongside real output
+   devices, and tapping one would call `Audio.setDefaultSink()` on
+   whatever got clicked, including a microphone. Fixed with `(n.type & X)
+   === X` (all bits of X present) plus a `Stream`-bit exclusion for
+   sinks/sources specifically. This is exactly why "the page loads and
+   renders without a QML runtime error" is necessary but not sufficient
+   verification - a filter matching the wrong objects doesn't throw
+   anything, it just quietly returns the wrong list.
+2. **`app/Bridges.qml`'s OSD-suppression guard wasn't extended to the new
+   page, reintroducing a bug its own comment already documents being
+   caught once before.** `if (Island.isExpanded && Island.expandedPage
+   === "MediaExpanded") return` - narrowly matched only MediaExpanded, so
+   adjusting the new Audio panel's volume slider fired a real OSD
+   transient anyway, whose priority-40 clear of the expanded gate morphs
+   the whole dashboard down to the 320x58 OSD pill mid-drag, the slider
+   vanishing from under the cursor - verbatim the original bug, just
+   reachable from a second page now. Fixed by generalizing to plain
+   `Island.isExpanded` (both the volume and brightness copies) instead of
+   enumerating page names one at a time - whatever expanded page comes
+   next inherits the fix for free.
+3. **`ui/Capsule.qml`'s `directionFor()` only tested one side of the
+   transition pair**, so `prev === "SettingsExpanded"` matched ANY
+   departure from Settings, not just the return to MediaExpanded - the
+   auto-collapse-to-pill timer, or a transient popping over an open
+   Settings screen, both got a spurious slide instead of the correct
+   fade. Fixed by requiring both `next`/`prev` match the exact
+   MediaExpanded<->SettingsExpanded pair before returning a slide
+   direction, `"fade"` for everything else.
+
+Also worth remembering: `PwNode.audio` is `isPropertyConstant: true` (no
+notify signal, never transitions null -> non-null after creation) -
+a defensive `if (node.audio)` guard in `SettingsAudioPanel.qml` is about a
+genuinely non-audio node slipping through a bad filter (see bug 1 above),
+not about timing. What actually needs `PwObjectTracker` is `.audio.volume`/
+`.audio.muted` themselves (`volumesChanged`/`mutedChanged` ARE notifiable)
+- got this backwards in the panel's own comment initially, refuter caught it.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

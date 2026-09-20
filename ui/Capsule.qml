@@ -16,6 +16,27 @@ Item {
     Component { id: notificationPeekComponent; NotificationPeek {} }
     Component { id: workspacePeekComponent; WorkspacePeek {} }
     Component { id: powerPeekComponent; PowerPeek {} }
+    Component { id: settingsExpandedComponent; SettingsExpanded {} }
+
+    // SettingsExpanded is the one page reached by pushing (not just
+    // crossfading) from the normal dashboard - Haziq wanted a real
+    // Android-style slide + back button, not the plain fade every other
+    // page transition uses. Owned here (the actual page registry), not
+    // inside ui/PageHost.qml itself, which stays a fully generic two-slot
+    // slide/fade host that doesn't know any page's name.
+    function directionFor(next, prev) {
+        // Both sides gated, not just "did SettingsExpanded appear
+        // anywhere" - refuter caught this matching transitions that were
+        // never the MediaExpanded<->SettingsExpanded pair at all: the
+        // auto-collapse timer (line ~145) leaving SettingsExpanded for
+        // "compact" got a spurious slide, and Component.onCompleted with
+        // host.pageName still "" (empty on first launch) but a restored
+        // Island.page of "SettingsExpanded" got a spurious pushRight with
+        // no real outgoing page to push against.
+        if (next === "SettingsExpanded" && prev === "MediaExpanded") return "pushRight"
+        if (prev === "SettingsExpanded" && next === "MediaExpanded") return "popLeft"
+        return "fade"
+    }
 
     // The animated value is kept separate from the rendered width/height,
     // and the render size is hard-clamped to the fixed layer-shell canvas.
@@ -72,14 +93,15 @@ Item {
                 "MediaExpanded": mediaExpandedComponent,
                 "NotificationPeek": notificationPeekComponent,
                 "WorkspacePeek": workspacePeekComponent,
-                "PowerPeek": powerPeekComponent
+                "PowerPeek": powerPeekComponent,
+                "SettingsExpanded": settingsExpandedComponent
             })
 
-            Component.onCompleted: host.setPage(Island.page, Island.payload)
+            Component.onCompleted: host.setPage(Island.page, Island.payload, root.directionFor(Island.page, host.pageName))
             Connections {
                 target: Island
-                function onPageChanged() { host.setPage(Island.page, Island.payload) }
-                function onPayloadChanged() { host.setPage(Island.page, Island.payload) }
+                function onPageChanged() { host.setPage(Island.page, Island.payload, root.directionFor(Island.page, host.pageName)) }
+                function onPayloadChanged() { host.setPage(Island.page, Island.payload, root.directionFor(Island.page, host.pageName)) }
             }
 
             // The real click contract (plan rule 8): whatever page is

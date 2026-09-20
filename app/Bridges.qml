@@ -15,17 +15,21 @@ Item {
     Connections {
         target: Audio
         function onChanged() {
-            // pages/MediaExpanded.qml's CONTROLS section already shows
-            // volume live while it's the expanded page, so popping the OSD
-            // transient over it is always redundant, whether the change
-            // came from that section's own slider or a hardware volume key
-            // pressed while looking at it. Without this guard, the OSD
-            // transient's own priority (40, equal to expandedBlockBelow)
-            // clears IslandController's expanded gate, which morphs the
-            // whole 700x604 dashboard down to the 320x58 OSD pill mid-
-            // adjustment: refuter-caught, the slider vanishes from under
-            // the cursor for the OSD's full dwell.
-            if (Island.isExpanded && Island.expandedPage === "MediaExpanded") {
+            // Any expanded page (MediaExpanded's own CONTROLS section, or
+            // pages/SettingsAudioPanel.qml's volume slider) already shows
+            // volume live, so popping the OSD transient over it is always
+            // redundant, whether the change came from that slider or a
+            // hardware volume key pressed while looking at it. Without
+            // this guard, the OSD transient's own priority (40, equal to
+            // expandedBlockBelow) clears IslandController's expanded gate,
+            // which morphs the whole expanded dashboard down to the 320x58
+            // OSD pill mid-adjustment - refuter-caught twice now, first for
+            // MediaExpanded alone, then again for SettingsExpanded once it
+            // existed and this guard hadn't been generalized to it. Plain
+            // `Island.isExpanded`, not a specific page name: whatever
+            // expanded page comes next inherits the fix for free instead
+            // of needing this list remembered and updated again.
+            if (Island.isExpanded) {
                 return
             }
             Island.show("osd.volume", {
@@ -53,7 +57,8 @@ Item {
         target: Brightness
         function onValueChanged() {
             if (Brightness.value < 0) return
-            if (Island.isExpanded && Island.expandedPage === "MediaExpanded") {
+            // Same generalization as the volume guard above, same reason.
+            if (Island.isExpanded) {
                 return
             }
             Island.show("osd.brightness", {

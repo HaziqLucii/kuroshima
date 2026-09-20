@@ -38,10 +38,9 @@ Item {
     id: root
 
     property var payload: null
-    // Declared but unused: already the expanded destination, nothing
-    // further to expand to. Present so ui/Capsule.qml's generic
-    // Connections to whatever page is current doesn't warn about a
-    // missing signal every time this page is shown.
+    // Now real: the identity header's Settings gear button (below) emits
+    // requestExpand("SettingsExpanded"), the same generic mechanism every
+    // page-to-page navigation in this app already uses.
     signal requestExpand(string pageId)
     readonly property real cornerRadius: Theme.expandedRadius
 
@@ -199,6 +198,50 @@ Item {
                         font.pixelSize: 9
                         font.letterSpacing: 1
                         text: "NIRI " + System.niriVersion
+                    }
+                    Rectangle {
+                        width: 1
+                        height: 9
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.divider
+                        // Unlike the gear itself (always shown), this
+                        // separator should only draw when there's actually
+                        // a visible group of text to its left to separate
+                        // from - refuter-caught: with userHost/uptimeLabel/
+                        // niriVersion all empty this rendered as a dangling
+                        // hairline before the gear with nothing left of it.
+                        visible: System.userHost !== "" || System.uptimeLabel !== "" || System.niriVersion !== ""
+                    }
+                    // Settings entry point - pushes pages/SettingsExpanded.qml
+                    // in via a real slide (ui/Capsule.qml's directionFor()),
+                    // not the usual plain crossfade. Always visible, unlike
+                    // its siblings above: those hide when their System.*
+                    // source is empty, this doesn't depend on one.
+                    Rectangle {
+                        id: settingsBtn
+                        property bool hovered: false
+                        anchors.verticalCenter: parent.verticalCenter
+                        implicitWidth: 20
+                        implicitHeight: 20
+                        radius: settingsBtn.hovered ? height / 2 : 2
+                        color: settingsBtn.hovered ? Theme.ink : "transparent"
+                        border.width: 1
+                        border.color: Theme.hairline
+                        Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: 160 } }
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: settingsBtn.hovered ? Theme.bg : Theme.inkDim
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 12
+                            // md-cog, verified against the actual font's
+                            // cmap (fontTools) before use, same discipline
+                            // as every other icon glyph in this project.
+                            text: String.fromCodePoint(0xf0493)
+                        }
+                        TapHandler { onTapped: root.requestExpand("SettingsExpanded") }
+                        HoverHandler { onHoveredChanged: settingsBtn.hovered = hovered }
                     }
                 }
             }

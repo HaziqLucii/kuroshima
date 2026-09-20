@@ -11,6 +11,12 @@ Item {
     property var pageMap: ({})
     property string pageName: ""
     property var pendingPayload: null
+    // "fade" (default, every existing call site): plain crossfade, riseX
+    // never leaves 0, behavior unchanged. "pushRight"/"popLeft": a real
+    // horizontal slide on top of the same fade, for a page pushed onto
+    // (and popped back off of) the normal dashboard - see
+    // pages/SettingsExpanded.qml.
+    property string pendingDirection: "fade"
 
     property bool aActive: true
     property Loader pendingIncoming: null
@@ -38,7 +44,7 @@ Item {
     implicitWidth: targetWidth
     implicitHeight: targetHeight
 
-    function setPage(name, payload) {
+    function setPage(name, payload, direction = "fade") {
         if (name === pageName) {
             // Same-page payload update (e.g. a coalesced volume OSD):
             // update in place, no reload, no crossfade.
@@ -56,6 +62,7 @@ Item {
 
         pageName = name
         pendingPayload = payload
+        pendingDirection = direction
 
         const incoming = aActive ? slotB : slotA
         pendingIncoming = incoming
@@ -82,6 +89,9 @@ Item {
         }
         pendingPayload = null
 
+        const direction = pendingDirection
+        pendingDirection = "fade"
+
         const maxW = Theme.canvasW - 2 * Theme.topInset
         const maxH = Theme.canvasH - 2 * Theme.topInset
         if (loader.item && (loader.item.implicitWidth > maxW || loader.item.implicitHeight > maxH)) {
@@ -90,8 +100,15 @@ Item {
 
         const outgoing = aActive ? slotA : slotB
 
+        // Slide distance is each item's own implicitWidth, not a fixed
+        // theme constant - correct regardless of how wide the incoming/
+        // outgoing page actually is.
+        const incomingW = loader.item ? loader.item.implicitWidth : 0
+        const outgoingW = outgoing.item ? outgoing.item.implicitWidth : 0
+
         loader.opacity = 0
         loader.riseY = Motion.fadeRise
+        loader.riseX = direction === "pushRight" ? incomingW : direction === "popLeft" ? -incomingW : 0
         loader.visible = true
         // Re-enable explicitly: this slot may have been the *outgoing*
         // side of an earlier crossfade and left disabled below.
@@ -110,6 +127,7 @@ Item {
 
         crossfade.outgoing = outgoing
         crossfade.incoming = loader
+        crossfade.outgoingTargetX = direction === "pushRight" ? -outgoingW : direction === "popLeft" ? outgoingW : 0
 
         // Flip now, not after the animation: targetWidth/Height must jump
         // to the incoming page's size in the same frame the crossfade
@@ -121,14 +139,17 @@ Item {
 
     // riseY backs the design's fadeUp keyframe (translateY(4px) -> 0), via
     // a Translate transform: Loader has no "y offset independent of anchors"
-    // property of its own, and this slot is anchors.centerIn'd.
+    // property of its own, and this slot is anchors.centerIn'd. riseX is
+    // the same idea for the pushRight/popLeft slide - 0 for a plain fade,
+    // never independently touched otherwise.
     Loader {
         id: slotA
         asynchronous: false
         anchors.centerIn: parent
         layer.enabled: opacity < 1
         property real riseY: 0
-        transform: Translate { y: slotA.riseY }
+        property real riseX: 0
+        transform: Translate { x: slotA.riseX; y: slotA.riseY }
         onLoaded: root.handleLoaded(slotA)
     }
     Loader {
@@ -137,7 +158,8 @@ Item {
         anchors.centerIn: parent
         layer.enabled: opacity < 1
         property real riseY: 0
-        transform: Translate { y: slotB.riseY }
+        property real riseX: 0
+        transform: Translate { x: slotB.riseX; y: slotB.riseY }
         onLoaded: root.handleLoaded(slotB)
     }
 
@@ -145,6 +167,9 @@ Item {
         id: crossfade
         property Loader outgoing: null
         property Loader incoming: null
+        // 0 for a plain fade (outgoing.riseX just animates 0 -> 0, a
+        // no-op) - only pushRight/popLeft ever set this to something else.
+        property real outgoingTargetX: 0
 
         // The design only specifies the enter keyframe (fadeUp); the exit
         // here mirrors it (fade + drop by fadeRise) for a symmetric feel.
@@ -157,6 +182,10 @@ Item {
                 target: crossfade.outgoing; property: "riseY"; to: Motion.fadeRise
                 duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
             }
+            NumberAnimation {
+                target: crossfade.outgoing; property: "riseX"; to: crossfade.outgoingTargetX
+                duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+            }
         }
         SequentialAnimation {
             PauseAnimation { duration: Motion.fadeInDelay }
@@ -167,6 +196,10 @@ Item {
                 }
                 NumberAnimation {
                     target: crossfade.incoming; property: "riseY"; to: 0
+                    duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+                }
+                NumberAnimation {
+                    target: crossfade.incoming; property: "riseX"; to: 0
                     duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
                 }
             }

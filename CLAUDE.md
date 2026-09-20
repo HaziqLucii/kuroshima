@@ -19,7 +19,10 @@ Full architecture: `plans/2026-09-18-foundation-plan.md`. Progress: `docs/NOTES.
 
 Every page is an `Item`. Required: `implicitWidth`, `implicitHeight`, `property var payload`.
 Optional: `property bool wantsKeyboard: false`, `property bool holdOpen: false`,
-`signal requestClose()`, `signal requestExpand(string pageId)`.
+`signal requestClose()`, `signal requestExpand(string pageId)`,
+`readonly property real cornerRadius` (falls back to `Theme.radius` if omitted -
+`ui/PageHost.qml`'s `targetRadius` reads this per-page since the design ties radius to
+state, not one fixed value; this was previously undocumented here despite being real).
 A page also sets `width: implicitWidth` / `height: implicitHeight` itself (plain `Item`
 doesn't self-size the way a Control does).
 
