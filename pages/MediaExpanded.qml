@@ -323,11 +323,13 @@ Item {
                                 width: 24
                                 height: 24
                                 Rectangle {
+                                    // Full bone-on-black invert, not a
+                                    // translucent brighten.
                                     anchors.centerIn: parent
                                     width: prevHit.hovered ? 22 : 0
                                     height: prevHit.hovered ? 22 : 0
                                     radius: width / 2
-                                    color: Qt.rgba(1, 1, 1, 0.08)
+                                    color: Theme.ink
                                     opacity: prevHit.hovered ? 1 : 0
                                     Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                                     Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -347,7 +349,7 @@ Item {
                                     // misalignment Haziq spotted once the
                                     // hover bubble made it visible.
                                     text: String.fromCodePoint(0xf048)
-                                    color: Theme.inkMuted
+                                    color: prevHit.hovered ? Theme.bg : Theme.inkMuted
                                     opacity: Media.canGoPrevious ? 1.0 : 0.35
                                     font.family: Theme.fontFamily
                                     font.pixelSize: 11
@@ -361,11 +363,13 @@ Item {
                                 width: 26
                                 height: 26
                                 Rectangle {
+                                    // Full bone-on-black invert, not a
+                                    // translucent brighten.
                                     anchors.centerIn: parent
                                     width: playHit.hovered ? 24 : 0
                                     height: playHit.hovered ? 24 : 0
                                     radius: width / 2
-                                    color: Qt.rgba(1, 1, 1, 0.08)
+                                    color: Theme.ink
                                     opacity: playHit.hovered ? 1 : 0
                                     Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                                     Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -376,7 +380,7 @@ Item {
                                     // fa-pause / fa-play - see the prev
                                     // button's comment above for why.
                                     text: String.fromCodePoint(Media.isPlaying ? 0xf04c : 0xf04b)
-                                    color: Theme.ink
+                                    color: playHit.hovered ? Theme.bg : Theme.ink
                                     opacity: Media.canTogglePlaying ? 1.0 : 0.35
                                     font.family: Theme.fontFamily
                                     font.pixelSize: 12
@@ -395,11 +399,13 @@ Item {
                                 width: 24
                                 height: 24
                                 Rectangle {
+                                    // Full bone-on-black invert, not a
+                                    // translucent brighten.
                                     anchors.centerIn: parent
                                     width: nextHit.hovered ? 22 : 0
                                     height: nextHit.hovered ? 22 : 0
                                     radius: width / 2
-                                    color: Qt.rgba(1, 1, 1, 0.08)
+                                    color: Theme.ink
                                     opacity: nextHit.hovered ? 1 : 0
                                     Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                                     Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -410,7 +416,7 @@ Item {
                                     // fa-step_forward - see the prev
                                     // button's comment above for why.
                                     text: String.fromCodePoint(0xf051)
-                                    color: Theme.inkMuted
+                                    color: nextHit.hovered ? Theme.bg : Theme.inkMuted
                                     opacity: nextHit.enabled_ ? 1.0 : 0.35
                                     font.family: Theme.fontFamily
                                     font.pixelSize: 11
@@ -909,11 +915,13 @@ Item {
                         height: 18
 
                         Rectangle {
+                            // Full bone-on-black invert, not a
+                            // translucent brighten.
                             anchors.centerIn: parent
                             width: clearAllLabel.implicitWidth + (clearAllHit.hovered ? 14 : 0)
                             height: clearAllHit.hovered ? 16 : 0
                             radius: height / 2
-                            color: Qt.rgba(1, 1, 1, 0.08)
+                            color: Theme.ink
                             opacity: clearAllHit.hovered ? 1 : 0
                             Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
                             Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -922,7 +930,7 @@ Item {
                         Text {
                             id: clearAllLabel
                             anchors.centerIn: parent
-                            color: Theme.inkSubtle
+                            color: clearAllHit.hovered ? Theme.bg : Theme.inkSubtle
                             font.family: Theme.fontFamily
                             font.pixelSize: 9
                             font.letterSpacing: 2
@@ -1094,6 +1102,13 @@ Item {
                             id: wsPill
                             required property var modelData
                             property bool hovered: false
+                            // The currently-active workspace gets the SAME
+                            // persistent full invert as hover, not just a
+                            // faint tint - matching ToggleButton's ON
+                            // state getting the same treatment as its own
+                            // hover, per Haziq's "same on the which
+                            // workspace we currently at."
+                            readonly property bool inverted: hovered || modelData.active
 
                             // Unlike WorkspacePeek.qml's plain dots (where
                             // "active" can just mean "wider"), each pill
@@ -1103,11 +1118,12 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             width: Math.max(20, wsLabel.implicitWidth + 8)
                             height: 20
-                            // Hover: brighten further and morph the small
+                            // Full bone-on-black invert (Theme.ink
+                            // background, Theme.bg text), not a
+                            // translucent brighten, and morph the small
                             // resting radius (2) into a fully rounded pill.
-                            radius: wsPill.hovered ? height / 2 : 2
-                            color: wsPill.hovered ? Qt.rgba(1, 1, 1, 0.1)
-                                : (modelData.active ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+                            radius: wsPill.inverted ? height / 2 : 2
+                            color: wsPill.inverted ? Theme.ink : "transparent"
                             border.width: 1
                             border.color: modelData.active ? Theme.divider : Theme.hairline
                             Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -1116,7 +1132,7 @@ Item {
                             Text {
                                 id: wsLabel
                                 anchors.centerIn: parent
-                                color: modelData.active ? Theme.ink : Theme.inkDim
+                                color: wsPill.inverted ? Theme.bg : Theme.inkDim
                                 font.family: Theme.fontFamily
                                 font.pixelSize: 9
                                 text: modelData.name
@@ -1172,8 +1188,10 @@ Item {
 
                     implicitWidth: lockLabel.implicitWidth + 18
                     implicitHeight: 20
+                    // Full bone-on-black invert on hover, not a
+                    // translucent brighten.
                     radius: lockBtn.hovered ? height / 2 : 2
-                    color: lockBtn.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                    color: lockBtn.hovered ? Theme.ink : "transparent"
                     border.width: 1
                     border.color: Theme.hairline
                     Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -1204,8 +1222,9 @@ Item {
                         // the ink ramp - no new hue) to read as
                         // "increasing consequence" at a glance: LOCK is
                         // instant/harmless/reversible, so it stays the
-                        // calmest of the three.
-                        color: Theme.inkDim
+                        // calmest of the three. Inverts to Theme.bg on
+                        // hover, matching the button's own invert.
+                        color: lockBtn.hovered ? Theme.bg : Theme.inkDim
                         font.family: Theme.fontFamily
                         font.pixelSize: 8
                         font.letterSpacing: 2
@@ -1235,8 +1254,10 @@ Item {
 
                     implicitWidth: sleepLabel.implicitWidth + 18
                     implicitHeight: 20
+                    // Full bone-on-black invert on hover, not a
+                    // translucent brighten.
                     radius: sleepBtn.hovered ? height / 2 : 2
-                    color: sleepBtn.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                    color: sleepBtn.hovered ? Theme.ink : "transparent"
                     border.width: 1
                     border.color: armed ? Theme.divider : Theme.hairline
                     Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -1255,7 +1276,10 @@ Item {
                         anchors.horizontalCenterOffset: font.letterSpacing / 2
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.verticalCenterOffset: 1
-                        color: sleepBtn.armed ? Theme.ink : Theme.inkMuted
+                        // Theme.bg when hovered (background just inverted
+                        // to Theme.ink under it), else the existing
+                        // armed/resting distinction.
+                        color: sleepBtn.hovered ? Theme.bg : (sleepBtn.armed ? Theme.ink : Theme.inkMuted)
                         font.family: Theme.fontFamily
                         font.pixelSize: 8
                         font.letterSpacing: 2
@@ -1285,8 +1309,10 @@ Item {
 
                     implicitWidth: powerLabel.implicitWidth + 18
                     implicitHeight: 20
+                    // Full bone-on-black invert on hover, not a
+                    // translucent brighten.
                     radius: powerBtn.hovered ? height / 2 : 2
-                    color: powerBtn.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                    color: powerBtn.hovered ? Theme.ink : "transparent"
                     border.width: 1
                     // Brightest of the three at rest (Theme.divider,
                     // Theme.inkSubtle below), escalating to the existing
@@ -1310,7 +1336,11 @@ Item {
                         anchors.horizontalCenterOffset: font.letterSpacing / 2
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.verticalCenterOffset: 1
-                        color: powerBtn.armed ? "#d75f5f" : Theme.inkSubtle
+                        // Red stays red even when hovered (still reads
+                        // as a danger signal on a white background);
+                        // otherwise Theme.bg when hovered, matching the
+                        // button's own invert.
+                        color: powerBtn.armed ? "#d75f5f" : (powerBtn.hovered ? Theme.bg : Theme.inkSubtle)
                         font.family: Theme.fontFamily
                         font.pixelSize: 8
                         font.letterSpacing: 2

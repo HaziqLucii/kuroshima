@@ -21,19 +21,28 @@ Rectangle {
 
     readonly property string iconChar: String.fromCodePoint(
         (!isOn && offIconCodepoint !== 0) ? offIconCodepoint : onIconCodepoint)
-    readonly property color contentColor: !available ? Theme.inkDim : (isOn ? Theme.ink : Theme.inkSubtle)
+    // ON and hover both get the SAME full bone-on-black invert (Theme.ink
+    // background, Theme.bg content), not a translucent brighten:
+    // "shouldn't our theme be bone on black? - on hover, background
+    // white, foreground black", matching the ryoku.dev reference Haziq
+    // pointed at - and he wanted the persistent ON state (a toggle
+    // that's actually enabled, not just being hovered) to read the same
+    // way, not just a faint tint. Same Theme.ink/Theme.bg tokens the
+    // rest of this theme already uses, just swapped.
+    readonly property bool _inverted: available && (isOn || root._hovered)
+    readonly property color contentColor: _inverted ? Theme.bg : (!available ? Theme.inkDim : Theme.inkSubtle)
 
     property bool _hovered: false
 
     implicitHeight: content.implicitHeight + 16
     border.width: 1
     border.color: !available ? Theme.hairline : (isOn ? Theme.divider : Theme.hairline)
-    // Hover: background brightens further and the sharp (0, default)
-    // corner morphs round - Haziq's "things already in a box: colour the
-    // background, morph the corner into radius" hover language, applied
-    // here since this one component backs all eight TOGGLES cells.
-    color: !available ? "transparent" : (root._hovered ? Qt.rgba(1, 1, 1, 0.08) : (isOn ? Qt.rgba(1, 1, 1, 0.05) : "transparent"))
-    radius: root._hovered ? 8 : 0
+    // The sharp (0, default) corner morphs round on hover OR on -
+    // Haziq's "things already in a box: colour the background, morph
+    // the corner into radius" hover language, applied here since this
+    // one component backs all eight TOGGLES cells.
+    color: root._inverted ? Theme.ink : "transparent"
+    radius: root._inverted ? 8 : 0
     Behavior on color { ColorAnimation { duration: 160 } }
     Behavior on radius { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
