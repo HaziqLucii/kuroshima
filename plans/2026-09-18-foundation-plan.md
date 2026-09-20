@@ -180,7 +180,7 @@ scripts/test.sh              qmltestrunner -input tests
 scripts/install.sh           symlink ~/.config/quickshell/dynamic-island -> repo; print niri autostart + layer-rule snippet; print Noctalia toggles
 config.example.json
 plans/                       this plan and future plans
-docs/HANDOFF.md              slice status, decisions, how to resume (reload after /compact)
+docs/NOTES.md              slice status, decisions, how to resume (reload after /compact)
 CLAUDE.md                    repo-level: dev loop commands, page contract, "build with Sonnet, refute with Opus"
 README.md
 ```
@@ -191,7 +191,7 @@ Imports use Quickshell's root-relative form (`import qs.services`, `import qs.th
 
 Each slice is one Claude Code build session (Sonnet), followed by a `refuter` pass (Opus), then a commit. Each ends runnable in nested niri via `scripts/dev.sh` with Mod+I in `~/dev-niri.kdl`.
 
-0. **Baseline and skeleton**. Commit the pending pivot as-is (deletions plus the single-file `shell.qml`) so history shows the switch. Then create the layout above with `Theme`, `IslandWindow` (fixed canvas), a static `Capsule`, `CompactPage` using `SystemClock`, `docs/HANDOFF.md`, `CLAUDE.md`, `scripts/dev.sh`, `scripts/lint.sh`. Rebind Mod+I in `~/dev-niri.kdl`. Verify: pill top-centre; clicks outside the pill pass through to windows below; editing `Theme.ink` hot-reloads; `lint.sh` clean.
+0. **Baseline and skeleton**. Commit the pending pivot as-is (deletions plus the single-file `shell.qml`) so history shows the switch. Then create the layout above with `Theme`, `IslandWindow` (fixed canvas), a static `Capsule`, `CompactPage` using `SystemClock`, `docs/NOTES.md`, `CLAUDE.md`, `scripts/dev.sh`, `scripts/lint.sh`. Rebind Mod+I in `~/dev-niri.kdl`. Verify: pill top-centre; clicks outside the pill pass through to windows below; editing `Theme.ink` hot-reloads; `lint.sh` clean.
 1. **Morph**. `Motion`, `MorphAnimation`, `PageHost`, two dummy pages of different sizes, IPC `island page <name>`. Verify: alternating pages morphs width, height and radius smoothly at 200 Hz; no rectangular clip corners mid-morph; mask follows the target rect.
 2. **Controller**. `IslandController`, `Kinds`, `tests/tst_controller.qml`, `scripts/test.sh` green with durations injected at 50 ms. No UI change. Verify: tests cover every rule in the list above.
 3. **Wire**. `Island` singleton, `PersistentProperties`, view binds to `Island.page` and `Island.payload`, `Demo` service, IPC `demo/expand/collapse/toggle/dismiss`. Verify: `qs -p . ipc call island demo <kind>` previews every page; hover pauses the timeout; `expandedPage` survives a hot reload.
@@ -219,7 +219,7 @@ After slice 9 the foundation is frozen and Haziq's design work starts: `Theme.qm
 - **Transparency**: `color: "transparent"` on `PanelWindow` suffices; the old alpha-format dance from `main.cpp` is gone.
 - **IpcHandler** parameters must be typed, never `var`.
 - **qmllint** needs `-I /usr/lib/qt6/qml`; `qs.*` imports warn and are allow-listed in `lint.sh`.
-- **Two sessions**: only one Claude Code session edits this repo at a time; `docs/HANDOFF.md` is the handover between sessions.
+- **Two sessions**: only one Claude Code session edits this repo at a time; `docs/NOTES.md` is the handover between sessions.
 
 ## Verification (end to end)
 
@@ -230,9 +230,9 @@ After slice 9 the foundation is frozen and Haziq's design work starts: `Theme.qm
 
 ## How to run this plan with Claude Code
 
-1. One slice per session. Open with `/model sonnet`, paste: "Execute slice N of plans/2026-09-18-foundation-plan.md. Read docs/HANDOFF.md first."
+1. One slice per session. Open with `/model sonnet`, paste: "Execute slice N of plans/2026-09-18-foundation-plan.md. Read docs/NOTES.md first."
 2. After the builder reports done, run the `refuter` agent on the diff and the verification step for that slice. Fix, then commit.
-3. Update `docs/HANDOFF.md` (slice status, anything learned) before ending the session.
+3. Update `docs/NOTES.md` (slice status, anything learned) before ending the session.
 4. Escalate to Opus or Fable only when a slice's design needs rethinking, not for building.
 
 ## Sources consulted

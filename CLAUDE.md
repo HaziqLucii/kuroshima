@@ -1,7 +1,7 @@
 # dynamic-island
 
 Apple-style Dynamic Island for niri (target: Hyprland later), built in Quickshell/QML.
-Full architecture: `plans/2026-09-18-foundation-plan.md`. Progress: `docs/HANDOFF.md`.
+Full architecture: `plans/2026-09-18-foundation-plan.md`. Progress: `docs/NOTES.md`.
 
 ## Dev loop
 
@@ -31,4 +31,4 @@ contract, nothing in `ui/` or `core/` should need to change for it.
 - One slice per session (see the plan's slice list). Build on Sonnet, then run the
   `refuter` agent on the diff before committing.
 - Escalate to Opus/Fable only when a slice's design needs rethinking, not for building.
-- Only one Claude Code session edits this repo at a time. Check `docs/HANDOFF.md` first.
+- Only one Claude Code session edits this repo at a time. Check `docs/NOTES.md` first.

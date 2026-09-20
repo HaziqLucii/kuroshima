@@ -4,7 +4,7 @@
 # access) with exit 0 and no output. The one that actually does semantic
 # checking, matching qt6-declarative and this project's Qt6-style imports,
 # is /usr/lib/qt6/bin/qmllint. Same trap as qmltestrunner, see
-# docs/HANDOFF.md. Don't call bare `qmllint` here again.
+# docs/NOTES.md. Don't call bare `qmllint` here again.
 #
 # One known false positive, not a real issue: qs.* root-relative imports
 # (Quickshell's own directory-as-module convention) aren't resolvable by

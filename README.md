@@ -89,7 +89,7 @@ than as a separate label.
   safe.
 
 Full architecture: `plans/2026-09-18-foundation-plan.md`. Decision log and known
-quirks: `docs/HANDOFF.md`.
+quirks: `docs/NOTES.md`.
 
 ## Status
 

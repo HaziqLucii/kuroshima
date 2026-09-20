@@ -1125,7 +1125,7 @@ Item {
             }
 
             // 07 SESSION: workspace pills (left, click-to-switch via
-            // `niri msg action focus-workspace <ref>` - HANDOFF.md's Slice 7
+            // `niri msg action focus-workspace <ref>` - NOTES.md's Slice 7
             // notes document `niri msg action <anything>` reproducibly
             // wedging this project's nested-niri test IPC socket, which is
             // why this was originally left read-only. Re-verified against

@@ -40,7 +40,7 @@ Item {
 
     // Shadow always-on is fine while the capsule morphs at most a few
     // times a minute; revisit if a future page keeps geometry animating
-    // continuously (see Theme.qml / HANDOFF.md for the 200Hz budget note).
+    // continuously (see Theme.qml / NOTES.md for the 200Hz budget note).
     MultiEffect {
         source: background
         anchors.fill: background

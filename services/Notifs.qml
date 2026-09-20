@@ -32,7 +32,7 @@ QtObject {
     // QtObject has no default property (this codebase's standing gotcha,
     // hit 3+ times already): the Loader needs a named property, not a bare
     // unnamed child. `active` gates on Config.notificationServer (default
-    // false, see Config.qml and docs/HANDOFF.md's D-Bus-name-already-owned
+    // false, see Config.qml and docs/NOTES.md's D-Bus-name-already-owned
     // pitfall) rather than being hardcoded on.
     property Loader _serverLoader: Loader {
         active: Config.notificationServer

@@ -7,7 +7,7 @@ import qs.ui
 Item {
     id: root
 
-    // Page contract (docs/HANDOFF.md): implicitWidth/Height + payload.
+    // Page contract (docs/NOTES.md): implicitWidth/Height + payload.
     property var payload: null
     signal requestExpand(string pageId)
     // Page contract addition: per-state radius (design's IDLE state, r15).

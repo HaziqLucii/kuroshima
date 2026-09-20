@@ -6,7 +6,7 @@ import qs.ui
 
 // One surface, not two: an earlier version split rendering (this file)
 // from space reservation (a second, separate PanelWindow) specifically to
-// dodge a hang (see docs/HANDOFF.md, "exclusiveZone hangs niri"), but that
+// dodge a hang (see docs/NOTES.md, "exclusiveZone hangs niri"), but that
 // left two surfaces measuring "the top" independently, which breaks the
 // instant a third-party top-anchored bar with its own exclusive zone is
 // in the picture (e.g. Haziq's noctalia bar on the real session, absent

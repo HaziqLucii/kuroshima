@@ -15,7 +15,7 @@ QtObject {
     // Off by default: Quickshell's own NotificationServer competing for
     // org.freedesktop.Notifications with whatever the user's compositor
     // setup already runs (Noctalia, on this project's real target) fails
-    // silently (Quickshell only logs it, see docs/HANDOFF.md), so shipping
+    // silently (Quickshell only logs it, see docs/NOTES.md), so shipping
     // this on by default would silently do nothing on a fresh install
     // until the user also disables the other daemon. README walks through
     // flipping this on alongside Noctalia's own `notifications.enabled`.

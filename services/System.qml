@@ -32,7 +32,7 @@ QtObject {
     property string niriVersion: ""
 
     // QtObject has no default property (found 3 times already in this
-    // codebase, see docs/HANDOFF.md's standing reminder): every child below
+    // codebase, see docs/NOTES.md's standing reminder): every child below
     // needs a named property, not a bare unnamed child, or this fails to
     // load with "Cannot assign to non-existent default property".
     property FileView _hostnameFile: FileView {
