@@ -1968,6 +1968,27 @@ barely-there at 2px+ - it needs to be a solid tone to still look
 intentional once it's not a literal 1px hairline) - both straightforward,
 no gotchas.
 
+**Went too far the other direction on the ticks, plus a layout gap Haziq
+caught from the reference directly**: made them thicker in the previous
+pass when he'd actually meant them thicker than the original 1px but still
+thin overall - overcorrected. Also, "GOOD AFTERNOON" as one line reads
+visibly wider than "GOOD NIGHT"/"GOOD MORNING"/"GOOD EVENING", which the
+reference avoids entirely by always splitting into two lines ("GOOD" /
+mood-word) - simplest fix was making `greetingFor()` return `"GOOD\n" +
+word` directly and letting `Text`'s native `\n` + `horizontalAlignment:
+Text.AlignHCenter` handle the two-line render, no wrap-mode measuring
+needed.
+
+The real structural fix was spacing, not just tick dimensions: a single
+flat `Column` with one `spacing` value can't have a big gap around the
+ticks AND a tight gap between the greeting/day/date/time lines at the
+same time - they're the same property. Split into a nested `Column`: the
+outer one holds just [tick, inner-column, tick] with a large spacing
+value, the inner one holds the four text lines with a small spacing
+value. Matches the reference's actual rhythm (loose around the ticks,
+tight within the text block) instead of one compromise value applied
+everywhere.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

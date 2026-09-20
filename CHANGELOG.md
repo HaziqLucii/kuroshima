@@ -26,7 +26,9 @@ history and `docs/NOTES.md` for decision-level detail.
   by a ryoku.dev showcase widget), the first real bundled widget alongside
   the `Clock` placeholder. "Fraunces 144pt" (Black) for the day abbreviation
   - needs `ttf-fraunces` from the AUR, see the README's Widgets section.
-  Thicker, brighter (`Theme.ink`) hairline ticks bracketing the card.
+  Two-line greeting ("GOOD" / mood-word, always, so "GOOD AFTERNOON" isn't
+  visibly wider than the other three), long thin `Theme.ink` hairline ticks
+  with a real gap around them, tight spacing within the text block itself.
 
 ## [0.3.0] - 2026-09-20
 
