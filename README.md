@@ -15,9 +15,11 @@ Compositor support: niri only, for now.
 ```
 
 This symlinks the repo into `~/.config/quickshell/dynamic-island` (so `qs -c
-dynamic-island` finds it) and seeds `~/.config/dynamic-island/config.json` from
-`config.example.json` on first run. It does not touch niri's or Noctalia's config -
-those are printed for you to apply by hand:
+dynamic-island` finds it), seeds `~/.config/dynamic-island/config.json` from
+`config.example.json` on first run, and links `fuzzel/fuzzel.ini` (bundled - see
+Fuzzel theme below) to `~/.config/fuzzel/fuzzel.ini` unless you already have a real
+(non-symlink) fuzzel config, which it leaves alone. It does not touch niri's or
+Noctalia's config - those are printed for you to apply by hand:
 
 1. **niri autostart** (`~/.config/niri/cfg/autostart.kdl` or wherever your `spawn-sh-at-startup`
    lines live):
@@ -54,6 +56,18 @@ those are printed for you to apply by hand:
 Missing file or invalid JSON both fall back to the defaults above; the island never
 fails to start over a config problem. Config is read once at startup (no live-reload),
 so restart the island after editing it.
+
+## Fuzzel theme
+
+`fuzzel/fuzzel.ini`, linked to `~/.config/fuzzel/fuzzel.ini` by `install.sh`: bone-on-
+black, sharp corners (`radius=0`), same tokens as `theme/Theme.qml`, and the same full
+invert on the selected entry (bone background, near-black text) as the island's own
+hover/active treatment. Prompt is `//kuro. ` instead of the default `> `. Icons are
+kept (not disabled) - a strict monochrome palette usually looks cleaner without them,
+but losing at-a-glance app recognition was a real tradeoff, not an obvious win, so this
+keeps them. Fuzzel has no way to pin arbitrary text to a corner of its window (it's a
+plain list launcher, not a custom canvas), so `//kuro.` lives in the prompt slot rather
+than as a separate label.
 
 ## Dev loop
 

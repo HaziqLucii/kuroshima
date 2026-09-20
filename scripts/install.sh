@@ -39,6 +39,22 @@ else
     echo "$CONFIG_FILE already exists, left it alone"
 fi
 
+# Bundled fuzzel theme (bone-on-black, sharp corners, matches the island's
+# own hover/active treatment) - same not-a-symlink-already caution as
+# QS_TARGET above, since this is a real user config file fuzzel itself
+# also reads, not something this project owns exclusively the way
+# QS_TARGET is.
+FUZZEL_TARGET="$HOME/.config/fuzzel/fuzzel.ini"
+mkdir -p "$HOME/.config/fuzzel"
+if [ -e "$FUZZEL_TARGET" ] && [ ! -L "$FUZZEL_TARGET" ]; then
+    echo "$FUZZEL_TARGET already exists and isn't a symlink, leaving your fuzzel theme alone"
+elif [ -L "$FUZZEL_TARGET" ] && [ "$(readlink -f "$FUZZEL_TARGET")" = "$REPO_DIR/fuzzel/fuzzel.ini" ]; then
+    echo "fuzzel theme already linked"
+else
+    ln -sfn "$REPO_DIR/fuzzel/fuzzel.ini" "$FUZZEL_TARGET"
+    echo "linked $FUZZEL_TARGET -> $REPO_DIR/fuzzel/fuzzel.ini"
+fi
+
 cat <<'EOF'
 
 Next, apply these by hand (not touched by this script):
