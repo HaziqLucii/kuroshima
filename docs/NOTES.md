@@ -1938,6 +1938,36 @@ using it (same "verify before use" rule this project already applies to
 icon glyphs) - not a guess, and not silently falling back to a default
 face.
 
+**Inter Display swapped for Fraunces, right after**: Haziq correctly called
+Inter Display "kind of normal" - it's a clean grotesk, exactly what it's for,
+but not what "quirky/unique" means for a display element like this. This
+project's own aesthetic notes already name Fraunces specifically for that
+role (a display-serif wordmark), so that's what got installed -
+`ttf-fraunces` from the AUR (`aur/ttf-fraunces`, `aur/otf-fraunces`, and a
+variable cut all exist; picked the static one). First AUR install attempt
+hit a transient TLS error cloning from `aur.archlinux.org` - not a real
+problem, just retried and it built fine.
+
+Real gotcha once installed: the family name isn't plain "Fraunces" at all -
+`fc-match "Fraunces"` silently resolved to Noto Sans, no error, nothing
+in the log to suggest anything was wrong. Fraunces ships as three separate
+optical-size families (`Fraunces 9pt`, `Fraunces 72pt`, `Fraunces 144pt`,
+each also with Soft/SuperSoft variants), and only the specific family name
+matches. `144pt` is the cut actually drawn for large display text, not
+just the small-text cut rendered bigger, so it's also just the correct
+choice for a day-abbreviation this size, not only the name that happens to
+resolve. Confirmed via `fc-match "Fraunces 144pt:weight=black"` before
+touching the widget - the exact same "verify before use" step that caught
+Inter Display's own correct name earlier in this same file, now caught a
+subtler version of the same failure mode (a family name that LOOKS
+plausible and doesn't error, just silently substitutes).
+
+Also made the top/bottom hairline ticks thicker and switched them from
+`Theme.divider` to `Theme.ink` (a hairline-weight rgba tint reads as
+barely-there at 2px+ - it needs to be a solid tone to still look
+intentional once it's not a literal 1px hairline) - both straightforward,
+no gotchas.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

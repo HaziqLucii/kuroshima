@@ -24,9 +24,9 @@ history and `docs/NOTES.md` for decision-level detail.
   to this repo's bone-on-black rule - see `docs/NOTES.md`.
 - `widgets/GoodNight.qml`: a centered greeting/day/date/time card (inspired
   by a ryoku.dev showcase widget), the first real bundled widget alongside
-  the `Clock` placeholder. "Inter Display" (Black weight) for the day
-  abbreviation - a monospace font can't produce that tight, proportional
-  display look regardless of weight.
+  the `Clock` placeholder. "Fraunces 144pt" (Black) for the day abbreviation
+  - needs `ttf-fraunces` from the AUR, see the README's Widgets section.
+  Thicker, brighter (`Theme.ink`) hairline ticks bracketing the card.
 
 ## [0.3.0] - 2026-09-20
 

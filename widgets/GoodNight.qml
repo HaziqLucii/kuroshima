@@ -10,13 +10,14 @@ import qs.theme
 // itself, so it follows the same house style as everywhere else here.
 //
 // Two fonts, matching this project's own established type system (see
-// user CLAUDE.md's aesthetic notes: monospace for labels/meta, a grotesk
-// for the big display element): Theme.fontFamily (JetBrainsMono Nerd Font)
-// for the greeting/date/time meta text, "Inter Display" (installed on this
-// machine, Space Grotesk wasn't) at Font.Black for the day abbreviation -
-// a true monospace font can't produce the reference's tight, proportional-
-// width geometric look no matter the weight, since every glyph is forced
-// to the same advance width.
+// user CLAUDE.md's aesthetic notes: monospace for labels/meta, a distinct
+// display face for the big element): Theme.fontFamily (JetBrainsMono Nerd
+// Font) for the greeting/date/time meta text, "Fraunces 144pt" (Black) for
+// the day abbreviation - Haziq wanted something with more character there,
+// not a normal grotesk (tried Inter Display first, correctly called out
+// as too plain). A monospace font couldn't have worked either way: it
+// can't produce a display face's tight, proportional-width look at any
+// weight, since every glyph is forced to the same advance width.
 Item {
     id: root
 
@@ -50,9 +51,9 @@ Item {
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 1
+            width: Math.max(2, root.width * 0.012)
             height: Math.max(10, root.height * 0.09)
-            color: Theme.divider
+            color: Theme.ink
         }
 
         Text {
@@ -68,7 +69,13 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.dayAbbrev
             color: Theme.ink
-            font.family: "Inter Display"
+            // "Fraunces 144pt", not plain "Fraunces" - the family is split
+            // by optical size (9pt/72pt/144pt, each with Soft/SuperSoft
+            // variants), and 144pt is the cut actually drawn for large
+            // display text, not just a bigger render of the small-text
+            // cut. Confirmed via fc-match before use, not guessed - a
+            // plain "Fraunces" family name silently resolved to Noto Sans.
+            font.family: "Fraunces 144pt"
             font.weight: Font.Black
             // The big display element - deliberately the tallest single
             // jump in the stack, matching the reference's own emphasis.
@@ -95,9 +102,9 @@ Item {
 
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 1
+            width: Math.max(2, root.width * 0.012)
             height: Math.max(10, root.height * 0.09)
-            color: Theme.divider
+            color: Theme.ink
         }
     }
 }
