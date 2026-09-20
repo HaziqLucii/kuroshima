@@ -1417,6 +1417,165 @@ machine (something else already owns `org.freedesktop.Notifications` on this ses
 bus) - confirming the config value actually reaches the `Loader`, not just that the
 default happens to look right. Restored to the shipped `false` default afterward.
 
+## Post-freeze: full Noctalia handoff, then a long real-use bug/polish pass
+
+Everything below happened after Slice 9's freeze, across ~18 commits, without a
+matching HANDOFF entry at the time - commit messages carry full detail per change;
+this is the summary that should have landed alongside them.
+
+**Wallpaper carousel + background painter** (`services/Wallpaper.qml`,
+`ui/WallpaperBackground.qml`, `ui/WallpaperCarousel.qml`): ported from the KDE Kuro
+rice's own `kuro-wallpaper` tool. niri has no built-in wallpaper mechanism the way KDE
+does, so this needed two new pieces the original didn't: an always-on background-
+painting layer surface, and applying a choice as a direct property update instead of
+shelling out to `plasma-apply-wallpaperimage`. Folded into this shell's own process
+(not a separate sibling project) as a standalone overlay window, outside the capsule/
+peek state machine entirely. refuter found `cancel()` didn't stop the pending 220ms
+preview debounce timer, letting a stale preview silently overwrite a just-reverted
+wallpaper - fixed to match `apply()`'s existing `preview.stop()`.
+
+**Audio/media/brightness exposed over IPC** (`app/Bridges.qml`, `services/Audio.qml`,
+`shell.qml`): niri's hardware media/brightness keys called `noctalia msg <command>`,
+which actually performed the PipeWire/DDC-CI change - this project's own OSD only ever
+observed the result. New `IpcHandler` targets (`audio`, `media`, `brightness`) wrap the
+existing services. Also connects `Brightness` into `Bridges.qml` (it was only ever
+referenced from the on-demand `MediaExpanded` page, so its first ~8s DDC-CI read never
+even started until the dashboard was opened) and finally wires up `Kinds.qml`'s
+already-existing but never-fired `osd.brightness` entry.
+
+**Compact pill**: divider + EQ now gate on `Media.isPlaying`, not `Media.available` - a
+paused-but-loaded player (a backgrounded YouTube tab, most commonly) used to leave them
+stuck on screen indefinitely instead of collapsing back to clock-only.
+
+**Capsule's inset top highlight removed** (`ui/Capsule.qml`): the 1px
+`rgba(255,255,255,0.05)` hairline read as an unwanted faint grey line once live on a
+real desktop instead of just test screenshots.
+
+**Three real bugs found clicking through the expanded dashboard for real** (see
+`ac96cff`'s own commit message for full detail on each):
+1. Workspace pills (07 SESSION) were read-only - `niri msg action` had a documented
+   history of wedging this project's test IPC socket. Re-verified against the current
+   niri version (15+ calls, including the exact verb that wedged it before, all clean)
+   before wiring click-to-switch back up, `timeout`-wrapped regardless.
+2. The LOCK button called `loginctl lock-session`, which just emits a D-Bus signal -
+   niri-lockscreen (Noctalia's replacement) never subscribed to it. Now calls the same
+   IPC path `Mod+ALT+L` already uses.
+3. 06 INBOX hard-truncated to 2 notifications with the rest of history completely
+   unreachable - replaced with a `ListView`, scrollable for the rest.
+
+Also added `ui/CountBadge.qml` and a notification bell to the compact pill - refined
+twice after visual feedback: the bell went from a separate icon+numeral-bubble pair to
+a single `cod-bell_dot` glyph (the "unread" dot is drawn into the glyph itself), and
+the INBOX header's badge went from a bare numeral in a small circle to a long "N
+UNREAD" pill. Both glyph and layout choices confirmed via direct rendering tests
+(fontTools cmap lookups, crosshair-guide screenshots), not guessed.
+
+**Hover feedback, then corrected to a full invert**: every interactive control in the
+expanded dashboard (TOGGLES, workspace pills, LOCK/SLEEP/POWER, CLEAR ALL, media
+transport) first got a translucent-brighten hover treatment, then was corrected to a
+full bone-on-black invert (`Theme.ink` background, `Theme.bg` content) after Haziq
+pointed at ryoku.dev as the reference - "shouldn't our theme be bone on black?" The ON
+state of a toggle and the currently-active workspace pill also get the SAME persistent
+invert, not just hover. POWER's armed (danger) red text stays red even inverted, since
+losing the color would weaken the signal exactly when it matters most.
+
+That same pass surfaced a real misalignment bug once the hover bubble gave LOCK/SLEEP/
+POWER and the media transport buttons a visible box to line up against: LOCK/SLEEP/
+POWER's labels used `centerIn` with `font.letterSpacing` set, which adds space AFTER
+the last character with no matching leading gap - confirmed via a crosshair render test
+that this visibly shifts centered text left, worse on odd-length labels. Fixed with an
+`anchors.horizontalCenterOffset: font.letterSpacing / 2` correction (plus an unrelated
+`+1` vertical offset for all-caps text centering against full line-metrics including
+unused descender space). The media transport buttons were using raw Unicode dingbats
+("◀◀"/"▶"/"▮▮"/"▶▶") instead of real icon glyphs - confirmed via the same crosshair test
+that plain Unicode symbols carry their own baked-in asymmetric blank space, not
+designed for icon-button centering - replaced with `fa-step_backward`/`fa-play`/
+`fa-pause`/`fa-step_forward`.
+
+**Auto-collapse delay** (`theme/Motion.qml`): 1800ms → 1000ms, felt laggy after moving
+the mouse off the expanded dashboard.
+
+**06 INBOX layout, three rounds of real bugs, each caught by Haziq actually looking at
+it** (`pages/MediaExpanded.qml`, `theme/Theme.qml`):
+1. The `ListView`'s clip height (145) was an unmeasured guess 10px too generous,
+   letting a sliver of a third card's top edge peek past the clip line before being cut
+   off. Measured a real card's actual height (64px) and fixed to the exact value (135
+   for 2 full cards).
+2. That fix addressed the wrong overflow - 07 SESSION is independently anchored to
+   this page's own bottom (not part of 06 INBOX's top-down Column), so nothing actually
+   guaranteed a gap between them. Live-measured with temporary debug logging (removed
+   after): `builtSections` landed at height 593, `sessionFooter` started at y=587, a
+   genuine 6px overlap. Bumped `expandedH`/`canvasH` (+22 each, preserving the shadow-
+   bleed slack ratio) to restore a proper ~16px gap.
+3. Once fixed, Haziq asked for less height back - a full 2-card view didn't obviously
+   signal there was more to scroll. Shrank the `ListView` to a deliberate 1.5-card
+   "sneak peek" (103, not 135), which freed 32px INBOX no longer needed - pulled
+   `expandedH`/`canvasH` back down correspondingly (682→650, 758→726) rather than
+   leaving a now-oversized ~48px dead gap.
+4. Separately: the whole 06 INBOX header (label, badge, CLEAR ALL) was gated on
+   `Notifs.history.length > 0`, hiding everything the instant history emptied - now
+   only the badge itself hides at zero, matching this page's own "keep visual
+   completeness, dim what's not real" rule already applied elsewhere (ETH/VPN/SYNC).
+
+Every one of these was re-verified live with real `notify-send` test notifications and
+screenshots after each fix, not just reasoned about.
+
+**Morph animation smoothing** (`theme/Motion.qml`): the capsule's `SpringAnimation`
+(spring=18, damping=3.5) had a damping ratio of ~0.41 - underdamped enough to visibly
+oscillate before settling. Raised damping only, to 6.5 (~0.76 ratio) - deliberately not
+touching `spring`, since this same file already documents a spring value of 300 once
+making width diverge to 1M+ px and freeze the desktop via a runaway GPU texture
+allocation. Damping is the stabilizing term; raising it can't cause that failure mode.
+Verified with 4 rapid expand/collapse cycles via IPC: process survived cleanly, memory
+stayed normal, capsule rendered at its correct size afterward.
+
+**Brightness and CPU stats "comes in late" on every restart** - two separate, real
+causes (`services/Brightness.qml`, `services/SystemStats.qml`, `app/Bridges.qml`):
+1. Brightness's ~8s-per-`ddcutil`-call latency turned out to be pure auto-detection
+   overhead, not real DDC-CI protocol latency - measured `ddcutil detect --brief`
+   alone at ~8.1s, and `ddcutil getvcp --bus N` (skipping detection, once the bus is
+   known) at ~0.05s. `--sleep-multiplier`/dynamic-sleep flags made zero difference,
+   ruling out DDC retry timing as the cause. The bus is now discovered once and
+   persisted to `~/.config/dynamic-island/brightness-bus.json`, with a fallback back to
+   rediscovery if a cached bus ever stops returning a valid read (monitor moved to a
+   different port, etc.) - only the very first run ever pays the ~8s cost now. Verified
+   live: the BRI OSD fired within ~1.3s of restart across three separate restarts,
+   versus never that fast before.
+2. `SystemStats` had the exact same lazy-singleton problem `Brightness` itself had
+   before its own earlier fix - only ever referenced from the on-demand dashboard page,
+   so its poll `Timer` never started until first opened. Referenced from `Bridges.qml`
+   now. Separately, CPU% specifically needs two `/proc/stat` samples to compute a
+   delta, so it stayed hidden for one full `pollInterval` (3000ms) after the first
+   sample - added a one-off 250ms follow-up poll instead of waiting the full 3s.
+
+**Media position/duration display, investigated carefully before touching anything**:
+Haziq reported the elapsed/remaining time "looks off" on a normal (non-live) 2:50:27
+YouTube video. The obvious suspect - the `isLive` length-threshold heuristic - turned
+out NOT to be the bug: `Media.length` is confirmed in seconds (10227, matching reality)
+and the live-detection threshold (~31 years) is nowhere close to triggering for any
+real video regardless of length, confirmed via an isolated debug harness reading the
+real live values. Real cause: the remaining-time label (`Media.length - Media.position`)
+had no guard against `Media.length` itself not having arrived yet - MPRIS metadata,
+duration especially, often arrives asynchronously slightly after a player registers or
+right after this shell restarts mid-playback, during which it showed a misleading
+"0:00" (reads as "about to end") instead of nothing. Fixed to hide until
+`Media.length > 0`, plus added a "REFRESH TAB" fallback (a derived `needsDuration` bool
++ a one-shot 4s `Timer`) if that normal gap doesn't resolve - pointing at the actual
+fix (a stale browser-tab MPRIS report) since restarting this shell wouldn't help a
+browser-side problem. State machine verified correct in an isolated test before
+landing: a case resolving in 1.5s never trips the fallback, a case that never resolves
+fires it at exactly 4s.
+
+**Bundled fuzzel theme** (`fuzzel/fuzzel.ini`, wired into `scripts/install.sh`): same
+tokens as `theme/Theme.qml`, sharp corners (`radius=0`), and the selected entry gets
+the same full bone-on-black invert as the dashboard's own hover/active treatment.
+`//kuro.` lives in the `prompt` slot (fuzzel can't pin arbitrary text to a window
+corner - it's a plain list launcher, not a custom canvas). Icons kept, not disabled -
+confirmed with Haziq first, since losing at-a-glance app recognition for a strict
+monochrome palette was a real tradeoff, not an obvious win. `install.sh` links it with
+the same not-a-symlink-already caution as its own `QS_TARGET`, since this is a real
+user config file fuzzel itself also reads.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
