@@ -74,11 +74,11 @@ else
     echo "linked $KITTY_TARGET -> $REPO_DIR/kitty/kitty.conf"
 fi
 
-# Bundled fastfetch config + logo (dithered "クロシマ" wordmark, matching
-# this repo's monochrome/dossier aesthetic): kitty renders the image
-# natively via its own graphics protocol, no per-terminal workaround needed.
+# Bundled fastfetch config: plain text, no image logo - a "//kuroshima
+# クロシマ" header line above the spec box, avoiding image-scaling/terminal
+# row-rounding edge cases entirely.
 mkdir -p "$HOME/.config/fastfetch"
-for f in config.jsonc kuroshima-logo-dither.png; do
+for f in config.jsonc; do
     FF_TARGET="$HOME/.config/fastfetch/$f"
     if [ -e "$FF_TARGET" ] && [ ! -L "$FF_TARGET" ]; then
         echo "$FF_TARGET already exists and isn't a symlink, leaving it alone"

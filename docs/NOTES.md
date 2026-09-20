@@ -1743,19 +1743,36 @@ image here, source path repointed from `~/Pictures/...` (this machine only) to
 minimalist's own `config/fastfetch/config.jsonc` local diff alone - dated August
 25, predates this session, not mine to touch.
 
-Then replaced that migrated logo entirely: Haziq wanted the FF7 disc swapped for
-a dithered "クロシマ" (kuroshima in katakana) wordmark, same height as the spec
-box beside it. Rendered with PIL at 4x scale (Noto Sans CJK JP Black,
-`/usr/share/fonts/noto-cjk/NotoSansCJK-Black.ttc` index 0 - a `.ttc` collection,
-had to enumerate indices to find the JP face), stacked vertically (tategaki-style,
-4 katakana characters top to bottom - suits a square frame far better than one
-wide horizontal line, and reads as more deliberately Japanese-typographic than a
-coincidence), then downscaled and run through PIL's default Floyd-Steinberg
-dither (`.convert("1")`) to get the same halftone-edge texture as the original
-disc image rather than hard-jaggy anti-aliasing. Kept it square (308x308, matching
-the disc's own dimensions) specifically so the existing `width: 25` setting in
-`config.jsonc` would reproduce the same rendered height with zero further tuning -
-confirmed live, no padding/width changes needed.
+Then went through several rounds trying to replace that migrated logo with a
+dithered "クロシマ" (kuroshima in katakana) image wordmark, ultimately abandoning
+the image approach entirely:
+1. Black text on a white card, square 308x308 to match the disc's own pixel
+   dimensions so `width: 25` would reproduce the same rendered height with no
+   further tuning. Wrong on both counts - looked like a sticker, not the
+   halftone accent it was meant to be, and still ran taller than the spec box
+   despite matching the disc's pixel dimensions exactly. Matching pixel
+   dimensions does not mean matching *rendered terminal rows* - cell aspect
+   ratio still applies, and fixing it required dropping `width` by trial (25 to
+   19), not computation.
+2. White ink dithered to transparency instead (dithered BLACK pixels mapped to
+   alpha 0 instead of opaque black), for "no card, just dithered text," plus a
+   `//kuroshima` header above the katakana stack.
+3. Two more rounds chasing a bottom-clipping bug: the last katakana glyph kept
+   getting cut off in Haziq's own screenshots despite looking fine in mine.
+   Added padding, still clipped. Added *more* padding (up to 22% of height),
+   still clipped, and each attempt visibly shrank the glyph within the frame
+   without fixing anything - Haziq correctly called this out as chasing a bug
+   with cosmetic patches instead of finding the cause. Real cause never fully
+   confirmed (suspected: fastfetch's column-based image width doesn't map onto
+   a whole number of terminal rows, and the fractional remainder gets clipped
+   by whatever prints next, independent of the image's own internal margins).
+4. Dropped the image entirely on Haziq's suggestion: `//kuroshima クロシマ` as
+   one plain text line (both scripts, horizontal) above the spec box, single
+   column, `"logo": {"type": "none"}`. Sidesteps the whole bug class instead of
+   curing it. One gotcha on the way: a `custom` module with `key: ""` plus a
+   `format` prints the module's type name ("Custom") as a fallback label -
+   fixed by putting the whole line in `key` with no `format`, matching how the
+   box's own border-line modules already did it.
 
 ## Environment notes worth not rediscovering
 

@@ -11,18 +11,18 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
-- Bundled `fastfetch/config.jsonc` + a dithered "クロシマ" wordmark logo
-  (`fastfetch/kuroshima-logo-dither.png`, Noto Sans CJK JP Black, Floyd-Steinberg
-  dithered, same halftone-image accent used elsewhere in this repo), replacing an
-  earlier FF7-disc logo that only worked on the machine it was made on.
+- Bundled `fastfetch/config.jsonc`: a plain-text `//kuroshima クロシマ` header
+  line above the spec box, replacing a machine-specific FF7-disc image logo. No
+  image logo at all, after an image wordmark kept clipping unpredictably
+  regardless of padding - see `docs/NOTES.md`.
 
 ### Changed
 
 - Default (and now only bundled) terminal switched from foot to kitty: kitty
-  supports yazi's Drag and Drop protocol (foot doesn't at all), and renders
-  fastfetch's image logo natively. Dropped foot entirely - `foot/`,
-  `fastfetch/foot.jsonc`, and the `fastfetch.fish` $TERM-routing wrapper are gone,
-  `keybinds.kdl`'s `Mod+T`/`Mod+E` now spawn kitty.
+  supports yazi's Drag and Drop protocol, which foot doesn't implement at all.
+  Dropped foot entirely - `foot/`, `fastfetch/foot.jsonc`, and the
+  `fastfetch.fish` $TERM-routing wrapper are gone, `keybinds.kdl`'s
+  `Mod+T`/`Mod+E` now spawn kitty.
 
 ### Fixed
 

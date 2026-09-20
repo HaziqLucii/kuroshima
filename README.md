@@ -98,9 +98,9 @@ than as a separate label.
 `kitty/kitty.conf`, linked to `~/.config/kitty/kitty.conf`: same tokens as
 `theme/Theme.qml` (`#050506` background, `#ededed` foreground). The only terminal
 this repo bundles or targets (foot was dropped - see `docs/NOTES.md` if you're
-wondering why an earlier version of this README mentioned it): kitty supports the
-Drag and Drop protocol (needed to drag files out of yazi into another app) and
-renders fastfetch's bundled image logo natively through its own graphics protocol.
+wondering why an earlier version of this README mentioned it): kitty supports
+the Drag and Drop protocol needed to drag files out of yazi into another app,
+which foot doesn't implement at all.
 
 Two settings here are load-bearing, not preference:
 - `shell fish` - niri's own environment has `SHELL=/usr/bin/zsh` (not the account's
@@ -112,11 +112,12 @@ Two settings here are load-bearing, not preference:
 
 ## Fastfetch
 
-`fastfetch/config.jsonc` and `fastfetch/kuroshima-logo-dither.png`, linked to
-`~/.config/fastfetch/`: a dithered "クロシマ" wordmark (Noto Sans CJK JP Black,
-rendered and Floyd-Steinberg dithered to match the halftone-image accent used
-elsewhere in this repo) next to a flat key/value spec box. Renders natively in
-kitty via its own graphics protocol, no per-terminal workaround needed.
+`fastfetch/config.jsonc`, linked to `~/.config/fastfetch/config.jsonc`: a plain
+text `//kuroshima クロシマ` header line above a flat key/value spec box. No image
+logo - an earlier dithered-wordmark version kept clipping unpredictably at the
+bottom (fastfetch's column-based image sizing doesn't map cleanly onto whole
+terminal rows), and chasing that down through padding tweaks made it worse each
+time. Plain text sidesteps the whole class of bug and reads just as clean.
 
 ## Yazi
 
