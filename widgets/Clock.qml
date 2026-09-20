@@ -8,10 +8,14 @@ import qs.theme
 Item {
     id: root
 
+    // implicitWidth/Height only - no width/height binding. The host frame
+    // (ui/WidgetFrame.qml) fills this item to whatever size it's actually
+    // given (natural or user-resized); binding width/height here would
+    // fight that. anchors.centerIn on the label below is what makes this
+    // widget adapt reasonably to a resize instead of just sitting in a
+    // corner of a bigger box.
     implicitWidth: label.implicitWidth + 24
     implicitHeight: label.implicitHeight + 16
-    width: implicitWidth
-    height: implicitHeight
 
     SystemClock {
         id: clock

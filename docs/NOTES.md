@@ -1839,6 +1839,25 @@ round-trips cleanly on the real live process. Haziq should confirm the actual
 visual/drag/drop experience himself via `Mod+Shift+W` - he has full context of
 his own screen and won't hit the same "which window is this" confusion.
 
+**Resize, added right after**: Haziq immediately flagged that a widget editor
+without resize is missing something obvious - correct, and it was explicitly
+called out as deferred in the plan, not forgotten. Added a bottom-right drag
+handle (`WidgetFrame.qml`, mirrors the existing delete badge's positioning
+convention) plus `Widgets.resizeWidget(id, w, h)`, persisting `w`/`h` alongside
+`x`/`y`.
+
+This forced a real contract change, not just an additive one: `ui/WidgetFrame.qml`'s
+`Loader` now uses `anchors.fill: parent` instead of sizing itself to the loaded
+item, so a resize actually resizes the widget's rendered content, not just an
+empty frame around it. That only works if the widget itself does NOT bind its own
+`width`/`height` (only `implicitWidth`/`implicitHeight` as a natural-size hint) -
+the opposite of the page contract, which explicitly requires pages to self-size
+that way. Updated `widgets/Clock.qml` to drop its `width`/`height` bindings and
+documented the distinction explicitly in `CLAUDE.md`'s widget contract section,
+since getting this backwards (copying the page contract's self-sizing rule) would
+silently make every widget resize-proof in a way that's easy to not notice until
+someone actually drags the handle.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

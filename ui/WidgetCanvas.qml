@@ -49,6 +49,8 @@ PanelWindow {
             widgetCustom: !!modelData.custom
             posX: modelData.x
             posY: modelData.y
+            sizeW: modelData.w || 0
+            sizeH: modelData.h || 0
         }
     }
 

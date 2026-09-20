@@ -150,9 +150,10 @@ does, via yazi's own documented `--cwd-file` pattern.
 `Mod+Shift+W` toggles edit mode on a desktop-background surface (`ui/WidgetCanvas.qml`,
 sitting one wlr-layer above the wallpaper, still below real windows): a dim tint, an
 "+ ADD WIDGET" picker (bottom-right) listing every available widget type, and per-widget
-drag-to-move plus a delete badge on whatever's already placed. Positions persist to
-`~/.config/kuroshima/widgets.json` (`services/Widgets.qml`) as soon as you add, move, or
-remove something - no save step.
+drag-to-move, a bottom-right corner handle to resize, and a delete badge on whatever's
+already placed. Position and size persist to `~/.config/kuroshima/widgets.json`
+(`services/Widgets.qml`) as soon as you add, move, resize, or remove something - no
+save step.
 
 Two sources of widget types, both listed together in the picker:
 - **Bundled**: `widgets/*.qml` in this repo. Just `widgets/Clock.qml` for now, a

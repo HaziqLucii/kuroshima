@@ -18,8 +18,10 @@ QtObject {
 
     property bool editMode: false
 
-    // Each entry: { id, type, custom, x, y }. `custom` picks which
-    // directory urlFor() resolves `type` against.
+    // Each entry: { id, type, custom, x, y, w, h }. `custom` picks which
+    // directory urlFor() resolves `type` against. `w`/`h` are absent (or 0)
+    // until the widget's been resized at least once - WidgetFrame falls
+    // back to the widget's own implicitWidth/Height until then.
     property var placed: []
 
     // Known at commit time - kuroshima's own bundled widgets/*.qml files.
@@ -79,6 +81,11 @@ QtObject {
 
     function moveWidget(id, x, y) {
         root.placed = root.placed.map(w => w.id === id ? Object.assign({}, w, { x: x, y: y }) : w)
+        _persist()
+    }
+
+    function resizeWidget(id, w, h) {
+        root.placed = root.placed.map(item => item.id === id ? Object.assign({}, item, { w: w, h: h }) : item)
         _persist()
     }
 

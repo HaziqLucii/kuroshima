@@ -11,8 +11,9 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
-- Desktop widget canvas: `Mod+Shift+W` toggles an edit mode (drag to move, a
-  delete badge, an "+ ADD WIDGET" picker) on a new background-layer surface
+- Desktop widget canvas: `Mod+Shift+W` toggles an edit mode (drag to move, drag
+  a corner handle to resize, a delete badge, an "+ ADD WIDGET" picker) on a new
+  background-layer surface
   (`ui/WidgetCanvas.qml`, `ui/WidgetFrame.qml`, `services/Widgets.qml`).
   Widgets are plain `.qml` files - bundled ones in `widgets/` (just
   `widgets/Clock.qml` for now, a placeholder) or user-dropped ones in

@@ -30,11 +30,19 @@ contract, nothing in `ui/` or `core/` should need to change for it.
 
 Every file in `widgets/*.qml` (bundled) or `~/.config/kuroshima/widgets/*.qml` (user
 custom, dropped in without touching this repo) is a plain `Item`. Required:
-`implicitWidth`, `implicitHeight`, and it sets its own `width`/`height` to match (same
-reason as the page contract - a plain `Item` doesn't self-size). No `payload`: a widget
-reads live services directly (`SystemClock`, `Media`, etc.), same as pages already do.
-Must tolerate being placed more than once (no widget-root singleton state) - a user can
-add the same type twice.
+`implicitWidth`, `implicitHeight`. **Unlike the page contract, do NOT bind your own
+`width`/`height`** - `ui/WidgetFrame.qml` hosts every widget through a `Loader` with
+`anchors.fill: parent` specifically so the user's resize handle (drag the bottom-right
+corner in edit mode) can actually resize the widget's content, not just the frame
+around it; a widget binding `width: implicitWidth` itself would fight that anchor and
+never grow or shrink. `implicitWidth`/`implicitHeight` are only the *natural/default*
+size, used until the widget's first resize. Lay content out so it adapts to whatever
+size it's actually given (`anchors.centerIn`/`anchors.fill` on your content, not fixed
+pixel values) - see `widgets/Clock.qml` for the minimal version of this.
+
+No `payload`: a widget reads live services directly (`SystemClock`, `Media`, etc.),
+same as pages already do. Must tolerate being placed more than once (no widget-root
+singleton state) - a user can add the same type twice.
 
 Unlike pages, widget *content* is explicitly not held to this repo's bone-on-black/
 no-accent-hue rule - it's user content, placed via the edit mode `Mod+Shift+W` toggles
