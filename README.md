@@ -141,7 +141,7 @@ time. Plain text sidesteps the whole class of bug and reads just as clean.
 
 Bone-on-black theme (`yazi/theme.toml`, built from yazi's own upstream defaults, not
 guessed - same monochrome/no-accent-hue rule as the rest of this repo, differentiation
-via bold/underline/italic instead of hue) plus a `//kuro.` mark in the status bar's
+via bold/underline/italic instead of hue) plus a `//kuroshima` mark in the status bar's
 corner (`yazi/init.lua`), same placement logic as the fuzzel prompt.
 
 `yazi/keymap.toml` binds `<Enter>` and `l` to the official `smart-enter` plugin
