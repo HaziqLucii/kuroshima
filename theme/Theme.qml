@@ -65,7 +65,15 @@ QtObject {
     // spotted as "the notification row overflowed the bottom line
     // separator." +22 clears that and restores a ~16px gap matching the
     // spacing already used between every other section.
-    readonly property int expandedH: 682
+    //
+    // Brought back down (682 -> 650) once 06 INBOX's ListView shrank
+    // from a full 2-card view to a deliberate 1.5-card "sneak peek"
+    // (Haziq wanted the cut-off second card visible as a scroll hint,
+    // not a complete-looking list) - that freed 32px INBOX no longer
+    // needs, which would otherwise have sat as a ~48px dead gap before
+    // 07 SESSION instead of the ~16px rhythm every other section uses.
+    // Live-measured again: builtSections settled at height 561.
+    readonly property int expandedH: 650
     readonly property int expandedRadius: 30
     readonly property int notificationW: 412
     readonly property int notificationH: 100
@@ -93,10 +101,10 @@ QtObject {
     // once the capsule gets close enough to it. Expanded (604px) at
     // topInset(5) only left ~11px of bottom margin, well under what even a
     // modest blur needs, hence the cutoff. 60px of slack accounts for it.
-    // Bumped by the same +22 as expandedH above, to preserve that exact
-    // slack margin rather than eating into it.
+    // Tracks expandedH 1:1 (both bumps, then this pull-back), to
+    // preserve that exact slack margin rather than eating into it.
     readonly property int canvasW: 800
-    readonly property int canvasH: 758
+    readonly property int canvasH: 726
 
     // Floating-overlay shadow: `0 24px 60px -18px rgba(0,0,0,0.95)` from the
     // design. MultiEffect has no spread parameter, so CSS's -18px spread
