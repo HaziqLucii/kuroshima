@@ -189,14 +189,25 @@ Two sources of widget types, both listed together in the picker:
 
 `Mod+P` opens a carousel (`ui/WallpaperCarousel.qml`) over every image in
 `~/Pictures/Wallhaven` (`services/Wallpaper.qml`, hardcoded - this repo doesn't
-have a config key for the directory yet). Arrow keys move the selection and
-live-preview it on the actual desktop background immediately, without writing
-anything to disk. `<Enter>` commits the current selection, persisting it to
+have a config key for the directory yet). An accordion of thin vertical
+strips - the current one widens into a bordered rectangle showing its full
+image, every other strip stays a narrow sliver. Arrow keys move the
+selection and live-preview it on the actual desktop background immediately,
+without writing anything to disk.
+`<Enter>` commits the current selection, persisting it to
 `~/.config/kuroshima/wallpaper-state.json` and closing the carousel; `<Esc>`
 reverts to whatever was last committed and closes without saving. Unlike
 Noctalia's own wallpaper picker, there's no thumbnail generation step - it
 reads full images directly out of the directory, so a very large library will
 be slower to page through than to look at.
+
+Every wallpaper change (live-preview or committed) crossfades on the actual
+desktop background (`ui/WallpaperBackground.qml`) instead of popping instantly:
+the incoming image settles in from a slight zoom while fading in, the outgoing
+one fades out with a slight zoom-out, ~480ms. Two stacked `Image` layers
+swap which one is "active"; the swap waits for the new image to actually
+finish decoding (`Image.Ready`), not just for its `source` to be set, so a
+slow decode never crossfades in a still-blank frame.
 
 ## Dev loop
 

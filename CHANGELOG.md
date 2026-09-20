@@ -36,12 +36,24 @@ history and `docs/NOTES.md` for decision-level detail.
   `services/Wallpaper.qml`) documented for the first time: it existed and
   worked, but had no README section and no printed `install.sh` keybind
   step. Both added, see the README's Wallpaper carousel section.
+- Wallpaper background (`ui/WallpaperBackground.qml`) crossfades between
+  wallpapers (~480ms, slight zoom-settle) instead of popping instantly,
+  on both live-preview and commit.
+- Wallpaper carousel's tiles are now an accordion of thin vertical strips,
+  the current one widening into a full bordered rectangle - not a
+  uniform-width filmstrip. Header and statusline text sit on their own
+  bordered backing panel for readability over bright wallpapers; the
+  per-tile filename caption is gone.
 
 ### Fixed
 
 - Wallpaper carousel's background scrim was too light for its header/footer
   text (WALLPAPER label, selection counter, keyboard hints) to read clearly
   over a bright wallpaper - `opacity: 0.34` -> `0.62`.
+- Wallpaper background crossfade could silently stall one step when
+  stepping back onto a recently-shown wallpaper (reassigning an `Image`
+  source to a URL it already held fired no change signal), skipping
+  straight past that image instead of crossfading to it.
 
 ## [0.3.0] - 2026-09-20
 

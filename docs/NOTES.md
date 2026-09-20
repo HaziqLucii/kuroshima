@@ -2035,6 +2035,119 @@ a new "## Wallpaper carousel" section documents the directory it reads
 commit/revert (`services/Wallpaper.qml`), and the no-thumbnail-generation
 tradeoff.
 
+## Wallpaper background crossfade, and its carousel: accordion + diagonal mask
+
+Haziq asked for "some animation when changing the wallpaper (the entry
+animation), like honeycomb animation and such" - offered a choice between a
+real hexagonal-tile shader reveal (needs GLSL + Qt's `qsb` compile step, a
+real build-tooling addition) and a pure-QML crossfade+zoom. He picked the
+crossfade. `ui/WallpaperBackground.qml` now runs two stacked `Image` layers:
+whichever is "inactive" gets the new source, and once it actually finishes
+decoding (`Image.Ready`, not just source-assigned) the layers swap active
+state via a declarative `State`/`Transition` pair - incoming settles from a
+slight zoom-in while fading in, outgoing zooms out slightly while fading
+out, ~480ms.
+
+Real bug in that first version, caught by Haziq stepping backward through
+the carousel: "when i go backward one time, the animation didnt triggered
+and wallpaper didnt changed, had to go back 2 times then it triggers."
+Root cause: the layer swap was gated purely on `Image.onStatusChanged`
+firing to `Ready`. Reassigning a QML `Image.source` to a URL it already
+holds is a no-op - no property-change signal fires, so `onStatusChanged`
+never re-triggers. Stepping back onto whatever the currently-inactive layer
+already held (the previous-previous wallpaper, from two steps before) hit
+exactly this: the swap silently stalled on that step, only catching up
+(and visibly skipping straight past the missed image) once a genuinely
+different path came in next. Fixed by comparing the target layer's current
+`source` against the requested URL before assigning - if it already matches,
+flip the active layer immediately instead of waiting on a signal that will
+never fire.
+
+Separately, the carousel's own visual design (`ui/WallpaperCarousel.qml`)
+went through two real iterations from Haziq's feedback, both on the same
+comparison-screenshot pattern used throughout this project:
+- v1: full-width filmstrip of uniform wide rectangles - "full width of
+  horizontal rectangles" - too plain, and too much of the library visible
+  at once for a minimalist feel.
+- v2: fixed 3-tile clipped viewport, each tile sheared into a parallelogram
+  via a `Matrix4x4` transform on the whole tile (image included),
+  alternating shear direction per index for a zigzag. Wrong on three counts
+  per Haziq's follow-up: he wanted *vertical* (portrait) tiles, not
+  horizontal; *all* tiles leaning the *same* direction, not alternating;
+  and critically, shearing the `Matrix4x4` transform on the tile as a whole
+  visibly distorted the photo itself, which he explicitly didn't want -
+  "you dont have to make the image distorted to the diagonal too. its fine
+  for it to be cut off. just showing a glimpse of the wallpaper is enough."
+- v3: an accordion of narrow vertical panels, all leaning the same
+  diagonal direction. The current (selected) panel's own `width` grows to
+  `currentTileW` while every other panel stays `baseTileW` - a real `Row`
+  layout reflow (not just an inner-Rectangle visual scale the way v1/v2
+  did it), so neighbors genuinely shift to make room, per Haziq's "the
+  irregular rectangle will expand in width... so user can see it better."
+  First attempt at keeping the photo undistorted used
+  `Qt5Compat.GraphicalEffects`' `OpacityMask`, cropping an ordinary Image
+  through a separate sheared `Rectangle` (plain white fill, `visible:
+  false`) used purely as an alpha stencil, plus a matching-transform
+  bordered `Rectangle` drawn on top tracing the same outline.
+- v3 turned out broken, not just imperfect: Haziq's screenshot showed the
+  photo rendering as a plain, uncropped rectangle - `OpacityMask` wasn't
+  actually cropping anything - with a mismatched diagonal border floating
+  over it, reading as a stray bright line across one corner. Disabling the
+  mask shape's `antialiasing` (the standard fix for OpacityMask's classic
+  color-fringe-at-the-edge issue) didn't help, because that wasn't the
+  actual failure here.
+- v4: dropped `OpacityMask`/`Qt5Compat.GraphicalEffects` entirely, no
+  shader-based masking at all. The photo stayed a plain, fully undistorted
+  `Image`, and the diagonal look instead came from two solid `Theme.bg`
+  triangles (`QtQuick.Shapes` `Shape`/`ShapePath`) drawn on top at the two
+  corners - a real vector fill/stroke, not an alpha-multiply composite, so
+  no edge-blend case to get wrong there. Top-left triangle tapered from
+  `shearPx` wide at the top down to a point at the bottom-left corner,
+  bottom-right the mirror at the opposite corner; a third `Shape` traced
+  that same boundary as a 1px stroke for the border.
+- v4 fixed the actual cropping (the photo genuinely followed the diagonal
+  this time), but introduced a new problem: "the edge of diagonal looks
+  ugly. the line is pixelated instead of smooth diagonal line." Root
+  cause: `Shape`'s default renderer (`GeometryRenderer`) triangulates
+  paths and relies on multisampling for smooth edges - a raw layer-shell
+  `PanelWindow` surface doesn't have MSAA the way a normal windowed
+  surface might. `Shape.preferredRendererType: Shape.CurveRenderer` (a
+  renderer that antialiases without needing MSAA) would have been the
+  fix, but never got applied - Haziq called a stop on the whole diagonal
+  approach at this point instead of chasing a fourth iteration:
+  "nevermind, rather than making this hard, can you just do this" with a
+  reference image.
+- v5 (current): the reference showed something much simpler than any of
+  v2-v4 had been reaching for - a plain accordion of thin, straight,
+  un-sheared vertical strips (no diagonal cut anywhere), the current one
+  widening into a clean bordered rectangle. Matches that directly:
+  `baseTileW: 30` (thin sliver) up to `currentTileW: 320` (wide, full
+  image visible) on selection, `gap: 6` (tight, strips nearly touching),
+  ordinary `Image` + a plain bordered `Rectangle`, nothing sheared or
+  masked. `strip.width` fixed at `1500` (not a formula tied to a specific
+  visible tile count) so however many thin strips fit at once is however
+  many show, sliding as the selection moves - matches the reference's
+  wide fan rather than the earlier "exactly 3 tiles" framing. Net result:
+  three real implementation attempts (`Matrix4x4` shear, `OpacityMask`,
+  `Shape` corner covers) all had genuine bugs before landing on something
+  with no masking/shearing machinery at all - worth remembering next time
+  a "diagonal cut" visual comes up as a request, since the plain-strips
+  reference here turned out to be what was actually wanted regardless.
+- The three-tile viewport centering math (kept through v3-v5): since only
+  the current tile's width varies and every other tile is uniformly
+  `baseTileW`, the offset to the selected tile simplifies to `root.sel *
+  (baseTileW + gap) + currentTileW/2` rather than needing per-tile width
+  lookups.
+- Two small follow-ups after v5 landed: the header (WALLPAPER label/
+  counter) and statusline (keyboard hints) text sat directly on the main
+  0.62-opacity scrim with nothing behind them - fine against a dark
+  wallpaper, unreadable against a bright one. Both now sit on their own
+  `Theme.bg`-backed, bordered panel (`opacity: 0.75`), sized off the
+  wrapped `ColumnLayout`/`RowLayout`'s own `implicitWidth`/`implicitHeight`
+  rather than a hand-picked fixed size. Also dropped the per-tile filename
+  caption under the current tile entirely - Haziq: "hide the filename too
+  below the wallpaper."
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
@@ -2053,3 +2166,10 @@ tradeoff.
   the live desktop shell to pick it up without a restart looks exactly like "the edit
   did nothing." Always restart (`pgrep -x qs` -> `kill` -> relaunch) before judging
   whether a live-shell-only change worked.
+- A 4th qmllint noise category, alongside the 3 `scripts/lint.sh` already documents:
+  `Info: Set "pragma ComponentBehavior: Bound" in order to use IDs from outer
+  components in nested components.` Fires for any `Repeater.delegate` (or similar
+  inline component) that references an id from its enclosing scope - already 28
+  occurrences in this codebase before the wallpaper carousel rework added 10 more.
+  Real problems (missing properties, unknown types, typos) still surface distinctly
+  from this too.
