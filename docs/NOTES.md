@@ -2409,6 +2409,36 @@ then opened the INBOX via IPC. Before the fix this crashed the live
 process 3 times; after, confirmed clean across two full round-trips with
 zero new entries in `~/.cache/quickshell/crashes/`.
 
+## NotificationPeek showed "Activate" instead of the actual message
+
+Reported live: "whatsapp web from firefox showing activate button
+instead of the message." Root cause: `pages/NotificationPeek.qml`'s
+`hasActions` was just `n.actions.length > 0`, and whenever true it hid
+the body text entirely in favor of rendering every action as a button.
+Per the freedesktop Desktop Notifications spec, an action with
+`identifier === "default"` is reserved to mean "invoke this when the
+notification body itself is clicked" - it's conventionally never
+rendered as its own visible button. Firefox relays a web page's
+notification click handler (WhatsApp Web included) as exactly one
+action with that identifier, so this page treated it as a real,
+nameable action, showed its label ("Activate") as the only visible
+content, and hid the actual message underneath it - for every single-
+default-action notification, not just WhatsApp's.
+
+Fixed by splitting `n.actions` into `_realActions` (identifier !==
+"default", what actually renders as buttons and drives `hasActions`)
+and `_defaultAction` (the one, if present, invoked when the body itself
+is tapped instead of just calling `dismiss()`) - matching the spec's
+actual click-to-activate convention rather than just hiding it. `Notification
+Action.identifier` confirmed via Quickshell's own `.qmltypes` before
+use, not guessed.
+
+Verified via `notify-send --action="default=Activate"` (reproducing
+Firefox's exact pattern) against the live process - no crash, no lint/
+headless regressions - but couldn't visually confirm the peek now shows
+the real message text instead of the button, since this session has no
+way to see the rendered screen; needs a live look to fully close out.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

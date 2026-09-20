@@ -19,7 +19,17 @@ Item {
     readonly property real cornerRadius: Theme.notificationRadius
 
     readonly property var n: payload ? payload.notification : null
-    readonly property bool hasActions: n && n.actions && n.actions.length > 0
+    // freedesktop notification spec: an action with identifier "default"
+    // means "invoke this when the notification body itself is clicked",
+    // not a separate button - conventionally never rendered as its own
+    // action. Browsers relaying a page's click handler (e.g. WhatsApp Web
+    // open in Firefox) commonly send exactly one action, this one -
+    // without filtering it out, this page rendered it as a literal
+    // "Activate" button and hid the real message body entirely, for
+    // every notification whose only action was the implicit default one.
+    readonly property var _realActions: (n && n.actions) ? n.actions.filter(a => a.identifier !== "default") : []
+    readonly property var _defaultAction: (n && n.actions) ? n.actions.find(a => a.identifier === "default") : null
+    readonly property bool hasActions: _realActions.length > 0
 
     // Quickshell.iconPath(name, fallbackString) does NOT check the icon
     // actually resolves, it just builds an image://icon/... URL regardless
@@ -52,7 +62,18 @@ Item {
     // proved does NOT stop this ancestor handler from also firing for the
     // same tap.
     TapHandler {
-        onTapped: if (root.n) root.n.dismiss()
+        // Per spec, a click on the notification body invokes its
+        // "default" action if it has one (e.g. focusing the tab that
+        // sent it) - invoke() already closes/destroys the notification
+        // itself, same as any other action button, so no separate
+        // dismiss() call after it.
+        onTapped: {
+            if (root._defaultAction) {
+                root._defaultAction.invoke()
+            } else if (root.n) {
+                root.n.dismiss()
+            }
+        }
     }
 
     // Per the plan: a notification can be destroyed (expired, removed from
@@ -163,7 +184,7 @@ Item {
                 spacing: 8
 
                 Repeater {
-                    model: root.hasActions ? root.n.actions : []
+                    model: root.hasActions ? root._realActions : []
 
                     Rectangle {
                         required property var modelData

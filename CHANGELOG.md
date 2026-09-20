@@ -76,6 +76,12 @@ history and `docs/NOTES.md` for decision-level detail.
   notification only works from the transient peek now, same as before -
   see `docs/NOTES.md` for why that's not really a regression given how
   this app's notification lifecycle actually works.
+- `pages/NotificationPeek.qml` rendered a sender's implicit "default"
+  action (freedesktop spec: invoke on body click, not a separate button)
+  as a literal button and hid the real message underneath it - visible
+  as e.g. WhatsApp Web notifications via Firefox showing "Activate"
+  instead of the message. Filtered out of the rendered action list; tapping
+  the body now invokes it if present, matching the spec's own convention.
 - Wallpaper carousel's background scrim was too light for its header/footer
   text (WALLPAPER label, selection counter, keyboard hints) to read clearly
   over a bright wallpaper - `opacity: 0.34` -> `0.62`.
