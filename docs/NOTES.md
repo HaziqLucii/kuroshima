@@ -2349,6 +2349,66 @@ the input line, no canvas/watermark feature exists. Renamed in place
 (the only real option); corner placement stays out of reach without
 switching off fuzzel entirely, which wasn't asked for.
 
+## Real crash: INBOX action pills held dangling QObject pointers, reverted
+
+The earlier "INBOX notifications dropping actions" fix (services/Notifs.qml
+keeping a live `actions: notification.actions || []` reference per history
+entry) crashed the whole shell - a real segfault, not a QML warning.
+Reported live: "i saw a bug, when the notification bell shown in the
+compact, and when i opened, it shows quickshell crashed prompt." Confirmed
+via `/home/deprecated/.cache/quickshell/crashes/` - 3 separate crash
+reports, all `Signal: Segmentation fault (11)`, all on this shell config,
+stack rooted in `QV4::VariantAssociationPrototype::fromQVariantMap` /
+`QQmlVMEMetaObject::writeKnownVarProperty` during a `TapHandler`-triggered
+`QQuickLoader`/`QQmlComponent::create` chain - i.e. a property being
+initialized during component creation from a value the QML engine
+couldn't safely handle. `pages/CompactPage.qml`'s bell icon
+(`Notifs.history.length > 0`) taps into `requestExpand("MediaExpanded")`
+like the rest of the pill; MediaExpanded's INBOX `ListView` is what
+actually creates the delegate that crashed.
+
+Root cause: the earlier fix's own reasoning was wrong. `notification.
+tracked = true` only stops Quickshell's OWN automatic expiry - it does
+nothing to `app/Bridges.qml`'s explicit `n.expire()`/`n.dismiss()` calls,
+which fire for essentially every notification within seconds of its peek
+ending (`Island.onTransientEnded`, by design - see that file's own
+comment on why: an untracked notification would otherwise never close,
+hanging any sender waiting on `NotificationClosed`, e.g. `notify-send
+--wait`). Those calls destroy the underlying `Notification` C++ object,
+and its `.actions` (`NotificationAction` objects) get destroyed with it.
+A `history` entry holding onto one of those past that point is a
+dangling pointer, not "still invokable later" - accessing it (reading
+`.text`, binding a `Repeater` delegate to it) is undefined behavior, and
+in this Qt 6.11.2 build that meant a segfault, not a graceful null.
+
+This isn't a timing edge case to guard against - it's the *normal* case.
+By the time anyone would realistically open the INBOX to look at past
+notifications, the notification that prompted opening it has almost
+certainly already been destroyed; the only window where its actions are
+genuinely safe to invoke is the transient peek itself
+(`pages/NotificationPeek.qml`, which already has real action-pill
+rendering and was never broken - it only ever touches a notification
+while it's still the one actively showing). Reverted `services/
+Notifs.qml` and the INBOX delegate in `pages/MediaExpanded.qml` back to
+their original display-only shape rather than trying to track
+liveness/guard against the dangling pointer - the feature this was
+supposed to enable ("act on a notification from history, after its
+peek already scrolled past") isn't reliably achievable given this app's
+own notification lifecycle, matching how most desktop notification
+systems already treat history as read-only.
+
+Verified the fix by actually reproducing the crash scenario twice, not
+just re-running lint/headless (which had passed both times *before* the
+crash too - the bug never showed up in that class of check at all,
+matching the crash trace exactly: a segfault deep in the QML engine
+during real component creation isn't the kind of thing a
+syntax/type-level lint pass or a clean headless boot log would ever
+catch): sent a real D-Bus notification with an action via `notify-send`,
+waited for its 5s peek to time out and get destroyed by `Bridges.qml`,
+then opened the INBOX via IPC. Before the fix this crashed the live
+process 3 times; after, confirmed clean across two full round-trips with
+zero new entries in `~/.cache/quickshell/crashes/`.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

@@ -67,6 +67,15 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Fixed
 
+- Opening the expanded dashboard's INBOX after a notification's peek had
+  timed out crashed the whole shell (real segfault, not a QML warning) if
+  that notification had an action - `app/Bridges.qml` destroys the
+  underlying notification object almost immediately once its peek ends,
+  and a since-reverted attempt at keeping its actions clickable from
+  history held onto a dangling reference to it. Reverted; acting on a
+  notification only works from the transient peek now, same as before -
+  see `docs/NOTES.md` for why that's not really a regression given how
+  this app's notification lifecycle actually works.
 - Wallpaper carousel's background scrim was too light for its header/footer
   text (WALLPAPER label, selection counter, keyboard hints) to read clearly
   over a bright wallpaper - `opacity: 0.34` -> `0.62`.
@@ -74,13 +83,6 @@ history and `docs/NOTES.md` for decision-level detail.
   stepping back onto a recently-shown wallpaper (reassigning an `Image`
   source to a URL it already held fired no change signal), skipping
   straight past that image instead of crossfading to it.
-- Expanded dashboard's INBOX notification history dropped every
-  notification's `actions` entirely, so an actionable notification (e.g.
-  a `cachy-update` prompt) couldn't be interacted with once it left the
-  transient peek - only `pages/NotificationPeek.qml` had action buttons.
-  `services/Notifs.qml` now keeps a live `actions` reference per history
-  entry, and the INBOX delegate renders the same action-pill UI the peek
-  already had.
 - `services/Audio.qml`'s new sink/source/app-stream filters used "any bit
   overlaps" (`!== 0`) instead of mask-equality against `PwNodeType`'s
   composite bitflags, so every list matched almost every audio node

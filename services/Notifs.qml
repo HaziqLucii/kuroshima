@@ -23,7 +23,7 @@ QtObject {
     // this project (core/IslandController.qml's queueCap) so it can't
     // grow unbounded.
     readonly property int historyCap: 20
-    property var history: [] // [{id, appName, title, body, time, actions}], newest first
+    property var history: [] // [{id, appName, title, body, time}], newest first
 
     function clearHistory() {
         root.history = []
@@ -48,13 +48,19 @@ QtObject {
                     appName: notification.appName || "",
                     title: notification.summary || "",
                     body: notification.body || "",
-                    time: Qt.formatDateTime(new Date(), "hh:mm"),
-                    // Kept as a live reference (not copied primitives, the
-                    // way the fields above are) so the INBOX list can still
-                    // invoke() an action after the peek transient is long
-                    // gone - `tracked = true` above is exactly what keeps
-                    // this notification (and these actions) alive for that.
-                    actions: notification.actions || []
+                    time: Qt.formatDateTime(new Date(), "hh:mm")
+                    // Deliberately NOT keeping a live `actions` reference
+                    // here (tried once, reverted - see docs/NOTES.md): this
+                    // handler's own `tracked = true` only stops Quickshell's
+                    // OWN auto-expiry, it doesn't stop app/Bridges.qml's
+                    // explicit expire()/dismiss() calls once this
+                    // notification's transient peek ends, which happens for
+                    // essentially every notification within seconds. Those
+                    // calls destroy the underlying object (and its actions
+                    // with it) - a history entry holding onto one past that
+                    // point is a dangling QObject pointer, not "still
+                    // invokable later", and touching it segfaulted the whole
+                    // shell.
                 }].concat(root.history).slice(0, root.historyCap)
                 root.received(notification)
             }
