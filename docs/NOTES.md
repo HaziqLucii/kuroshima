@@ -1919,6 +1919,25 @@ genuinely time-of-day aware (`GOOD MORNING`/`AFTERNOON`/`EVENING`/`NIGHT`
 via `clock.date.getHours()`), not hardcoded to match whatever the reference
 screenshot happened to show.
 
+**Two real fixes right after, from Haziq's own side-by-side comparison
+screenshots**: (1) everything was left-aligned; the reference is centered.
+`anchors.left: parent.left` on the Column -> `anchors.centerIn: parent`,
+plus each child needs its own `anchors.horizontalCenter: parent.horizontalCenter`
+against the Column (a `Column` only manages children's *y*, not *x* -
+without this, text still stacks flush-left inside a centered Column,
+since items of different natural widths don't self-center just because
+their container does). (2) the day abbreviation used `Theme.fontFamily`
+(JetBrainsMono Nerd Font) at `Font.Black` and still looked nothing like
+the reference - because a monospace font structurally can't produce the
+reference's tight, proportional-width geometric look, no weight fixes
+that. This project's own user-level aesthetic notes already call for a
+grotesk display font for exactly this role ("interface / H2"); Space
+Grotesk itself isn't installed on this machine, but `fc-list` turned up
+"Inter Display" with a real Black cut, confirmed via `fc-match` before
+using it (same "verify before use" rule this project already applies to
+icon glyphs) - not a guess, and not silently falling back to a default
+face.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

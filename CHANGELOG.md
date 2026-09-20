@@ -22,9 +22,11 @@ history and `docs/NOTES.md` for decision-level detail.
   Position and size persist to `~/.config/kuroshima/widgets.json`. New widget
   contract documented in `CLAUDE.md`. Widget content is explicitly not held
   to this repo's bone-on-black rule - see `docs/NOTES.md`.
-- `widgets/GoodNight.qml`: a greeting/day/date/time card (inspired by a
-  ryoku.dev showcase widget), the first real bundled widget alongside the
-  `Clock` placeholder.
+- `widgets/GoodNight.qml`: a centered greeting/day/date/time card (inspired
+  by a ryoku.dev showcase widget), the first real bundled widget alongside
+  the `Clock` placeholder. "Inter Display" (Black weight) for the day
+  abbreviation - a monospace font can't produce that tight, proportional
+  display look regardless of weight.
 
 ## [0.3.0] - 2026-09-20
 
