@@ -145,6 +145,8 @@ time. Plain text sidesteps the whole class of bug and reads just as clean.
 
 ## Yazi
 
+![Yazi themed](docs/screenshots/yazi-themed.png)
+
 Bone-on-black theme (`yazi/theme.toml`, built from yazi's own upstream defaults, not
 guessed - same monochrome/no-accent-hue rule as the rest of this repo, differentiation
 via bold/underline/italic instead of hue) plus a `//kuroshima` mark in the status bar's
