@@ -56,11 +56,14 @@ history and `docs/NOTES.md` for decision-level detail.
   `Audio.sinks`/`sources`/`appStreams` (`services/Audio.qml`, from
   `Quickshell.Services.Pipewire`'s `Pipewire.nodes`) and
   `Audio.setDefaultSink()`/`setDefaultSource()`.
-- Settings push/pop transition now reads as a real OS stack push, not a
-  crossfade with sideways motion: solid throughout (no opacity fade),
-  purely horizontal, both pages start moving together, and the outgoing
-  page travels only `Motion.pushParallax` (0.3) of its own width instead
-  of the full distance - matching iOS/Android's own push convention.
+- Settings push/pop transition: a full Android/iOS-style stack push (solid,
+  no fade, full-width travel) didn't match this app's own restraint
+  elsewhere and got dropped after seeing it live. What ships instead is
+  the same fade/4px-rise every other page transition already has, plus a
+  small fixed 32px directional `riseX` nudge (`Motion.pushSlideDistance`)
+  spring-eased with the exact same values (`Motion.morphSpring`/
+  `morphDamping`/`morphMass`) the capsule's own width/height/radius morph
+  already uses.
 
 ### Fixed
 

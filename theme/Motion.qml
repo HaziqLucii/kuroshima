@@ -39,13 +39,18 @@ QtObject {
     // outgoing and incoming page.
     readonly property int fadeInDelay: 60
 
-    // pushRight/popLeft page transitions (ui/PageHost.qml) - a real
-    // Android/iOS stack push, not a crossfade with sideways motion: the
-    // page being covered only travels this fraction of its own width
-    // (iOS's own UINavigationController push convention is ~30%), not
-    // the full distance the incoming page travels, so it visibly recedes
-    // underneath rather than moving in lockstep with what's covering it.
-    readonly property real pushParallax: 0.3
+    // pushRight/popLeft page transitions (ui/PageHost.qml). A full-width
+    // Android/iOS-style push (opaque, no fade, page-width travel distance)
+    // was tried first and dropped - Haziq: "looks ugly... do you have any
+    // animation idea that matches our theme kuro" - it read as a foreign
+    // phone-UI import next to how restrained every other transition here
+    // already is (fadeRise above is just 4px). This is the same small-
+    // nudge treatment, just with an X component: fixed pixels, not a
+    // fraction of the page's own width, and spring-eased
+    // (morphSpring/damping/mass above) rather than the fade's bezier
+    // curve, so it settles rather than glides - the same object language
+    // as the capsule's own width/height/radius morph.
+    readonly property real pushSlideDistance: 32
 
     readonly property int hoverGrace: 700
     readonly property int debounceOsd: 16

@@ -12,10 +12,15 @@ Item {
     property string pageName: ""
     property var pendingPayload: null
     // "fade" (default, every existing call site): plain crossfade, riseX
-    // never leaves 0, behavior unchanged. "pushRight"/"popLeft": a real
-    // horizontal slide on top of the same fade, for a page pushed onto
-    // (and popped back off of) the normal dashboard - see
-    // pages/SettingsExpanded.qml.
+    // never leaves 0, behavior unchanged. "pushRight"/"popLeft": the same
+    // fade plus a small directional riseX nudge (Motion.pushSlideDistance,
+    // spring-eased) for a page pushed onto (and popped back off of) the
+    // normal dashboard - see pages/SettingsExpanded.qml. A full-width
+    // Android/iOS-style push (opaque, no fade, big travel distance) was
+    // tried first and dropped - Haziq: "looks ugly... do you have any
+    // animation idea that matches our theme kuro" - a big screen-width
+    // slide reads as a foreign phone-UI import next to how restrained
+    // every other transition in this app already is (a 4px fade-up).
     property string pendingDirection: "fade"
 
     property bool aActive: true
@@ -100,29 +105,14 @@ Item {
 
         const outgoing = aActive ? slotA : slotB
 
-        // Slide distance is each item's own implicitWidth, not a fixed
-        // theme constant - correct regardless of how wide the incoming/
-        // outgoing page actually is.
-        const incomingW = loader.item ? loader.item.implicitWidth : 0
-        const outgoingW = outgoing.item ? outgoing.item.implicitWidth : 0
-
-        // pushRight/popLeft read as a real OS stack push/pop, not a
-        // crossfade with sideways motion tacked on: solid throughout (no
-        // opacity animation at all, both pages stay fully opaque - a
-        // native push never fades), no vertical riseY either (purely
-        // horizontal), and the incoming page starts moving in the SAME
-        // instant as the outgoing one (skips the fadeInDelay stagger,
-        // which exists specifically to hide a fade's transparent gap -
-        // nothing here is ever transparent, so there's no gap to hide).
-        // The outgoing page also only travels outgoingParallax of its own
-        // width, not the full width, matching how iOS/Android push: the
-        // covered screen visibly still recedes underneath rather than
-        // moving in lockstep with the one covering it.
-        const isSlide = direction === "pushRight" || direction === "popLeft"
-
-        loader.opacity = isSlide ? 1 : 0
-        loader.riseY = isSlide ? 0 : Motion.fadeRise
-        loader.riseX = direction === "pushRight" ? incomingW : direction === "popLeft" ? -incomingW : 0
+        loader.opacity = 0
+        loader.riseY = Motion.fadeRise
+        // Small fixed nudge, not the page's own width - same fadeUp
+        // treatment every other transition gets (fade + a small
+        // directional settle), just with an X component too for
+        // pushRight/popLeft instead of only Y.
+        loader.riseX = direction === "pushRight" ? Motion.pushSlideDistance
+            : direction === "popLeft" ? -Motion.pushSlideDistance : 0
         loader.visible = true
         // Re-enable explicitly: this slot may have been the *outgoing*
         // side of an earlier crossfade and left disabled below.
@@ -141,11 +131,8 @@ Item {
 
         crossfade.outgoing = outgoing
         crossfade.incoming = loader
-        crossfade.outgoingTargetX = direction === "pushRight" ? -outgoingW * Motion.pushParallax
-            : direction === "popLeft" ? outgoingW * Motion.pushParallax : 0
-        crossfade.outgoingTargetY = isSlide ? 0 : Motion.fadeRise
-        crossfade.outgoingTargetOpacity = isSlide ? 1 : 0
-        crossfade.incomingDelay = isSlide ? 0 : Motion.fadeInDelay
+        crossfade.outgoingTargetX = direction === "pushRight" ? -Motion.pushSlideDistance
+            : direction === "popLeft" ? Motion.pushSlideDistance : 0
 
         // Flip now, not after the animation: targetWidth/Height must jump
         // to the incoming page's size in the same frame the crossfade
@@ -185,31 +172,33 @@ Item {
         id: crossfade
         property Loader outgoing: null
         property Loader incoming: null
-        // Defaults match the plain-fade behavior exactly; handleLoaded
-        // overrides all four for pushRight/popLeft.
+        // 0 for a plain fade (outgoing.riseX just animates 0 -> 0, a
+        // no-op) - only pushRight/popLeft ever set this to something else.
         property real outgoingTargetX: 0
-        property real outgoingTargetY: Motion.fadeRise
-        property real outgoingTargetOpacity: 0
-        property int incomingDelay: Motion.fadeInDelay
 
         // The design only specifies the enter keyframe (fadeUp); the exit
         // here mirrors it (fade + drop by fadeRise) for a symmetric feel.
+        // riseX rides the same spring MorphAnimation.qml/Capsule.qml's own
+        // width/height/radius morph uses (Motion.morphSpring/damping/mass)
+        // rather than the fade's own bezier curve - a settle, not a glide,
+        // so the small pushRight/popLeft nudge reads as the same object
+        // language as the rest of the app instead of a distinct import.
         ParallelAnimation {
             NumberAnimation {
-                target: crossfade.outgoing; property: "opacity"; to: crossfade.outgoingTargetOpacity
+                target: crossfade.outgoing; property: "opacity"; to: 0
                 duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
             }
             NumberAnimation {
-                target: crossfade.outgoing; property: "riseY"; to: crossfade.outgoingTargetY
+                target: crossfade.outgoing; property: "riseY"; to: Motion.fadeRise
                 duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
             }
-            NumberAnimation {
+            SpringAnimation {
                 target: crossfade.outgoing; property: "riseX"; to: crossfade.outgoingTargetX
-                duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+                spring: Motion.morphSpring; damping: Motion.morphDamping; mass: Motion.morphMass
             }
         }
         SequentialAnimation {
-            PauseAnimation { duration: crossfade.incomingDelay }
+            PauseAnimation { duration: Motion.fadeInDelay }
             ParallelAnimation {
                 NumberAnimation {
                     target: crossfade.incoming; property: "opacity"; to: 1
@@ -219,9 +208,9 @@ Item {
                     target: crossfade.incoming; property: "riseY"; to: 0
                     duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
                 }
-                NumberAnimation {
+                SpringAnimation {
                     target: crossfade.incoming; property: "riseX"; to: 0
-                    duration: Motion.fadeDuration; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.fadeBezier
+                    spring: Motion.morphSpring; damping: Motion.morphDamping; mass: Motion.morphMass
                 }
             }
         }

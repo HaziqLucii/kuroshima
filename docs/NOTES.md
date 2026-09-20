@@ -2297,6 +2297,47 @@ outgoing page's `riseX` target is scaled by a new `Motion.pushParallax`
 (every other page transition in the app) is untouched - all four
 properties default to their original hardcoded values.
 
+## Settings push/pop, take 3: dropped the "real stack push" for a small spring nudge
+
+The previous entry's "real OS stack push" (solid, no fade, full-width
+travel, 0.3 parallax on the outgoing page) got a direct verdict once
+Haziq actually saw it live: "hm the animation isnt, looks ugly. do you
+have any animation idea that matches our theme kuro though?" Asked him to
+choose a direction (restrained slide / hairline wipe reveal / plain fade,
+no slide) rather than guessing again - every visual iteration this
+session that shipped without checking first needed at least one more
+round anyway. He picked restrained slide.
+
+Landed on something much closer to the original crossfade than to a
+phone-UI push: opacity fade and the existing 4px vertical `riseY` both
+came back exactly as they were before pushRight/popLeft ever existed (no
+more `isSlide` branching on them at all), and the only thing that still
+distinguishes a push/pop from a plain fade is a small **fixed-pixel**
+`riseX` nudge (`Motion.pushSlideDistance: 32`, not a fraction of the
+page's own ~700px width the way the previous two attempts computed it) -
+the same fadeRise-scale magnitude philosophy applied to a second axis.
+`riseX` specifically uses `SpringAnimation` (`Motion.morphSpring`/
+`morphDamping`/`morphMass` - the exact same three values
+`theme/MorphAnimation.qml` already applies to the capsule's own width/
+height/radius `Behavior`) instead of the fade's `NumberAnimation`+bezier
+curve, so the one thing that IS still direction-dependent settles rather
+than glides, reading as the same object language as the rest of the app
+instead of an imported one.
+
+Real uncertainty worth flagging for later: `SpringAnimation` had only
+ever been used in this codebase as a `Behavior` (continuous, implicit,
+triggered by a property changing) before this - here it's a one-shot
+animation element living inside `ParallelAnimation`/`SequentialAnimation`
+alongside ordinary `NumberAnimation`s, participating in the SAME group's
+`onFinished` (which is what actually clears the outgoing slot's
+`sourceComponent`). This is documented/supported QtQuick behavior, not
+guessed, but hadn't been exercised in this specific way here before.
+Stress-tested 3 rapid push/pop cycles via IPC against the live process
+with no errors and no leaked/stuck slot, which is reasonable confidence
+but not the same as watching it settle live - if a future push/pop ever
+looks like it "hangs" mid-animation or the outgoing page never actually
+disappears, this coordination is the first place to look.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
