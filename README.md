@@ -12,7 +12,11 @@ Compositor support: niri only, for now.
 
 | Compact pill | Expanded dashboard |
 |---|---|
-| ![Compact idle pill](docs/screenshots/compact-pill.png) | ![Expanded dashboard](docs/screenshots/dashboard-expanded.png) |
+| ![Compact idle pill](docs/screenshots/island-compact.png) | ![Expanded dashboard](docs/screenshots/island-expanded.png) |
+
+| Notification peek | Settings island screen |
+|---|---|
+| ![Notification peek](docs/screenshots/island-notification.png) | ![Settings island screen](docs/screenshots/island-settings.png) |
 
 ## Install
 
