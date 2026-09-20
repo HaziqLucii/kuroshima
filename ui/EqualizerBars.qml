@@ -8,7 +8,7 @@ import qs.theme
 // matching the design's own `opacity: playing ? 0.9 : 0.3`.
 //
 // Each bar is filled with an ordered (Bayer) dither instead of a flat
-// color, per Haziq's standing love of a dithered/halftone texture. A 2x2
+// color, per the maintainer's standing love of a dithered/halftone texture. A 2x2
 // matrix at native pixel resolution: the bar is only 2px wide, too small
 // an area for a larger matrix to read as anything but noise. Adjacent bars
 // start from an inverted phase (index % 2) so they don't all line up into

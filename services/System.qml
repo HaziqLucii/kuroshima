@@ -62,7 +62,7 @@ QtObject {
         onTriggered: root._nowMs = Date.now()
     }
 
-    // niri-only: on Hyprland (Haziq's other target compositor) this command
+    // niri-only: on Hyprland (the maintainer's other target compositor) this command
     // doesn't exist, exec fails, niriVersion just stays "" and the header
     // row's compositor field hides itself, same as any other absent module.
     property Process _niriVersionProc: Process {

@@ -9,7 +9,7 @@ import qs.ui
 // dodge a hang (see docs/NOTES.md, "exclusiveZone hangs niri"), but that
 // left two surfaces measuring "the top" independently, which breaks the
 // instant a third-party top-anchored bar with its own exclusive zone is
-// in the picture (e.g. Haziq's noctalia bar on the real session, absent
+// in the picture (e.g. the maintainer's noctalia bar on the real session, absent
 // from the nested-niri test sandbox this was built against): the two
 // surfaces would disagree about where "the top" actually is. Fixed by
 // refuter's review: a single surface anchored top+left+right does both

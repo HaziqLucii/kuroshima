@@ -31,16 +31,16 @@ existing page (`CompactPage`, `OsdPeek`, `DummyWide`, `MediaExpanded`) now decla
 `signal requestExpand(string pageId)` even where unused, specifically so this generic
 `Connections` doesn't warn about a missing signal every time one of them is current.
 
-**Real UX gap found live by Haziq, fixed same session**: clicking only worked during
+**Real UX gap found live by the maintainer, fixed same session**: clicking only worked during
 `MediaPeek`'s brief ~3s transient window right when a track changes. The now-playing
 marquee that's actually visible most of the time lives on `CompactPage`, which had no
 click handling at all. Added a `TapHandler` there too (`enabled: Media.available`,
 `requestExpand("MediaExpanded")`), so clicking the persistent compact view works, not
 just the narrow peek window.
 
-**Transport controls redesigned live, twice, per Haziq's aesthetic direction**: v1 was
+**Transport controls redesigned live, twice, per the maintainer's aesthetic direction**: v1 was
 plain text labels (PREV/PLAY/NEXT). v2 was a solid white filled circle with a black
-play/pause glyph, Haziq's own suggestion, but a filled circle plus solid white breaks
+play/pause glyph, the maintainer's own suggestion, but a filled circle plus solid white breaks
 his established palette (bone-on-black, hairline rules instead of color blocks,
 near-sharp 2px corners not soft circles). Final ("go all out"): all three controls are
 matching hairline-bordered near-square buttons (`radius: 2`), bone-`Theme.ink` glyphs on
@@ -138,7 +138,7 @@ genuine volume change.
 
 ## Slice 4.5 done: reserved space, one surface, not two
 
-Haziq asked for the compact pill's height to be reserved space (tiled windows shouldn't
+The maintainer asked for the compact pill's height to be reserved space (tiled windows shouldn't
 render directly under the clock), matching how other Dynamic Island implementations
 behave, and matching what the original plan itself anticipated
 (`exclusiveZone: Config.reserveSpace ? Theme.compactH + Theme.topInset : 0`).
@@ -160,7 +160,7 @@ is only meaningful if the surface is anchored to one edge or an edge and both
 perpendicular edges"): **top-only anchoring is the canonical valid case for a positive
 exclusive zone**, not an unresolvable one. This means the hang is very likely a genuine
 **niri bug** on a spec-legal client request, not a client-side mistake. Not filed
-upstream yet (Haziq's call); if revisited, this is the accurate framing to file it with.
+upstream yet (the maintainer's call); if revisited, this is the accurate framing to file it with.
 
 **First fix attempt, since superseded**: two separate layer-shell surfaces, an
 invisible full-width spacer (`ui/ReservedSpaceWindow.qml`, anchored `top`+`left`+`right`,
@@ -168,7 +168,7 @@ doing only the `exclusiveZone` reservation) plus the existing centered `IslandWi
 (unchanged, rendering the capsule). This sidestepped the hang (confirmed working,
 screenshotted), but a second `refuter` pass caught a real regression it introduced,
 invisible in the nested-niri sandbox because nothing else there has a top-anchored bar:
-Haziq's real session runs `noctalia` with a floating top bar and its own exclusion zone
+The maintainer's real session runs `noctalia` with a floating top bar and its own exclusion zone
 (`~/.config/noctalia/settings.json`, `enableExclusionZoneInset: true`). The spacer
 surface (a normal, non-ignoring exclusive zone) would correctly get pushed below
 noctalia's bar, but `IslandWindow.qml` had been set to `exclusiveZone: -1`
@@ -197,7 +197,7 @@ shared reference point, nothing left to disagree.
 Verified live at each step with a bounded `timeout` wrapper on the launch (given the
 hang history): isolated full-width+positive-zone test loaded instantly outside this
 repo; the real consolidated window then loaded cleanly in the actual project; niri
-stayed responsive (`niri msg` instant) throughout. Visually confirmed by Haziq: pill
+stayed responsive (`niri msg` instant) throughout. Visually confirmed by the maintainer: pill
 renders, positions, and morphs exactly as before. A third `refuter` pass on this exact
 fix came back clean (no must-fix items); worth knowing for later, not a defect: stacking
 order between same-layer positive-zone surfaces (this window vs. noctalia's bar) is
@@ -211,7 +211,7 @@ settled at `5` (tried `14` first per an ambiguous "a little lower" request that 
 out to mean "less gap", then `5` per "looks more minimalist"). The *bottom* gap (pill's
 bottom edge to where tiled windows start) turned out not to just be `topInset` again:
 a mathematically symmetric formula (`compactH + 2*topInset`) looked visibly
-*bottom-heavy* despite the equal math. Cause, found by Haziq: **niri's own `gaps`
+*bottom-heavy* despite the equal math. Cause, found by the maintainer: **niri's own `gaps`
 setting** (`~/.config/niri/cfg/layout.kdl`, currently `12`) adds spacing "between
 windows and to screen edges", which stacks on top of whatever's reserved for the
 bottom, since the reserved strip's lower boundary is effectively a screen edge from
@@ -234,7 +234,7 @@ then the pill itself sitting correctly inside that reserved gap.
 
 **Incidental discovery while debugging this**: some of the session's earlier "stale
 instance" / hot-reload flakiness was likely two concurrent `qs` processes (one launched
-by Claude via a scripting shell, one Haziq had separately running in his own terminal)
+by Claude via a scripting shell, one the maintainer had separately running in his own terminal)
 both watching and reloading on the same file edits at once, not a Quickshell bug. Keep
 to one running instance at a time when both are actively iterating on this repo.
 
@@ -270,13 +270,13 @@ this codebase: **any QtObject-rooted singleton needs named properties for its ch
 never bare unnamed ones**, only `Item`-rooted types (and Quickshell's own `Singleton`/
 `ReloadPropagator`) have a default property to receive them.
 
-Deliberately left minimal, confirmed with Haziq: `OsdPeek` shows an icon label + bar, no
+Deliberately left minimal, confirmed with the maintainer: `OsdPeek` shows an icon label + bar, no
 percentage readout. Visual polish is explicitly his design-phase work after slice 9, this
 slice's job was proving the real PipeWire data path end to end, which it now does.
 
-## Status: Slice 3.5 done (auto-collapse on cursor-away, inserted by Haziq)
+## Status: Slice 3.5 done (auto-collapse on cursor-away, inserted by the maintainer)
 
-Not in the original plan; Haziq asked whether hovering *off* the island for a while
+Not in the original plan; the maintainer asked whether hovering *off* the island for a while
 auto-collapses it (symmetric to the earlier hover-to-expand question, also not planned).
 Added `theme/Motion.qml`'s `expandCollapseGrace` (1500ms, longer than `hoverGrace` since
 an expanded page is something the user is likely reading, not a transient peek) and
@@ -286,7 +286,7 @@ reasoning as the slice-1.5 click toggle: this is UI convenience layered on the s
 machine, not one of its 8 core rules, so it doesn't belong in `IslandController.qml`.
 
 Verified live: `expand("dummyExpanded")` via IPC with the cursor elsewhere, capsule
-auto-collapsed to the compact clock after ~1.5s. Confirmed by Haziq: "very nice, i like it."
+auto-collapsed to the compact clock after ~1.5s. Confirmed by the maintainer: "very nice, i like it."
 
 ## Status: Slice 3 done (Wire), including a second refuter pass that found 3 more real bugs
 
@@ -376,7 +376,7 @@ the capsule's bound `width` diverged past 1,000,000px within one animation cycle
 (confirmed in the quickshell log: `455 -> -1274 -> 5296 -> -19671 -> 75207 -> -285332 ->
 1084718`), and the `MultiEffect` shadow tried to allocate a GPU texture the same size,
 logged as `QSGRhiLayer: Unsupported size requested: [1084783, 411997]. Maximum texture
-size: 65536`. This happened live, on Haziq's actual desktop GPU (the nested-niri sandbox
+size: 65536`. This happened live, on the maintainer's actual desktop GPU (the nested-niri sandbox
 shares hardware with the real session), and caused real, repeated system freezing until
 the process crashed on its own.
 
@@ -488,16 +488,16 @@ is `/usr/lib/qt6/bin/qmltestrunner`. `scripts/test.sh` hardcodes that path and s
 again with a bare nonzero exit code, check `journalctl --user -n 50` before assuming the
 test file itself is broken.
 
-## Status: Slice 1.5 done (click-to-morph + spring bounce, inserted by Haziq)
+## Status: Slice 1.5 done (click-to-morph + spring bounce, inserted by the maintainer)
 
-Not in the original plan's slice list; Haziq asked for it directly after seeing slice 1's
+Not in the original plan's slice list; the maintainer asked for it directly after seeing slice 1's
 smooth morph, wanted to feel a spring/bounce motion and trigger it by clicking the capsule
 rather than only via IPC. Two changes:
 
 - `theme/Motion.qml`'s `morph`/`morphEasing` (duration+easing tokens) replaced with
   `morphSpring`/`morphDamping`/`morphMass`. `ui/MorphAnimation.qml` now wraps
   `SpringAnimation`, not `NumberAnimation`: springs have no fixed duration, they
-  overshoot and settle based on the three physics params, tuned live with Haziq
+  overshoot and settle based on the three physics params, tuned live with the maintainer
   (`spring: 3.5, damping: 0.4, mass: 1.0`).
 - `ui/Capsule.qml` has a `TapHandler` that toggles `expanded` and calls
   `setPage("dummyWide"/"compact")` directly. **This is temporary**: slice 3's real click
@@ -505,7 +505,7 @@ rather than only via IPC. Two changes:
   `IslandController.expand()`. Replace this direct toggle when slice 3 wires the
   controller into `Capsule`/`IslandWindow`, don't leave both mechanisms in place.
 
-Confirmed by Haziq: "looks very cool."
+Confirmed by the maintainer: "looks very cool."
 
 ## Status: Slice 1 done (Morph)
 
@@ -519,7 +519,7 @@ wide page exists), `IpcHandler { target: "island" }` in `shell.qml` with
 
 Verified live in nested niri: `qs -p ~/Projects/dynamic-island ipc call island
 page dummyWide` / `page compact` morphs the capsule width/height smoothly with
-a fade+scale crossfade, confirmed by Haziq ("morphs really nice"). No corner
+a fade+scale crossfade, confirmed by the maintainer ("morphs really nice"). No corner
 clipping artifacts observed mid-morph.
 
 **Deviation from the plan**: no per-page `targetRadius` yet, radius stays
@@ -534,7 +534,7 @@ crashes outright (exit 255, no output) on typed function parameters
 `shell.qml` is excluded from `scripts/lint.sh` for this reason, not because
 it's unchecked, it's exercised at runtime every dev session instead.
 
-**IPC gotcha for Haziq specifically**: Quickshell's `ipc call` instance
+**IPC gotcha for the maintainer specifically**: Quickshell's `ipc call` instance
 registry is scoped to the current `$WAYLAND_DISPLAY`. Sending IPC from the
 host Plasma terminal (`wayland-0`) can't see an instance running in the
 nested niri sandbox (`wayland-1`); `export WAYLAND_DISPLAY=wayland-1` in
@@ -552,12 +552,12 @@ Built:
   tokens.
 - `ui/IslandWindow.qml`: `PanelWindow`, fixed canvas (`Theme.canvasW/H`), anchored top
   only (layer-shell centers it), `exclusiveZone: 0` (floating overlay, confirmed with
-  Haziq: real Dynamic Island doesn't reserve bar space either), `WlrLayershell`
+  the maintainer: real Dynamic Island doesn't reserve bar space either), `WlrLayershell`
   namespace/layer/keyboardFocus set, `mask: Region { item: capsule }` so clicks outside
   the capsule always pass through regardless of capsule size.
 - `ui/Capsule.qml`: `ClippingRectangle` (Quickshell.Widgets), black, no border, static
   size for now (sized to `CompactPage`'s implicit size). `MultiEffect` drop shadow
-  behind it, tuned live with Haziq: `shadowOpacity: 0.38`, `shadowBlur: 0.85`,
+  behind it, tuned live with the maintainer: `shadowOpacity: 0.38`, `shadowBlur: 0.85`,
   `shadowVerticalOffset: 5`.
 - `pages/CompactPage.qml`: clock only (`SystemClock`, not a manual `Timer`), per the
   page contract in `CLAUDE.md`.
@@ -576,7 +576,7 @@ was set to `0` on a mistaken assumption it only gated `blurEnabled`'s effect, wh
 Removed; `blurMax` is left at its default (32) and `shadowBlur` (0..1, a fraction of it)
 does the actual softness tuning.
 
-**Deviation from the plan's aspirational Kuro tokens**: bg and font are Haziq's explicit
+**Deviation from the plan's aspirational Kuro tokens**: bg and font are the maintainer's explicit
 per-project asks (pure black, Plus Jakarta Sans), not the plan's original Kuro-default
 `#0b0a09` / `Inter`. Theme.qml comments record this so it isn't "fixed" back later by
 accident.
@@ -590,7 +590,7 @@ of `CompactPage`, per the plan. There is currently no page showing anything but 
 
 ## Claude Design reference swap (theme/motion token pass)
 
-Per Haziq's explicit "replicate 100%" direction, `plans/Claude Design - Dynamic Island/Dynamic Island.dc.html`
+Per the maintainer's explicit "replicate 100%" direction, `plans/Claude Design - Dynamic Island/Dynamic Island.dc.html`
 now supersedes the earlier Kuro-derived `theme/Theme.qml` (bone ink, pure black,
 Plus Jakarta Sans, one fixed radius) and the spring-based `theme/Motion.qml`/
 `ui/MorphAnimation.qml`. New tokens: ink ramp `#ededed`/`#8f8f8f`/`#7a7a7a`/`#6f6f6f`/
@@ -598,7 +598,7 @@ Plus Jakarta Sans, one fixed radius) and the spring-based `theme/Motion.qml`/
 constants (`compactH`/`peekH`/`osdW`/`osdH`/`osdRadius`/`expandedW`/`expandedH`/
 `expandedRadius`). The design's `accent` token defaults to (and every swatch renders
 as) plain `#e8e8e8`, so fills/dots/highlights just use `ink` directly rather than
-adding a real accent-hue system, consistent with Haziq's standing no-accent-hue
+adding a real accent-hue system, consistent with the maintainer's standing no-accent-hue
 preference.
 
 Motion: replaced `SpringAnimation` (spring/damping/mass tuned by feel, the same
@@ -632,16 +632,16 @@ per-trigger numbers (e.g. notification 4200); treated those as prototype-conveni
 values, not the documented spec, and went with the SPEC panel as authoritative.
 
 `pages/MediaExpanded.qml` was deliberately gutted to an empty bordered placeholder box
-(700x604, r30, sized/radiused to the design's EXPANDED state) per Haziq: "for the
+(700x604, r30, sized/radiused to the design's EXPANDED state) per the maintainer: "for the
 expanded part you can just put an empty box with border as placeholder, so next slices
 will replace that placeholder." The real dashboard (identity/media/controls/toggles/
 system/inbox/session, see the design's ANATOMY panel) is real backend work spanning
 several future slices, not a style pass.
 
-**Known, deliberate divergences from the literal design values** (Haziq tuned these
+**Known, deliberate divergences from the literal design values** (the maintainer tuned these
 live after seeing them rendered; don't "fix" them back to the design's numbers):
 - **Capsule border removed entirely.** The design specifies
-  `border: 1px solid rgba(255,255,255,0.08)` on every state; Haziq tried it live and
+  `border: 1px solid rgba(255,255,255,0.08)` on every state; the maintainer tried it live and
   preferred the capsule with no border at all. `ui/Capsule.qml`'s `ClippingRectangle`
   is `border.width: 0`.
 - **Shadow backed off hard from the literal CSS values.** The design's
@@ -709,14 +709,14 @@ runtime), and the collapse-blink artifact this section describes no longer happe
 Left this section as-is rather than rewritten: it's an accurate record of what was
 found and fixed at the time, just no longer describing current behavior.
 
-**`pages/MediaExpanded.qml`'s placeholder was too broad.** Haziq caught that the "empty
+**`pages/MediaExpanded.qml`'s placeholder was too broad.** the maintainer caught that the "empty
 box" instruction had swallowed real, working functionality (title/artist/progress/
 transport, backed by `services/Media.qml` since slice 5), not just the design's new,
 not-yet-built sections. Restored the MEDIA section for real (title/artist, tabular
 elapsed/remaining, prev/play-pause/next as plain glyph text per the design, not the old
 bordered Canvas buttons), plus a squircle-clipped album art thumbnail (`ClippingRectangle`
 + `Image { source: Media.artUrl }`, falling back to a flat hairline swatch when there's no
-art) per Haziq's ask. The squircle is a large-radius rounded rect, not a true
+art) per the maintainer's ask. The squircle is a large-radius rounded rect, not a true
 superellipse: at 54px a custom `Shape` path would be indistinguishable by eye and isn't
 worth the extra surface area. The remaining design sections (identity header, controls,
 toggles, system, inbox, session) are still the one placeholder box, now anchored below
@@ -733,7 +733,7 @@ the standing no-em-dash rule) swapped for the same middot already used elsewhere
 string, and the media progress track was missing `radius: 2` that `OsdPeek`'s equivalent
 bar already has (cosmetic consistency, not a functional bug). refuter also flagged the
 placeholder box's `border.width: 0` as a miss against the file's own header comment and
-this doc's "empty bordered placeholder box" wording — that's not a bug, Haziq asked for
+this doc's "empty bordered placeholder box" wording — that's not a bug, the maintainer asked for
 the border removed live *after* refuter's round-1 snapshot; both the file comment and
 this doc's earlier wording are now corrected instead.
 
@@ -755,17 +755,17 @@ livestream). `Media.isLive` (`services/Media.qml`) treats any `length` over 4 ho
 convention: no legitimate track/video runs that long. `pages/MediaExpanded.qml` uses it
 to replace the remaining-time countdown with a pulsing "● LIVE" badge, pin the progress
 fill full (you're always at the live edge), and force the skip-forward glyph off
-regardless of what MPRIS's own `canGoNext` claims (Haziq: "for live video you cant go
+regardless of what MPRIS's own `canGoNext` claims (the maintainer: "for live video you cant go
 forward, only backwards, since it is well, live" - there's nothing ahead of live to skip
 into).
 
 **New: `services/System.qml`**, backing the design's "01 IDENTITY" header row that
-Haziq flagged as missing ("dont forget the things above the media player"). Exposes
+The maintainer flagged as missing ("dont forget the things above the media player"). Exposes
 `userHost` (`$USER`/`$LOGNAME` via `Quickshell.env()`, `+`/etc/hostname`), `uptimeLabel`
 (one blocking read of `/proc/uptime` at startup plus a live wall-clock offset, not
 re-read on a timer) and `niriVersion` (`niri msg --json version` via a `Process`,
 `stdout` parsed as JSON). Each field hides independently when absent, same rule as
-every other module: on Hyprland (Haziq's other target compositor) `niri msg` simply
+every other module: on Hyprland (the maintainer's other target compositor) `niri msg` simply
 doesn't exist, the `Process` errors, `niriVersion` stays `""`, and that one field in the
 header disappears rather than showing garbage. Added to `pages/MediaExpanded.qml` as the
 first section, above the (now real) media section. `services/qmldir` needed the new
@@ -782,7 +782,7 @@ silently reading zero forever without that). `pages/MediaExpanded.qml` "03 CONTR
 section: VOL/MIC as click-to-set bars (`TapHandler.onTapped`'s `eventPoint.position.x`
 against the bar's own width), each independently hidden when its source isn't available.
 
-**BRI was initially skipped, then built anyway once Haziq reconsidered the latency
+**BRI was initially skipped, then built anyway once the maintainer reconsidered the latency
 tradeoff.** This desktop has no `/sys/class/backlight` (confirmed earlier in this doc).
 Investigated the only real alternative, DDC/CI over the monitor's I2C bus (`ddcutil`):
 it actually works, found the real monitor (`ddcutil detect` -> Acer XZ306C X on
@@ -790,10 +790,10 @@ it actually works, found the real monitor (`ddcutil detect` -> Acer XZ306C X on
 `getvcp 10`/`setvcp 10 <n>` round-trip correctly. But every single call measured
 **~8 seconds** on this hardware (confirmed 3x, consistent to the tenth of a second,
 reads like a fixed retry/backoff policy on `ddcutil`'s side more than raw I2C latency).
-Asked Haziq how to handle it (skip / show a pending state / fire-and-forget with drift);
+Asked the maintainer how to handle it (skip / show a pending state / fire-and-forget with drift);
 he chose skip at the time.
 
-**Later reversed**: Haziq decided the ~8s delay is fine for a "set and let it catch up"
+**Later reversed**: the maintainer decided the ~8s delay is fine for a "set and let it catch up"
 control (he sees the same lag setting brightness from KDE itself), as long as it's
 commit-on-release, not a live drag. New `services/Brightness.qml` (a `Process`-driven
 service, not a live property binding like `Audio.qml` - confirmed this doesn't transfer
@@ -879,7 +879,7 @@ not just reduced.
 
 ## Real compact/idle pill: animated EQ bars, not title/artist text
 
-Haziq caught that `pages/CompactPage.qml`'s title/artist marquee wasn't what the actual
+The maintainer caught that `pages/CompactPage.qml`'s title/artist marquee wasn't what the actual
 design does in its collapsed/idle pill: that state is clock + an animated 4-bar EQ
 glyph reflecting play state; title/artist only ever appears in the expanded view. New
 `ui/EqualizerBars.qml` reproduces the design's staggered scale-oscillation keyframes:
@@ -900,11 +900,11 @@ connection profile configured at all), CAPS (a passive indicator, not sensibly a
 click-toggle), and IDLE (no idle-inhibit daemon running - the "idle_inject" kernel
 threads found while checking are CPU power management, unrelated) all render
 `available: false` (dimmed, not clickable) rather than being dropped from the grid, per
-Haziq: keep the full 4x2 look rather than shrinking to only what's real (the opposite
+The maintainer: keep the full 4x2 look rather than shrinking to only what's real (the opposite
 call from the earlier BRI decision, which just left VOL/MIC as two rows with no BRI
 slot at all - context-dependent, not a rule either way).
 
-**Real icons, not text abbreviations**, per Haziq. All 8 use JetBrainsMono Nerd Font
+**Real icons, not text abbreviations**, per the maintainer. All 8 use JetBrainsMono Nerd Font
 glyphs (`String.fromCodePoint(codepoint)`; several are above the BMP and need this, not
 a `\uXXXX` literal). Codepoints were verified against this exact installed font's cmap
 via a Python fontTools script before shipping, not guessed from memory or copied from a
@@ -922,7 +922,7 @@ click, then corrected ~15-25ms later by the action's own re-poll) measured at ro
 
 ## Click-and-drag scrub bars with a live popover, plus real media seeking
 
-Haziq: "make it like a slider behaviour too... when i drag, it can show popover it is
+The maintainer: "make it like a slider behaviour too... when i drag, it can show popover it is
 currently on what percent volume." New `ui/ScrubBar.qml` replaces the click-to-set-only
 bars for VOL, MIC, and the (non-live) media progress bar. Two handlers layered on the
 same track: a `TapHandler` (a plain click with zero pointer movement might never
@@ -949,7 +949,7 @@ verified what it could statically/via scratch harnesses (grabToImage rendering,
 numeric driving of the handlers, live MPRIS position checks) and the user confirmed the
 actual drag feel live themselves.
 
-## Refuter round 6 fixes, plus a real isLive bug caught live by Haziq
+## Refuter round 6 fixes, plus a real isLive bug caught live by the maintainer
 
 refuter round 6 reviewed `ui/ScrubBar.qml`/`services/Media.qml`/the ScrubBar call sites
 and found two real bugs, both fixed:
@@ -980,7 +980,7 @@ and found two real bugs, both fixed:
   wrapped to the same height so switching between them doesn't shift the rest of the
   section by ScrubBar's larger hit-area height.
 
-**Separately, a real bug Haziq caught live, not by refuter**: opening a second YouTube
+**Separately, a real bug the maintainer caught live, not by refuter**: opening a second YouTube
 livestream didn't show the LIVE badge at all. `Media.isLive`'s original heuristic
 checked only the *selected* player's own `length` against a fixed threshold (4 hours),
 picked from the first livestream's numbers. Diagnosed via `playerctl`: on the second
@@ -997,7 +997,7 @@ never trip it), rather than trusting any one player's own number.
 
 ## Idea for a future slice: swipeable compact-mode pages (not started)
 
-Haziq, 2026-09-19: the compact/idle pill currently shows exactly one fixed layout
+The maintainer, 2026-09-19: the compact/idle pill currently shows exactly one fixed layout
 (clock, plus the EQ glyph when media is playing). Idea: let it become swipeable, so
 swiping the compact pill cycles through several different "compact faces," each
 showing a different combination of already-built info, and the user picks which one is
@@ -1365,7 +1365,7 @@ used, per the standing rule above).
 ## Slice 9 done (Ship). Foundation frozen.
 
 With all 7 numbered dashboard sections real, the plan's own milestone is reached:
-"after slice 9 the foundation is frozen and Haziq's design work starts." Shipped:
+"after slice 9 the foundation is frozen and the maintainer's design work starts." Shipped:
 `services/Config.qml`, `config.example.json`, `scripts/install.sh`, `README.md`. Verified
 via `./scripts/lint.sh` (clean, no new warning categories), `./scripts/test.sh` (24
 passed), a refuter pass, and live checks against both the nested niri instance and, for
@@ -1473,7 +1473,7 @@ UNREAD" pill. Both glyph and layout choices confirmed via direct rendering tests
 **Hover feedback, then corrected to a full invert**: every interactive control in the
 expanded dashboard (TOGGLES, workspace pills, LOCK/SLEEP/POWER, CLEAR ALL, media
 transport) first got a translucent-brighten hover treatment, then was corrected to a
-full bone-on-black invert (`Theme.ink` background, `Theme.bg` content) after Haziq
+full bone-on-black invert (`Theme.ink` background, `Theme.bg` content) after the maintainer
 pointed at ryoku.dev as the reference - "shouldn't our theme be bone on black?" The ON
 state of a toggle and the currently-active workspace pill also get the SAME persistent
 invert, not just hover. POWER's armed (danger) red text stays red even inverted, since
@@ -1495,7 +1495,7 @@ designed for icon-button centering - replaced with `fa-step_backward`/`fa-play`/
 **Auto-collapse delay** (`theme/Motion.qml`): 1800ms → 1000ms, felt laggy after moving
 the mouse off the expanded dashboard.
 
-**06 INBOX layout, three rounds of real bugs, each caught by Haziq actually looking at
+**06 INBOX layout, three rounds of real bugs, each caught by the maintainer actually looking at
 it** (`pages/MediaExpanded.qml`, `theme/Theme.qml`):
 1. The `ListView`'s clip height (145) was an unmeasured guess 10px too generous,
    letting a sliver of a third card's top edge peek past the clip line before being cut
@@ -1507,7 +1507,7 @@ it** (`pages/MediaExpanded.qml`, `theme/Theme.qml`):
    after): `builtSections` landed at height 593, `sessionFooter` started at y=587, a
    genuine 6px overlap. Bumped `expandedH`/`canvasH` (+22 each, preserving the shadow-
    bleed slack ratio) to restore a proper ~16px gap.
-3. Once fixed, Haziq asked for less height back - a full 2-card view didn't obviously
+3. Once fixed, the maintainer asked for less height back - a full 2-card view didn't obviously
    signal there was more to scroll. Shrank the `ListView` to a deliberate 1.5-card
    "sneak peek" (103, not 135), which freed 32px INBOX no longer needed - pulled
    `expandedH`/`canvasH` back down correspondingly (682→650, 758→726) rather than
@@ -1549,7 +1549,7 @@ causes (`services/Brightness.qml`, `services/SystemStats.qml`, `app/Bridges.qml`
    sample - added a one-off 250ms follow-up poll instead of waiting the full 3s.
 
 **Media position/duration display, investigated carefully before touching anything**:
-Haziq reported the elapsed/remaining time "looks off" on a normal (non-live) 2:50:27
+The maintainer reported the elapsed/remaining time "looks off" on a normal (non-live) 2:50:27
 YouTube video. The obvious suspect - the `isLive` length-threshold heuristic - turned
 out NOT to be the bug: `Media.length` is confirmed in seconds (10227, matching reality)
 and the live-detection threshold (~31 years) is nowhere close to triggering for any
@@ -1571,7 +1571,7 @@ tokens as `theme/Theme.qml`, sharp corners (`radius=0`), and the selected entry 
 the same full bone-on-black invert as the dashboard's own hover/active treatment.
 `//kuro.` lives in the `prompt` slot (fuzzel can't pin arbitrary text to a window
 corner - it's a plain list launcher, not a custom canvas). Icons kept, not disabled -
-confirmed with Haziq first, since losing at-a-glance app recognition for a strict
+confirmed with the maintainer first, since losing at-a-glance app recognition for a strict
 monochrome palette was a real tradeoff, not an obvious win. `install.sh` links it with
 the same not-a-symlink-already caution as its own `QS_TARGET`, since this is a real
 user config file fuzzel itself also reads.
@@ -1579,7 +1579,7 @@ user config file fuzzel itself also reads.
 ## Renamed dynamic-island to kuroshima
 
 "dynamic-island" was always the working title, not a real product name - generic,
-hard to search for, and not distinct from Apple's own feature. Haziq wanted a real
+hard to search for, and not distinct from Apple's own feature. The maintainer wanted a real
 name to put on a public repo. Landed on `kuroshima` (黒島, "black island"): keeps the
 literal island metaphor, extends the existing Kuro brand (the Obsidian theme, the
 `//kuro.` fuzzel prompt) instead of starting a new identity, and reads fine as a repo
@@ -1609,7 +1609,7 @@ asset path, `theme/Motion.qml`'s comment about macOS's actual Dynamic Island fea
 
 ## Media thumbnail height fix (MediaExpanded)
 
-Haziq flagged the MEDIA section's art thumbnail as visually floating: it was a fixed
+The maintainer flagged the MEDIA section's art thumbnail as visually floating: it was a fixed
 54x54 `ClippingRectangle`, while the row's actual content column (title/artist, scrub
 bar, transport row) is naturally taller, leaving dead space above/below the art.
 
@@ -1629,7 +1629,7 @@ full row height instead of a smaller box floating inside it.
 
 ## Bundled foot, fastfetch, yazi (same treatment as the earlier fuzzel bundle)
 
-Haziq made yazi his default file manager and asked for the same "bundle it so
+The maintainer made yazi his default file manager and asked for the same "bundle it so
 installing the island gets it too" treatment already applied to fuzzel, plus a
 matching bone-on-black theme for it, foot, and fastfetch.
 
@@ -1655,7 +1655,7 @@ Two real bugs surfaced and got fixed as part of this, not just theming:
   "folder/*", use = ["edit", "open", "reveal"] }`). Reproduced deterministically
   with `ydotoold` + `ydotool key` sending real keypresses into a live yazi window
   (confirmed via `niri msg focused-window` first) rather than guessing, and
-  confirmed it affected every directory, not just the one Haziq happened to report
+  confirmed it affected every directory, not just the one the maintainer happened to report
   (`~/Desktop`) - `l` (bound to yazi's separate native `enter` action) navigated
   fine, only `<Enter>` (bound to `open`) broke.
   Fixed two ways: installed the official `smart-enter.yazi` plugin (`ya pkg add
@@ -1690,12 +1690,12 @@ at a glance without color to lean on.
 
 ## Switched default terminal from foot to kitty, dropped foot entirely
 
-Haziq wanted yazi's drag-and-drop working, which surfaced that foot doesn't
+The maintainer wanted yazi's drag-and-drop working, which surfaced that foot doesn't
 implement the Drag and Drop protocol at all (only kitty 0.47.1+, iTerm2 3.7.0
 beta10+, and eventually Ghostty do). Considered Ghostty first since it's the more
 fashionable pick, but its DnD support is only "accepted" upstream, not shipped -
 kitty was the only option that actually solved the reported problem. Once decided,
-Haziq asked to drop foot outright rather than keep both.
+The maintainer asked to drop foot outright rather than keep both.
 
 Removed from this repo: `foot/`, `fastfetch/foot.jsonc`, and
 `fish/functions/fastfetch.fish` (the $TERM-routing wrapper - no longer needed since
@@ -1715,7 +1715,7 @@ otherwise silently break things:
   shell, itself zsh-flavored) hid this - only caught it by checking niri's actual
   process environment directly rather than trusting the first successful-looking
   screenshot.
-- `confirm_os_window_close 0` - Haziq reported this as "are you sure you want to
+- `confirm_os_window_close 0` - the maintainer reported this as "are you sure you want to
   close" firing every time he exited yazi via `Mod+E`. Default asks whenever a
   foreground process is still running in the window; yazi (or anything else) always
   counts.
@@ -1734,7 +1734,7 @@ a directory-level symlink makes files inside it look like ordinary files, so the
 never caught it. Then "uninstall foot" led to `rm`-ing minimalist's tracked
 `config/foot/foot.ini` directly. Caught it via `ls -la` on the parent directories
 (showing them as symlinks) before going further, restored the deleted file with
-`git checkout` in that repo, and asked Haziq directly rather than guessing what to
+`git checkout` in that repo, and asked the maintainer directly rather than guessing what to
 do about the second project - he confirmed minimalist is retired, kuroshima is now
 the one canonical repo. Migrated the one thing worth keeping from it: a
 hand-tuned fastfetch config with a dithered logo, now `fastfetch/config.jsonc` +
@@ -1758,15 +1758,15 @@ the image approach entirely:
    alpha 0 instead of opaque black), for "no card, just dithered text," plus a
    `//kuroshima` header above the katakana stack.
 3. Two more rounds chasing a bottom-clipping bug: the last katakana glyph kept
-   getting cut off in Haziq's own screenshots despite looking fine in mine.
+   getting cut off in the maintainer's own screenshots despite looking fine in mine.
    Added padding, still clipped. Added *more* padding (up to 22% of height),
    still clipped, and each attempt visibly shrank the glyph within the frame
-   without fixing anything - Haziq correctly called this out as chasing a bug
+   without fixing anything - the maintainer correctly called this out as chasing a bug
    with cosmetic patches instead of finding the cause. Real cause never fully
    confirmed (suspected: fastfetch's column-based image width doesn't map onto
    a whole number of terminal rows, and the fractional remainder gets clipped
    by whatever prints next, independent of the image's own internal margins).
-4. Dropped the image entirely on Haziq's suggestion: `//kuroshima クロシマ` as
+4. Dropped the image entirely on the maintainer's suggestion: `//kuroshima クロシマ` as
    one plain text line (both scripts, horizontal) above the spec box, single
    column, `"logo": {"type": "none"}`. Sidesteps the whole bug class instead of
    curing it. One gotcha on the way: a `custom` module with `key: ""` plus a
@@ -1776,7 +1776,7 @@ the image approach entirely:
 
 ## Desktop widget canvas: edit mode, `services/Widgets.qml`
 
-Haziq wants desktop widgets, inspired by a ryoku.dev showcase and Noctalia's own
+The maintainer wants desktop widgets, inspired by a ryoku.dev showcase and Noctalia's own
 widget-edit-mode, but explicitly scoped this pass to the *framework*, not any
 specific widget: an edit mode to add/move/remove widgets, open enough that he
 (or anyone) can drop in custom QML without touching this repo. Explicit: widget
@@ -1835,11 +1835,11 @@ got. What IS verified: qmllint clean, headless `qs -n -p .` launches with zero
 warnings, `console.log`-confirmed correct data flow end-to-end (JSON ->
 `Widgets.placed` -> `modelData` -> `WidgetFrame.widgetType` -> `Loader` ->
 `Loader.status` never `Error`), and the IPC toggle (`toggleWidgetEdit`)
-round-trips cleanly on the real live process. Haziq should confirm the actual
+round-trips cleanly on the real live process. The maintainer should confirm the actual
 visual/drag/drop experience himself via `Mod+Shift+W` - he has full context of
 his own screen and won't hit the same "which window is this" confusion.
 
-**Resize, added right after**: Haziq immediately flagged that a widget editor
+**Resize, added right after**: the maintainer immediately flagged that a widget editor
 without resize is missing something obvious - correct, and it was explicitly
 called out as deferred in the plan, not forgotten. Added a bottom-right drag
 handle (`WidgetFrame.qml`, mirrors the existing delete badge's positioning
@@ -1858,7 +1858,7 @@ since getting this backwards (copying the page contract's self-sizing rule) woul
 silently make every widget resize-proof in a way that's easy to not notice until
 someone actually drags the handle.
 
-**Click-to-focus, right after**: Haziq wanted a real edit interaction model, not
+**Click-to-focus, right after**: the maintainer wanted a real edit interaction model, not
 every widget's border/handles showing at once for the whole time edit mode is
 open. Added `Widgets.focusedWidgetId` - a widget's border/resize-handle/delete
 badge now only show when it's the focused one (click to focus), while dragging
@@ -1878,7 +1878,7 @@ for the widgets themselves, hence the actual conditional rather than relying on
 visibility. `forceActiveFocus()` on entering edit mode follows the same
 `Qt.callLater` pattern `WallpaperCarousel._open()` already uses.
 
-Also added a diagonal resize-direction glyph to the resize handle per Haziq's
+Also added a diagonal resize-direction glyph to the resize handle per the maintainer's
 suggestion ("↘", U+2198) - confirmed present in JetBrainsMono Nerd Font via
 `fontTools` first, this project's own established rule for icon glyphs, not
 guessed from memory.
@@ -1886,12 +1886,12 @@ guessed from memory.
 ## First real bundled widget: `widgets/GoodNight.qml`
 
 The actual feature request from the start of this whole widget-system thread -
-a ryoku.dev showcase widget Haziq wanted (greeting + huge day abbreviation +
+a ryoku.dev showcase widget the maintainer wanted (greeting + huge day abbreviation +
 date/time, bracketed by short hairline ticks), now that the framework exists
 to hold it. Registered in `Widgets.bundledTypes` alongside `Clock`.
 
 Kept in this repo's own bone-on-black palette rather than the reference's
-colour accents (teal glow, red day-label, coloured dock icons) - Haziq's own
+colour accents (teal glow, red day-label, coloured dock icons) - the maintainer's own
 words on widget content were "up to user of their own creativity," but this
 one ships WITH kuroshima, so it follows the same house style as every other
 bundled surface. He specifically flagged that the font matters for the look
@@ -1919,7 +1919,7 @@ genuinely time-of-day aware (`GOOD MORNING`/`AFTERNOON`/`EVENING`/`NIGHT`
 via `clock.date.getHours()`), not hardcoded to match whatever the reference
 screenshot happened to show.
 
-**Two real fixes right after, from Haziq's own side-by-side comparison
+**Two real fixes right after, from the maintainer's own side-by-side comparison
 screenshots**: (1) everything was left-aligned; the reference is centered.
 `anchors.left: parent.left` on the Column -> `anchors.centerIn: parent`,
 plus each child needs its own `anchors.horizontalCenter: parent.horizontalCenter`
@@ -1938,7 +1938,7 @@ using it (same "verify before use" rule this project already applies to
 icon glyphs) - not a guess, and not silently falling back to a default
 face.
 
-**Inter Display swapped for Fraunces, right after**: Haziq correctly called
+**Inter Display swapped for Fraunces, right after**: the maintainer correctly called
 Inter Display "kind of normal" - it's a clean grotesk, exactly what it's for,
 but not what "quirky/unique" means for a display element like this. This
 project's own aesthetic notes already name Fraunces specifically for that
@@ -1968,7 +1968,7 @@ barely-there at 2px+ - it needs to be a solid tone to still look
 intentional once it's not a literal 1px hairline) - both straightforward,
 no gotchas.
 
-**Went too far the other direction on the ticks, plus a layout gap Haziq
+**Went too far the other direction on the ticks, plus a layout gap the maintainer
 caught from the reference directly**: made them thicker in the previous
 pass when he'd actually meant them thicker than the original 1px but still
 thin overall - overcorrected. Also, "GOOD AFTERNOON" as one line reads
@@ -1991,7 +1991,7 @@ everywhere.
 
 ## `GoodNight` greeting line: Poppins, wider letter-spacing
 
-Haziq's next reference-image comparison round: the greeting line
+The maintainer's next reference-image comparison round: the greeting line
 ("GOOD"/mood-word) needed more letter-spacing to match the original, and
 "I think Poppins is better" than `Theme.fontFamily` (JetBrainsMono Nerd
 Font) for that line specifically. A monospace font's fixed advance width
@@ -2007,7 +2007,7 @@ optical size - plain `"Poppins"` resolves correctly, weights come from
 `ttf-poppins` alongside `ttf-fraunces` as a `GoodNight` dependency.
 
 `letterSpacing` went `2` -> `4` -> `8`: the first two bumps looked
-identical to Haziq because the running `qs -c kuroshima` process was
+identical to the maintainer because the running `qs -c kuroshima` process was
 never restarted after either edit - editing a bundled widget's `.qml`
 file on disk does nothing to an already-running instance, there's no
 file-watch/hot-reload wired into the installed (non-dev) shell. Only
@@ -2018,7 +2018,7 @@ QML edit "didn't work."
 
 ## Wallpaper carousel: darker scrim, catching up on missing docs
 
-Haziq's feedback on the `Mod+P` carousel: the header/footer text (WALLPAPER
+The maintainer's feedback on the `Mod+P` carousel: the header/footer text (WALLPAPER
 label, selection counter, keyboard hints) was hard to read over the dim
 scrim behind it. `ui/WallpaperCarousel.qml`'s background `Rectangle`
 (`color: "#000000"`) went `opacity: 0.34` -> `0.62`.
@@ -2037,7 +2037,7 @@ tradeoff.
 
 ## Wallpaper background crossfade, and its carousel: accordion + diagonal mask
 
-Haziq asked for "some animation when changing the wallpaper (the entry
+The maintainer asked for "some animation when changing the wallpaper (the entry
 animation), like honeycomb animation and such" - offered a choice between a
 real hexagonal-tile shader reveal (needs GLSL + Qt's `qsb` compile step, a
 real build-tooling addition) and a pure-QML crossfade+zoom. He picked the
@@ -2048,7 +2048,7 @@ state via a declarative `State`/`Transition` pair - incoming settles from a
 slight zoom-in while fading in, outgoing zooms out slightly while fading
 out, ~480ms.
 
-Real bug in that first version, caught by Haziq stepping backward through
+Real bug in that first version, caught by the maintainer stepping backward through
 the carousel: "when i go backward one time, the animation didnt triggered
 and wallpaper didnt changed, had to go back 2 times then it triggers."
 Root cause: the layer swap was gated purely on `Image.onStatusChanged`
@@ -2064,7 +2064,7 @@ flip the active layer immediately instead of waiting on a signal that will
 never fire.
 
 Separately, the carousel's own visual design (`ui/WallpaperCarousel.qml`)
-went through two real iterations from Haziq's feedback, both on the same
+went through two real iterations from the maintainer's feedback, both on the same
 comparison-screenshot pattern used throughout this project:
 - v1: full-width filmstrip of uniform wide rectangles - "full width of
   horizontal rectangles" - too plain, and too much of the library visible
@@ -2072,7 +2072,7 @@ comparison-screenshot pattern used throughout this project:
 - v2: fixed 3-tile clipped viewport, each tile sheared into a parallelogram
   via a `Matrix4x4` transform on the whole tile (image included),
   alternating shear direction per index for a zigzag. Wrong on three counts
-  per Haziq's follow-up: he wanted *vertical* (portrait) tiles, not
+  per the maintainer's follow-up: he wanted *vertical* (portrait) tiles, not
   horizontal; *all* tiles leaning the *same* direction, not alternating;
   and critically, shearing the `Matrix4x4` transform on the tile as a whole
   visibly distorted the photo itself, which he explicitly didn't want -
@@ -2082,14 +2082,14 @@ comparison-screenshot pattern used throughout this project:
   diagonal direction. The current (selected) panel's own `width` grows to
   `currentTileW` while every other panel stays `baseTileW` - a real `Row`
   layout reflow (not just an inner-Rectangle visual scale the way v1/v2
-  did it), so neighbors genuinely shift to make room, per Haziq's "the
+  did it), so neighbors genuinely shift to make room, per the maintainer's "the
   irregular rectangle will expand in width... so user can see it better."
   First attempt at keeping the photo undistorted used
   `Qt5Compat.GraphicalEffects`' `OpacityMask`, cropping an ordinary Image
   through a separate sheared `Rectangle` (plain white fill, `visible:
   false`) used purely as an alpha stencil, plus a matching-transform
   bordered `Rectangle` drawn on top tracing the same outline.
-- v3 turned out broken, not just imperfect: Haziq's screenshot showed the
+- v3 turned out broken, not just imperfect: the maintainer's screenshot showed the
   photo rendering as a plain, uncropped rectangle - `OpacityMask` wasn't
   actually cropping anything - with a mismatched diagonal border floating
   over it, reading as a stray bright line across one corner. Disabling the
@@ -2113,7 +2113,7 @@ comparison-screenshot pattern used throughout this project:
   `PanelWindow` surface doesn't have MSAA the way a normal windowed
   surface might. `Shape.preferredRendererType: Shape.CurveRenderer` (a
   renderer that antialiases without needing MSAA) would have been the
-  fix, but never got applied - Haziq called a stop on the whole diagonal
+  fix, but never got applied - the maintainer called a stop on the whole diagonal
   approach at this point instead of chasing a fourth iteration:
   "nevermind, rather than making this hard, can you just do this" with a
   reference image.
@@ -2145,12 +2145,12 @@ comparison-screenshot pattern used throughout this project:
   `Theme.bg`-backed, bordered panel (`opacity: 0.75`), sized off the
   wrapped `ColumnLayout`/`RowLayout`'s own `implicitWidth`/`implicitHeight`
   rather than a hand-picked fixed size. Also dropped the per-tile filename
-  caption under the current tile entirely - Haziq: "hide the filename too
+  caption under the current tile entirely - the maintainer: "hide the filename too
   below the wallpaper."
 
 ## INBOX history dropped notification actions entirely
 
-Haziq: a `cachy-update` notification had an action he should be able to
+The maintainer: a `cachy-update` notification had an action he should be able to
 interact with, but couldn't click it in the expanded dashboard's INBOX.
 Root cause, not a rendering bug: `services/Notifs.qml`'s `onNotification`
 handler builds each history entry from a fixed subset of fields (`id,
@@ -2179,12 +2179,12 @@ plain in-memory state, `property var history: []`, no `FileView`
 persistence the way `widgets.json`/`wallpaper-state.json` have - a shell
 restart (needed to load ANY code change here, same as everywhere else in
 this project) wipes the whole history, not just this fix's new field.
-Confirmed with Haziq before restarting rather than silently losing his
+Confirmed with the maintainer before restarting rather than silently losing his
 actual pending `cachy-update` notification.
 
 ## Settings island screen: sidebar of category bubbles, Audio first
 
-Haziq wants a way to reach OS-style audio settings from the expanded
+The maintainer wants a way to reach OS-style audio settings from the expanded
 dashboard - his own term for it going forward, "the island screen." Not a
 one-off Audio Settings page: a general **Settings** island screen reached
 by a new gear button, with a **left sidebar of icon bubbles** (Android-
@@ -2268,7 +2268,7 @@ not about timing. What actually needs `PwObjectTracker` is `.audio.volume`/
 
 ## Settings push/pop: from "crossfade with sideways motion" to a real stack push
 
-Haziq, after seeing the first version: "is it possible to make the
+The maintainer, after seeing the first version: "is it possible to make the
 animation going to the settings island screen, like android/ios stack
 screen animation when opening new app or something?" The pushRight/
 popLeft transition (`ui/PageHost.qml`) had genuinely been a crossfade
@@ -2301,7 +2301,7 @@ properties default to their original hardcoded values.
 
 The previous entry's "real OS stack push" (solid, no fade, full-width
 travel, 0.3 parallax on the outgoing page) got a direct verdict once
-Haziq actually saw it live: "hm the animation isnt, looks ugly. do you
+The maintainer actually saw it live: "hm the animation isnt, looks ugly. do you
 have any animation idea that matches our theme kuro though?" Asked him to
 choose a direction (restrained slide / hairline wipe reveal / plain fade,
 no slide) rather than guessing again - every visual iteration this
@@ -2340,7 +2340,7 @@ disappears, this coordination is the first place to look.
 
 ## Fuzzel prompt renamed, corner placement ruled out
 
-Haziq wanted the fuzzel prompt moved to a bottom-right corner "like a
+The maintainer wanted the fuzzel prompt moved to a bottom-right corner "like a
 trademark" and renamed from `//kuro.` to `//kuroshima`. Checked fuzzel
 1.15.0's own `fuzzel.ini` man page rather than trusting the earlier
 "can't pin text to a corner" note at face value - still true: `prompt`/

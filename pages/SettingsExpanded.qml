@@ -4,14 +4,14 @@ import qs.theme
 // Reached via Island.expand("SettingsExpanded"), pushed onto the normal
 // dashboard (ui/Capsule.qml's directionFor() picks "pushRight" for this
 // page specifically, "popLeft" on the way back) rather than the plain
-// crossfade every other page transition uses - Haziq wanted a real
+// crossfade every other page transition uses - the maintainer wanted a real
 // Android-style slide + back button. Same footprint as MediaExpanded
 // (Theme.expandedW/H) so the transition reads as a pure horizontal push,
 // not a simultaneous width/height morph.
 //
 // Left sidebar of category "bubbles" - just Audio today
 // (pages/SettingsAudioPanel.qml), but built as a real model/Loader pair
-// specifically because Haziq wants more categories added later without
+// specifically because the maintainer wants more categories added later without
 // restructuring this file: adding one is a `categories` entry plus a
 // content file, not a rewrite.
 Item {

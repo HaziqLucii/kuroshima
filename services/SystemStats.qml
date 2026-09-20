@@ -37,7 +37,7 @@ QtObject {
                 const total = parts.reduce((a, b) => a + b, 0)
                 // First sample has no prior point to delta against; CPU%
                 // needs two, so it just stays -1 (hidden) for one tick.
-                // Haziq: "the cpu stats thing comes in late" - waiting for
+                // The maintainer: "the cpu stats thing comes in late" - waiting for
                 // the full 3s pollInterval to get that second sample felt
                 // sluggish, so a quick one-off follow-up (250ms) gets a
                 // real CPU% almost immediately instead, then normal

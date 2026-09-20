@@ -50,7 +50,7 @@ Item {
             // Media.isPlaying, not Media.available: a paused-but-loaded
             // player (e.g. a YouTube tab you tabbed away from) used to
             // leave the divider (and a static EQ) stuck on screen
-            // indefinitely. Haziq wanted the pill to collapse back to
+            // indefinitely. The maintainer wanted the pill to collapse back to
             // clock-only the instant playback actually stops, not just
             // when the player disappears entirely.
             visible: Media.isPlaying
@@ -59,7 +59,7 @@ Item {
         // Matches the design's real compact/idle pill: no title/artist
         // text at all (that only appears in the expanded media section),
         // just this animated EQ glyph signaling "media is here, and
-        // whether it's playing". Haziq specifically called this out as his
+        // whether it's playing". The maintainer specifically called this out as his
         // favorite piece of the design after seeing the title/artist
         // version this project had built before.
         EqualizerBars {

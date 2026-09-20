@@ -73,7 +73,7 @@ Item {
     // stale - nothing on this project's side can force a browser to
     // re-report its own metadata, so after a few seconds this names the
     // actual fix instead of leaving a permanent blank space with no
-    // explanation. Haziq: "put remark if there's issue on data
+    // explanation. The maintainer: "put remark if there's issue on data
     // querying as fallback... like putting 'please refresh the page'."
     readonly property bool needsDuration: Media.available && !Media.isLive && Media.length <= 0
     property bool _durationStuck: false
@@ -425,7 +425,7 @@ Item {
                                     // character, not designed for
                                     // icon-button centering the way a real
                                     // icon font glyph is) - exactly the
-                                    // misalignment Haziq spotted once the
+                                    // misalignment the maintainer spotted once the
                                     // hover bubble made it visible.
                                     text: String.fromCodePoint(0xf048)
                                     color: prevHit.hovered ? Theme.bg : Theme.inkMuted
@@ -545,7 +545,7 @@ Item {
                             // window length reads as 0, and length-position
                             // would show a misleading "0:00" (reading as
                             // "about to end") instead of just not showing
-                            // anything until the real value lands. Haziq
+                            // anything until the real value lands. The maintainer
                             // hit this exact window: "it shows the correct
                             // end time... suddenly" once metadata caught up.
                             visible: !Media.isLive && Media.length > 0
@@ -606,7 +606,7 @@ Item {
                 // backlight, and the only real brightness path found is
                 // DDC/CI over the monitor's I2C bus (`ddcutil`), which
                 // measures ~8s round-trip per read/write on this hardware.
-                // Haziq accepted the latency for a "set and let it catch
+                // The maintainer accepted the latency for a "set and let it catch
                 // up" control (he sees the same lag setting it from KDE);
                 // a CONTINUOUS drag would instead queue up dozens of 8s
                 // ddcutil calls, exactly the media-seek-spam bug refuter
@@ -782,7 +782,7 @@ Item {
                     // sensibly a click-toggle), and IDLE has no idle-inhibit
                     // daemon running - all five render `available: false`
                     // (dimmed, not clickable) rather than being dropped
-                    // from the grid, per Haziq: keep the full 4x2 look
+                    // from the grid, per the maintainer: keep the full 4x2 look
                     // rather than shrinking to only what's real.
                     Grid {
                         id: toggleGrid
@@ -979,7 +979,7 @@ Item {
             // as soon as its peek ends - see that file's own comment).
             // Was hard-truncated to the first 2 (matching the design
             // reference's `hint-placeholder-count="2"`) with the rest of
-            // history completely unreachable from the UI - Haziq wanted
+            // history completely unreachable from the UI - the maintainer wanted
             // scroll instead of truncation, so this is now a ListView
             // clipped to roughly a 2-card viewport (same height budget as
             // before, so 07 SESSION below it doesn't move) showing the
@@ -1278,7 +1278,7 @@ Item {
                             // persistent full invert as hover, not just a
                             // faint tint - matching ToggleButton's ON
                             // state getting the same treatment as its own
-                            // hover, per Haziq's "same on the which
+                            // hover, per the maintainer's "same on the which
                             // workspace we currently at."
                             readonly property bool inverted: hovered || modelData.active
 

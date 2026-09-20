@@ -27,7 +27,7 @@ Item {
         spacing: 10
 
         // No real album art for this slice: a plain placeholder swatch.
-        // payload.artUrl loading is Haziq's design-phase work.
+        // payload.artUrl loading is the maintainer's design-phase work.
         Rectangle {
             width: 20
             height: 20

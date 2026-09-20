@@ -201,7 +201,7 @@ PanelWindow {
         // narrow sliver. No diagonal cuts: two earlier attempts at a
         // sheared/masked "irregular rectangle" look (Matrix4x4 shear
         // distorting the photo, then OpacityMask, then solid Shape corner
-        // covers) all had real problems - see docs/NOTES.md - and Haziq
+        // covers) all had real problems - see docs/NOTES.md - and the maintainer
         // settled on a plain reference image instead: a wide fan of thin
         // rectangular strips, no shearing anywhere.
         Item {

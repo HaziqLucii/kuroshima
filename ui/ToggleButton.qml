@@ -2,7 +2,7 @@ import QtQuick
 import qs.theme
 
 // One cell of the design's "04 TOGGLES" grid. Real icon glyphs, not text
-// abbreviations, per Haziq: pulled from JetBrainsMono Nerd Font (already
+// abbreviations, per the maintainer: pulled from JetBrainsMono Nerd Font (already
 // the project's font, so no image assets needed) - codepoints verified
 // against this font's actual cmap via fontTools rather than guessed from
 // memory, since a wrong Nerd Font codepoint silently renders as a blank
@@ -24,7 +24,7 @@ Rectangle {
     // ON and hover both get the SAME full bone-on-black invert (Theme.ink
     // background, Theme.bg content), not a translucent brighten:
     // "shouldn't our theme be bone on black? - on hover, background
-    // white, foreground black", matching the ryoku.dev reference Haziq
+    // white, foreground black", matching the ryoku.dev reference the maintainer
     // pointed at - and he wanted the persistent ON state (a toggle
     // that's actually enabled, not just being hovered) to read the same
     // way, not just a faint tint. Same Theme.ink/Theme.bg tokens the
@@ -38,7 +38,7 @@ Rectangle {
     border.width: 1
     border.color: !available ? Theme.hairline : (isOn ? Theme.divider : Theme.hairline)
     // The sharp (0, default) corner morphs round on hover OR on -
-    // Haziq's "things already in a box: colour the background, morph
+    // The maintainer's "things already in a box: colour the background, morph
     // the corner into radius" hover language, applied here since this
     // one component backs all eight TOGGLES cells.
     color: root._inverted ? Theme.ink : "transparent"

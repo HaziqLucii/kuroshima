@@ -3,7 +3,7 @@
 # (and niri autostart, which uses the same invocation) finds it, and seeds
 # ~/.config/kuroshima/config.json from the example on first run. Never
 # touches niri's or Noctalia's own config files: those are printed below for
-# Haziq to apply by hand, since they're live host config this script has no
+# the maintainer to apply by hand, since they're live host config this script has no
 # business editing unattended.
 set -euo pipefail
 cd "$(dirname "$0")/.."

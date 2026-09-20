@@ -6,7 +6,7 @@ import qs.theme
 // abbreviation + date/time, centered, bracketed by two long, thin hairline
 // ticks with real breathing room around them. Kept in this repo's own
 // bone-on-black palette rather than the reference's colour accents -
-// Haziq: "widget should be open and up to user of their own creativity",
+// The maintainer: "widget should be open and up to user of their own creativity",
 // but this one's bundled with kuroshima itself, so it follows the same
 // house style as everywhere else here.
 //
@@ -16,7 +16,7 @@ import qs.theme
 // font's fixed advance width can't reproduce the reference's letter-spaced
 // look on the greeting line, so the whole meta-text set moved to Poppins
 // for consistency. "Fraunces 144pt" (Black) stays on just the day
-// abbreviation - Haziq wanted something with more character there, not a
+// abbreviation - the maintainer wanted something with more character there, not a
 // normal grotesk (tried Inter Display first, correctly called out as too
 // plain).
 Item {

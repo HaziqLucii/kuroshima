@@ -2,7 +2,7 @@ import QtQuick
 import qs.theme
 
 // Long light-background pill reading "N UNREAD" (services/Notifs.qml's
-// history count) - Haziq's correction after a first version rendered
+// history count) - the maintainer's correction after a first version rendered
 // just the bare numeral in a small circle: "i said badge. a long badge,
 // so it should read 4 unread in the badge. not 4 in the bubble." Mono-
 // uppercase with letterSpacing, matching every other label in this UI

@@ -17,7 +17,7 @@ Item {
     // spring-eased) for a page pushed onto (and popped back off of) the
     // normal dashboard - see pages/SettingsExpanded.qml. A full-width
     // Android/iOS-style push (opaque, no fade, big travel distance) was
-    // tried first and dropped - Haziq: "looks ugly... do you have any
+    // tried first and dropped - the maintainer: "looks ugly... do you have any
     // animation idea that matches our theme kuro" - a big screen-width
     // slide reads as a foreign phone-UI import next to how restrained
     // every other transition in this app already is (a 4px fade-up).

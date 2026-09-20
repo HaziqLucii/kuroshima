@@ -19,7 +19,7 @@ Item {
     Component { id: settingsExpandedComponent; SettingsExpanded {} }
 
     // SettingsExpanded is the one page reached by pushing (not just
-    // crossfading) from the normal dashboard - Haziq wanted a real
+    // crossfading) from the normal dashboard - the maintainer wanted a real
     // Android-style slide + back button, not the plain fade every other
     // page transition uses. Owned here (the actual page registry), not
     // inside ui/PageHost.qml itself, which stays a fully generic two-slot

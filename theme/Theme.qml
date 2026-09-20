@@ -4,11 +4,11 @@ import QtQuick
 // Tokens replicate plans/Claude Design - Dynamic Island/Dynamic Island.dc.html
 // 1:1 (colors, type, per-state radius/size). Superseding the earlier Kuro-
 // derived palette (bone ink on pure black, Plus Jakarta Sans, single fixed
-// radius) per Haziq's explicit "replicate 100%" direction. The one deliberate
+// radius) per the maintainer's explicit "replicate 100%" direction. The one deliberate
 // departure: the design's `accent` design-token defaults to (and in every
 // swatch renders as) #e8e8e8, i.e. plain ink, so fills/dots/highlights below
 // just use `ink` directly rather than adding a separate accent-hue token,
-// consistent with Haziq's standing no-accent-hue preference.
+// consistent with the maintainer's standing no-accent-hue preference.
 QtObject {
     // Ink ramp, exact hex from the design (not opacity-derived: the source
     // hardcodes each shade rather than varying one color's alpha, and the
@@ -61,14 +61,14 @@ QtObject {
     // guaranteeing a gap between them - only however much headroom this
     // page happened to have left over. Live-measured again rather than
     // guessed: builtSections landed at height 593 (y=0, so bottom=593)
-    // against sessionFooter starting at y=587, a real 6px overlap Haziq
+    // against sessionFooter starting at y=587, a real 6px overlap the maintainer
     // spotted as "the notification row overflowed the bottom line
     // separator." +22 clears that and restores a ~16px gap matching the
     // spacing already used between every other section.
     //
     // Brought back down (682 -> 650) once 06 INBOX's ListView shrank
     // from a full 2-card view to a deliberate 1.5-card "sneak peek"
-    // (Haziq wanted the cut-off second card visible as a scroll hint,
+    // (the maintainer wanted the cut-off second card visible as a scroll hint,
     // not a complete-looking list) - that freed 32px INBOX no longer
     // needs, which would otherwise have sat as a ~48px dead gap before
     // 07 SESSION instead of the ~16px rhythm every other section uses.

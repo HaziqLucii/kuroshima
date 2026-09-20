@@ -10,7 +10,7 @@ import Quickshell.Io
 // against Config.qml, hence its own file rather than a config.json key.
 //
 // Widget content itself is explicitly NOT held to this project's bone-on-
-// black/no-accent-hue rule - Haziq: "widget should be open and up to user
+// black/no-accent-hue rule - the maintainer: "widget should be open and up to user
 // of their own creativity." Only the edit-mode chrome this file drives
 // follows house style.
 QtObject {

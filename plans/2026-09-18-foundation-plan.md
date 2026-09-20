@@ -4,13 +4,13 @@ Date: 2026-09-18. Project: `/home/deprecated/Projects/dynamic-island`.
 
 ## Context
 
-Haziq wants an Apple-style Dynamic Island for Linux, built from scratch so the frontend is fully his. Reference: Tide-island (Quickshell + QML + C++). His interest is the visual layer only, so the foundation (window, state machine, morph animation, system services, config, IPC, dev loop) must be built right once, then left alone while he iterates on design.
+The maintainer wants an Apple-style Dynamic Island for Linux, built from scratch so the frontend is fully his. Reference: Tide-island (Quickshell + QML + C++). His interest is the visual layer only, so the foundation (window, state machine, morph animation, system services, config, IPC, dev loop) must be built right once, then left alone while he iterates on design.
 
-Decisions confirmed with Haziq:
+Decisions confirmed with the maintainer:
 
 - **Stack**: Quickshell 0.3.1, QML-only. No C++ in the foundation. Quickshell already ships MPRIS, PipeWire, UPower, a notification server, layer-shell, IPC and hot reload.
 - **Compositor**: niri only, for now. No KDE or Hyprland code paths. Dev loop stays as today: nested niri (`~/dev-niri.kdl`) inside the KDE host session.
-- **Noctalia**: the island takes over notifications and the volume OSD on niri. Haziq sets `notifications.enabled` and `osd.enabled` to `false` in `~/.config/noctalia/settings.json`. Noctalia keeps bar, launcher, lock, wallpaper. No keybind changes: the island observes PipeWire, so `noctalia msg volume-up` keeps working.
+- **Noctalia**: the island takes over notifications and the volume OSD on niri. The maintainer sets `notifications.enabled` and `osd.enabled` to `false` in `~/.config/noctalia/settings.json`. Noctalia keeps bar, launcher, lock, wallpaper. No keybind changes: the island observes PipeWire, so `noctalia msg volume-up` keeps working.
 
 ### On-disk state when this plan was written (2026-09-18 19:17)
 
@@ -129,7 +129,7 @@ Rules for `show(t)`, in order:
 Required: `implicitWidth`, `implicitHeight`, `property var payload`.
 Optional: `property bool wantsKeyboard: false`, `property bool holdOpen: false`, `signal requestClose()`, `signal requestExpand(string pageId)`.
 
-This is the seam Haziq designs against later: a new page only has to honour this contract.
+This is the seam the maintainer designs against later: a new page only has to honour this contract.
 
 ### Services (`services/*.qml`, all `pragma Singleton`)
 
@@ -202,7 +202,7 @@ Each slice is one Claude Code build session (Sonnet), followed by a `refuter` pa
 8. **Power and brightness**. `Battery`, `Brightness` with `available: false` on this box, `PowerPeek`, IPC `brightnessRefresh`. Verify via `demo power` and `demo osd.brightness` only.
 9. **Ship**. `scripts/install.sh`, `config.example.json`, README with the Noctalia toggles and the niri snippets (`spawn-sh-at-startup "qs -c dynamic-island"` in `cfg/autostart.kdl`, `layer-rule { match namespace="dynamic-island" }` in `cfg/rules.kdl`), `lint.sh` clean, handoff doc marked complete. Verify in the real niri session with Noctalia's notifications and OSD off.
 
-After slice 9 the foundation is frozen and Haziq's design work starts: `Theme.qml`, `Motion.qml`, `components/`, and page internals, all behind the page contract.
+After slice 9 the foundation is frozen and the maintainer's design work starts: `Theme.qml`, `Motion.qml`, `components/`, and page internals, all behind the page contract.
 
 ## Pitfalls and mitigations
 

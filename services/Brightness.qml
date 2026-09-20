@@ -7,7 +7,7 @@ import Quickshell.Io
 // external monitor supports DDC/CI over I2C (`ddcutil`), confirmed working:
 // `ddcutil detect` finds it, and getvcp/setvcp both round-trip correctly.
 //
-// The ~8s-per-call latency this originally shipped with (Haziq: "brightness
+// The ~8s-per-call latency this originally shipped with (the maintainer: "brightness
 // ... comes in late" every time the island restarted) turned out to be pure
 // auto-detection overhead, not real DDC/CI protocol latency: measured
 // `ddcutil detect --brief` alone at ~8.1s, and `ddcutil getvcp --bus N`

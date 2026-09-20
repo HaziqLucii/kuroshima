@@ -5,7 +5,7 @@ QtObject {
     // Capsule width/height/radius morph. The design's own
     // `cubic-bezier(.34, 1.5, .5, 1)` overshoot (tried via
     // Easing.BezierSpline) read as too bouncy once actually seen live, for
-    // both the expand and collapse directions - Haziq wanted the original,
+    // both the expand and collapse directions - the maintainer wanted the original,
     // more restrained spring feel back instead, closer to how macOS's
     // actual Dynamic Island moves. Reverted to the pre-redesign
     // SpringAnimation values. Change one field at a time and watch
@@ -17,7 +17,7 @@ QtObject {
     // frame timestep, "hundreds" from generic spring-UI advice does not
     // apply to it.
     // damping/(2*sqrt(spring*mass)) was ~0.41 (underdamped enough to
-    // visibly oscillate before settling) - Haziq wanted the morph
+    // visibly oscillate before settling) - the maintainer wanted the morph
     // smoother. Raised damping only, not spring: the file's own warning
     // above is specifically about spring diverging, damping is the
     // stabilizing term and raising it can't cause that failure mode.
@@ -41,7 +41,7 @@ QtObject {
 
     // pushRight/popLeft page transitions (ui/PageHost.qml). A full-width
     // Android/iOS-style push (opaque, no fade, page-width travel distance)
-    // was tried first and dropped - Haziq: "looks ugly... do you have any
+    // was tried first and dropped - the maintainer: "looks ugly... do you have any
     // animation idea that matches our theme kuro" - it read as a foreign
     // phone-UI import next to how restrained every other transition here
     // already is (fadeRise above is just 4px). This is the same small-
@@ -56,7 +56,7 @@ QtObject {
     readonly property int debounceOsd: 16
 
     // Was 1800ms ("AUTO COLLAPSE: 1800ms after exit" in the design) -
-    // Haziq felt that lagged too long after moving the mouse off the
+    // The maintainer felt that lagged too long after moving the mouse off the
     // expanded dashboard. Currently only drives ui/Capsule.qml's
     // expanded-page auto-collapse (slice 3.5); the design also uses it
     // for the not-yet-built hover-peek pill.
