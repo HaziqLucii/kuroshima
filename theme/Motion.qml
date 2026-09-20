@@ -52,6 +52,16 @@ QtObject {
     // as the capsule's own width/height/radius morph.
     readonly property real pushSlideDistance: 32
 
+    // Island Faces (pages/CompactPage.qml): minimum horizontal drag distance,
+    // in px, before a swipe actually advances/retreats a face - below this
+    // it's treated as not a swipe at all (a still tap already falls through
+    // to the pill's own TapHandler via DragHandler's own default drag
+    // threshold; this is the SEPARATE "did you mean it" distance once a
+    // drag has genuinely started). A feel constant, not derived from
+    // anything - tune this one directly if swiping ever feels too
+    // trigger-happy or too stiff once actually tried live.
+    readonly property int compactFaceSwipeThreshold: 40
+
     readonly property int hoverGrace: 700
     readonly property int debounceOsd: 16
 

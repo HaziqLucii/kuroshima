@@ -2500,6 +2500,98 @@ lint/headless regressions - but same caveat as the NotificationPeek fix:
 couldn't visually confirm the gap is actually gone, only that nothing
 broke computing the new height. Needs a live look.
 
+## Island Faces: swipeable compact-pill content, first build
+
+Idea first noted 2026-09-19 (compact/idle pill showing several swipeable
+"faces" instead of one fixed layout), picked up 2026-09-20. Naming going
+forward: **Island Faces** = content inside the *compact* pill,
+**Island Screen** = content inside the *expanded* dashboard (MediaExpanded,
+SettingsExpanded).
+
+Architecture reused almost everything: `ui/PageHost.qml` (the same generic
+two-slot crossfade/slide host `ui/Capsule.qml` already uses for real pages)
+gets a SECOND, independent instance nested inside `pages/CompactPage.qml`
+for faces, with its own tiny `pageMap` of 3 starter faces
+(`faces/ClockEq.qml` - today's original default content, byte-for-byte;
+`faces/ClockDate.qml`; `faces/MediaFace.qml` - real title/artist, the
+highest-value new face from the original idea list). Zero new animation
+code - the existing `pushRight`/`popLeft` spring-nudge mechanics apply
+directly. `app/Island.qml` gets a new `compactFace` property plus a second
+`PersistentProperties` block, mirroring the existing `expandedPage` pattern
+exactly. A new `DragHandler` (`target: null`, matching `ui/ScrubBar.qml`'s
+own idiom) detects swipe direction only - no live-follow drag preview for
+v1, purely a direction detector like `ui/WallpaperCarousel.qml`'s own
+Left/Right keys.
+
+### Two real bugs caught before it ever ran, by lint/headless alone
+
+Neither showed up until an actual headless boot, both fixed same pass:
+- Missing `import qs.app` in `pages/CompactPage.qml` - referencing `Island`
+  without importing its module threw `ReferenceError: Island is not
+  defined` at runtime, not a lint-time error.
+- `ui/PageHost.qml` unconditionally assigns `.payload` on whatever it
+  loads (matching the page contract it was actually built for) - the
+  faces originally had no `payload` property at all (matching the WIDGET
+  contract's shape instead, which was the original design intent), and
+  PageHost threw `Error: Cannot assign to non-existent property "payload"`
+  the moment it tried to load one. Fixed by giving each face an unused
+  `property var payload: null` purely to satisfy the host mechanically -
+  same "declared but unused" precedent `pages/MediaExpanded.qml` already
+  sets for a page that doesn't need one either. Updated `CLAUDE.md`'s own
+  Face contract section to say so honestly rather than leave the
+  originally-planned "no payload" claim standing.
+
+### refuter found a real permanent-breakage bug, plus caught a wrong claim of mine
+
+**The bug**: if `Island.compactFace` ever holds a value that isn't in
+`pages/CompactPage.qml`'s own `faceOrder` array (a typo'd `ipc call island
+setCompactFace <bad-id>`, or a face id renamed out from under a value that
+survived a hot reload), `facesHost.setPage()` already rejects it safely -
+but that alone leaves `Island.compactFace` permanently desynced from what's
+actually showing, and `faceOrder.indexOf()` then returns -1 forever,
+silently killing every future swipe in BOTH directions until a full
+process restart. Confirmed via refuter's own qmltestrunner harness against
+the real `ui/PageHost.qml`, not just read through the code. Fixed with a
+`_syncFaceHost()` guard: if the wanted face isn't in `faceOrder`, self-heal
+back to the default (`Island.setCompactFace(faceOrder[0])`) rather than
+ever calling `setPage()` with a bad id at all - the reassignment
+re-triggers the same function via the existing `Connections`, settling in
+one extra round-trip. Verified live: sent a bogus face id via IPC, then a
+real one - no "PageHost: unknown page" warning ever appeared in the log at
+all (confirming the guard caught it *before* it ever reached PageHost),
+and the next real face switch worked normally afterward.
+
+**The wrong claim**: earlier in this same build, "verified persistence
+across a real process restart" was reported after restarting and seeing
+no crash - but that's not what was actually verified. Quickshell's
+`PersistentProperties` is reload-scoped, not disk-backed (confirmed by
+refuter reading its own `.qmltypes`: `prototype: "Reloadable"`, only
+`loaded`/`reloaded` signals, no on-disk state file anywhere on this
+machine) - it survives `scripts/dev.sh`'s live hot-reload, not a genuine
+`kill` + relaunch. After a real restart, `compactFace` (like `expandedPage`
+already does today, same mechanism) resets to its declared default. No
+crash after a restart proved the mechanism doesn't error, not that a
+non-default face actually survived - those are different claims, and the
+second one was asserted without actually being able to see the screen to
+check. If real cross-*session* persistence is ever wanted, that needs a
+`FileView`-backed JSON file (the pattern `services/Wallpaper.qml`/
+`services/Widgets.qml` already use for their own state) - out of scope
+for this pass, not added speculatively.
+
+### What's still genuinely unverified
+
+The DRAG GESTURE itself - there's no way to simulate a mouse/touch drag
+over IPC. Everything about the underlying mechanism (face switching,
+self-heal, capsule resize) is verified via the `setCompactFace` IPC hook
+and a real headless/live process; whether the swipe actually *feels*
+right needs a live hands-on test. refuter's own harness measured the
+effective swipe distance at closer to ~48px than the
+`Motion.compactFaceSwipeThreshold: 40` constant implies (Qt's own built-in
+~8-10px drag threshold has to clear before `DragHandler.active` even
+becomes true, before this project's own 40px on top of that even starts
+counting) - worth knowing before deciding it feels too stiff or too
+trigger-happy.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

@@ -53,6 +53,31 @@ no-accent-hue rule - it's user content, placed via the edit mode `Mod+Shift+W` t
 its author wants. Only the edit-mode chrome itself (drag handles, the add-widget picker)
 follows house style.
 
+## Face contract (`faces/*.qml`)
+
+Every file in `faces/*.qml` is a plain `Item`. Required: `implicitWidth`,
+`implicitHeight`. Like the widget contract, not the page contract: **do NOT bind
+your own `width`/`height`** - `pages/CompactPage.qml`'s nested `PageHost` (see
+"Island Faces" below) sizes each face from its own `implicitWidth`/`implicitHeight`,
+not the other way around.
+
+`property var payload: null` (unused, matching how some *pages* already declare one
+just to satisfy the contract) is required anyway despite otherwise not needing
+one: `pages/CompactPage.qml`'s nested `PageHost` (see "Island Faces" below) is
+`ui/PageHost.qml` reused as-is, and it unconditionally assigns `.payload` on
+whatever it loads. No `requestExpand`/`cornerRadius` - a face reads live services
+directly (`SystemClock`, `Media`, etc.), same as pages and widgets already do, and
+never navigates anywhere on its own (the compact pill's own root `TapHandler`
+already handles "tap anywhere -> expand to MediaExpanded" regardless of which face
+is showing).
+
+**Island Faces** vs **Island Screen**: "Island Faces" names whatever's swappable
+inside the *compact* pill (`pages/CompactPage.qml`'s nested `PageHost`, faces
+listed in its own `faceOrder`); "Island Screen" names an expanded-dashboard page
+(`MediaExpanded`, `SettingsExpanded`) reached via `requestExpand`. Keep this
+distinction in comments/commits going forward - a "screen" and a "face" are
+different things reached different ways.
+
 ## Working style for this repo
 
 - One slice per session (see the plan's slice list). Build on Sonnet, then run the

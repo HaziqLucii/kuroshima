@@ -11,6 +11,16 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- Island Faces: the compact pill swipes between several faces of content
+  instead of one fixed layout (`faces/ClockEq.qml`, `faces/ClockDate.qml`,
+  `faces/MediaFace.qml`). Reuses `ui/PageHost.qml` (a second, independent
+  instance nested in `pages/CompactPage.qml`) for the switch, so it gets
+  the same spring-eased slide transition real pages already have, no new
+  animation code. Selected face persists across hot reload
+  (`app/Island.qml`'s `compactFace`, same `PersistentProperties` pattern
+  as `expandedPage` - not across a real process restart, that would need a
+  `FileView`, not added). A new `IpcHandler` function,
+  `qs ipc call island setCompactFace <id>`, switches faces directly.
 - Desktop widget canvas: `Mod+Shift+W` toggles an edit mode on a new
   background-layer surface (`ui/WidgetCanvas.qml`, `ui/WidgetFrame.qml`,
   `services/Widgets.qml`). Any widget can be dragged to move; click one to
@@ -67,6 +77,12 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Fixed
 
+- Island Faces: an unrecognized `compactFace` value (a typo'd IPC call, or
+  a face id renamed out from under a value that survived a hot reload)
+  would have permanently killed the swipe gesture in both directions until
+  a full process restart, since the same bad value never got corrected
+  once `Island.compactFace` held it (refuter-caught before this ever
+  shipped). Self-heals back to the default instead.
 - Opening the expanded dashboard's INBOX after a notification's peek had
   timed out crashed the whole shell (real segfault, not a QML warning) if
   that notification had an action - `app/Bridges.qml` destroys the

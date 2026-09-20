@@ -1,9 +1,19 @@
 import QtQuick
-import Quickshell
 import qs.theme
 import qs.services
 import qs.ui
+import qs.faces
+import qs.app
 
+// Island Faces: the compact pill hosts a small, self-contained PageHost of
+// its own (facesHost below) instead of one fixed layout. Reuses
+// ui/PageHost.qml exactly as-is - it's already fully generic (a pageMap plus
+// setPage(name, payload, direction)), and ui/Capsule.qml already proved the
+// pushRight/popLeft mechanics work for a real page pair (MediaExpanded <->
+// SettingsExpanded), so a second, independent instance here gets a real
+// spring-eased slide transition between faces for free, no new animation
+// code. The notification-bell indicator stays outside facesHost, shared
+// across every face rather than duplicated per-face - see faces/*.qml.
 Item {
     id: root
 
@@ -21,52 +31,68 @@ Item {
     width: implicitWidth
     height: implicitHeight
 
-    SystemClock {
-        id: clock
-        precision: SystemClock.Seconds
+    // Fixed order for now, not user-configurable - a natural fit for the
+    // Settings island screen later, not built yet. Clamped at both ends
+    // when swiping (matches ui/WallpaperCarousel.qml's own Left/Right
+    // precedent), not wrapping.
+    readonly property var faceOrder: ["clockEq", "clockDate", "media"]
+
+    function _goToFace(id, direction) {
+        facesHost.setPage(id, null, direction)
+        Island.setCompactFace(id)
     }
+
+    // refuter-caught: Island.compactFace can end up holding a value that
+    // isn't in faceOrder at all (a typo'd `ipc call island setCompactFace`,
+    // or a face id renamed out from under a value that survived a hot
+    // reload via PersistentProperties) - facesHost.setPage() itself already
+    // rejects an unknown id safely (a console.warn, no crash), but that
+    // alone leaves Island.compactFace permanently desynced from what's
+    // actually showing, and faceOrder.indexOf() then returns -1 forever,
+    // silently killing every future swipe in BOTH directions until a full
+    // process restart. Self-heals back to the default instead of just
+    // failing safe once: reassigning Island.compactFace here re-triggers
+    // this same function via the Connections below, this time with a valid
+    // id, so it settles in one extra round-trip rather than staying broken.
+    function _syncFaceHost() {
+        if (root.faceOrder.indexOf(Island.compactFace) === -1) {
+            Island.setCompactFace(root.faceOrder[0])
+            return
+        }
+        facesHost.setPage(Island.compactFace, null)
+    }
+
+    Component { id: clockEqComponent; ClockEq {} }
+    Component { id: clockDateComponent; ClockDate {} }
+    Component { id: mediaComponent; MediaFace {} }
 
     Row {
         id: content
         anchors.centerIn: parent
         spacing: 11
 
-        Text {
-            id: clockText
+        PageHost {
+            id: facesHost
             anchors.verticalCenter: parent.verticalCenter
-            color: Theme.ink
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-            font.weight: Font.Medium
-            font.letterSpacing: 1
-            text: Qt.formatDateTime(clock.date, "hh:mm:ss")
-        }
+            pageMap: ({
+                "clockEq": clockEqComponent,
+                "clockDate": clockDateComponent,
+                "media": mediaComponent
+            })
 
-        Rectangle {
-            width: 1
-            height: 11
-            anchors.verticalCenter: parent.verticalCenter
-            color: Theme.divider
-            // Media.isPlaying, not Media.available: a paused-but-loaded
-            // player (e.g. a YouTube tab you tabbed away from) used to
-            // leave the divider (and a static EQ) stuck on screen
-            // indefinitely. The maintainer wanted the pill to collapse back to
-            // clock-only the instant playback actually stops, not just
-            // when the player disappears entirely.
-            visible: Media.isPlaying
-        }
-
-        // Matches the design's real compact/idle pill: no title/artist
-        // text at all (that only appears in the expanded media section),
-        // just this animated EQ glyph signaling "media is here, and
-        // whether it's playing". The maintainer specifically called this out as his
-        // favorite piece of the design after seeing the title/artist
-        // version this project had built before.
-        EqualizerBars {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: Media.isPlaying
-            active: Media.isPlaying
-            barHeight: 11
+            Component.onCompleted: root._syncFaceHost()
+            Connections {
+                target: Island
+                // Not just Component.onCompleted above - PersistentProperties'
+                // own restoration (app/Island.qml) happens on loaded/reloaded,
+                // which can land after this page is already created, same
+                // race that file's own comments already document for
+                // expandedPage. This keeps facesHost correct regardless of
+                // which one actually wins. setPage's own same-name guard
+                // makes calling it twice for the same face a harmless no-op,
+                // not a double crossfade.
+                function onCompactFaceChanged() { root._syncFaceHost() }
+            }
         }
 
         Rectangle {
@@ -77,17 +103,15 @@ Item {
             visible: Notifs.history.length > 0
         }
 
-        // Same "gone when there's genuinely nothing to show" pattern as
-        // the media divider/EQ above. "Unread" here just means "history
-        // isn't empty" - there's no separate read/unread tracking
-        // anywhere else in this project, and CLEAR ALL in the expanded
-        // INBOX (Notifs.clearHistory()) is the only thing that empties
-        // it, so that's also what makes this disappear. A single icon,
-        // not a separate bell+counter-bubble pair: cod-bell_dot already
-        // draws the "unread" indicator as a dot on the bell's own
-        // top-right corner - codepoint verified against this font's
-        // actual cmap via fontTools, then visually confirmed against two
-        // other bell-badge candidates before picking this one.
+        // Same "gone when there's genuinely nothing to show" pattern used
+        // throughout this project. "Unread" here just means "history isn't
+        // empty" - there's no separate read/unread tracking anywhere else,
+        // and CLEAR ALL in the expanded INBOX (Notifs.clearHistory()) is the
+        // only thing that empties it, so that's also what makes this
+        // disappear. A single icon, not a separate bell+counter-bubble pair:
+        // cod-bell_dot already draws the "unread" indicator as a dot on the
+        // bell's own top-right corner - codepoint verified against this
+        // font's actual cmap via fontTools before use.
         Text {
             anchors.verticalCenter: parent.verticalCenter
             visible: Notifs.history.length > 0
@@ -99,12 +123,47 @@ Item {
     }
 
     // MediaExpanded stopped being just the media view once CONTROLS,
-    // TOGGLES, SYSTEM, INBOX and SESSION landed - it's the whole
-    // dashboard now, useful with or without anything playing. Gating this
-    // on Media.available (an early-slice leftover from when it really was
+    // TOGGLES, SYSTEM, INBOX and SESSION landed - it's the whole dashboard
+    // now, useful with or without anything playing. Gating this on
+    // Media.available (an early-slice leftover from when it really was
     // media-only) made the compact pill silently unclickable whenever no
     // player was active, which is most of the time.
     TapHandler {
         onTapped: root.requestExpand("MediaExpanded")
+    }
+
+    // target: null, same idiom as ui/ScrubBar.qml's own DragHandler - reports
+    // pointer position without trying to move anything. Paired with the
+    // TapHandler above as siblings (not parent/child), no exclusive-grab
+    // gesturePolicy needed: Qt's own drag-threshold disambiguation already
+    // lets a still tap fall through to it untouched, same as ScrubBar's own
+    // tap-or-drag pairing. Direction-only, no live-follow drag preview for
+    // v1 - purely a swipe-direction detector, same role
+    // WallpaperCarousel.qml's Left/Right keys play, just via touch/mouse.
+    DragHandler {
+        id: swipeHandler
+        target: null
+        property real _startX: 0
+
+        onActiveChanged: {
+            if (active) {
+                swipeHandler._startX = swipeHandler.centroid.position.x
+                return
+            }
+
+            const delta = swipeHandler.centroid.position.x - swipeHandler._startX
+            if (Math.abs(delta) < Motion.compactFaceSwipeThreshold) return
+
+            const idx = root.faceOrder.indexOf(Island.compactFace)
+            if (idx === -1) return
+
+            if (delta < 0 && idx < root.faceOrder.length - 1) {
+                // Dragged left: next face slides in from the right.
+                root._goToFace(root.faceOrder[idx + 1], "pushRight")
+            } else if (delta > 0 && idx > 0) {
+                // Dragged right: previous face slides in from the left.
+                root._goToFace(root.faceOrder[idx - 1], "popLeft")
+            }
+        }
     }
 }

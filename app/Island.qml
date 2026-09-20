@@ -37,6 +37,15 @@ Singleton {
     readonly property alias isPeek: controller.isPeek
     readonly property alias isExpanded: controller.isExpanded
 
+    // Island Faces: which face pages/CompactPage.qml's own nested PageHost
+    // shows. A plain property here, NOT proxied through IslandController -
+    // "compact" isn't a first-class concept in the controller at all (its
+    // own `page` is just `expandedPage || "compact"`, a fallback string),
+    // so which face is showing inside that fallback state is none of its
+    // business. `faces/ClockEq.qml` is the default, matching what the
+    // compact pill always showed before faces existed.
+    property string compactFace: "clockEq"
+
     signal transientStarted(var t)
     signal transientEnded(var t, string reason)
 
@@ -46,6 +55,7 @@ Singleton {
     function expand(pageId) { controller.expand(pageId) }
     function collapse() { controller.collapse() }
     function toggle(pageId) { controller.toggle(pageId) }
+    function setCompactFace(id) { root.compactFace = id }
 
     IslandController {
         id: controller
@@ -75,5 +85,21 @@ Singleton {
     Connections {
         target: controller
         function onExpandedPageChanged() { persisted.expandedPage = controller.expandedPage }
+    }
+
+    // Same pattern as expandedPage above, same reasons - a second, separate
+    // PersistentProperties block (not folded into the one above) since
+    // reloadableId is per-block, not per-property.
+    PersistentProperties {
+        id: persistedFace
+        reloadableId: "dynamicIslandCompactFace"
+        property string compactFace: "clockEq"
+        onLoaded: root.compactFace = persistedFace.compactFace
+        onReloaded: root.compactFace = persistedFace.compactFace
+    }
+
+    Connections {
+        target: root
+        function onCompactFaceChanged() { persistedFace.compactFace = root.compactFace }
     }
 }

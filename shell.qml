@@ -65,6 +65,15 @@ ShellRoot {
         function toggleWidgetEdit(): void {
             Widgets.editMode = !Widgets.editMode
         }
+
+        // Island Faces - not routed through expand/collapse/toggle above,
+        // those are all about the expanded dashboard's page, this is about
+        // which face the compact pill itself shows. Mainly a test hook (no
+        // way to simulate a mouse/touch drag over IPC), but doubles as a
+        // manual override.
+        function setCompactFace(id: string): void {
+            Island.setCompactFace(id)
+        }
     }
 
     // Full Noctalia handoff: niri's hardware media keys previously called
