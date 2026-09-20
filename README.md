@@ -1,4 +1,4 @@
-# dynamic-island
+# kuroshima
 
 Apple-style Dynamic Island for niri, built with Quickshell/QML. A single top-anchored
 capsule that morphs between a compact idle pill and transient peeks (volume/brightness
@@ -14,8 +14,8 @@ Compositor support: niri only, for now.
 ./scripts/install.sh
 ```
 
-This symlinks the repo into `~/.config/quickshell/dynamic-island` (so `qs -c
-dynamic-island` finds it), seeds `~/.config/dynamic-island/config.json` from
+This symlinks the repo into `~/.config/quickshell/kuroshima` (so `qs -c
+kuroshima` finds it), seeds `~/.config/kuroshima/config.json` from
 `config.example.json` on first run, and links `fuzzel/fuzzel.ini` (bundled - see
 Fuzzel theme below) to `~/.config/fuzzel/fuzzel.ini` unless you already have a real
 (non-symlink) fuzzel config, which it leaves alone. It does not touch niri's or
@@ -24,14 +24,14 @@ Noctalia's config - those are printed for you to apply by hand:
 1. **niri autostart** (`~/.config/niri/cfg/autostart.kdl` or wherever your `spawn-sh-at-startup`
    lines live):
    ```kdl
-   spawn-sh-at-startup "qs -c dynamic-island"
+   spawn-sh-at-startup "qs -c kuroshima"
    ```
 
 2. **niri layer rule** (`~/.config/niri/cfg/rules.kdl`), so niri treats the island as its
    own layer-shell surface:
    ```kdl
    layer-rule {
-       match namespace="dynamic-island"
+       match namespace="kuroshima"
    }
    ```
 
@@ -47,7 +47,7 @@ Noctalia's config - those are printed for you to apply by hand:
 
 ## Config
 
-`~/.config/dynamic-island/config.json`, copied from `config.example.json` on install:
+`~/.config/kuroshima/config.json`, copied from `config.example.json` on install:
 
 | key | default | effect |
 |---|---|---|
@@ -79,7 +79,7 @@ than as a separate label.
   the runtime; anything else is a real issue).
 - `scripts/test.sh` runs the `IslandController` state-machine test suite via
   `qmltestrunner`.
-- IPC surface (`qs -p . ipc call island <fn>`, or `qs -c dynamic-island ipc call island
+- IPC surface (`qs -p . ipc call island <fn>`, or `qs -c kuroshima ipc call island
   <fn>` once installed): `demo <kind>`, `expand <page>`, `page <page>`, `collapse`,
   `toggle <page>`, `dismiss`.
 - Never run `niri msg action <...>` against a live niri instance from a scripting/tool

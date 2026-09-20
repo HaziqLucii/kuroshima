@@ -9,6 +9,14 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the project from `dynamic-island` to `kuroshima` (黒島, "black island"):
+  repo, Quickshell scope name (`qs -c kuroshima`), config directory
+  (`~/.config/kuroshima/`), and `WlrLayershell` namespaces. See `docs/NOTES.md`
+  for the full list of what moved and what was deliberately left as historical
+  record.
+
 ## [0.1.0] - 2026-09-20
 
 First release. Covers the whole project as it stands: full Noctalia

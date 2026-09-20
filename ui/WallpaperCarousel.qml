@@ -33,7 +33,7 @@ PanelWindow {
     // Exclusive keyboard focus only matters while mapped; an invisible
     // layer surface holds no focus at all, so this doesn't fight the
     // island's own WlrKeyboardFocus.None surface while the picker is closed.
-    WlrLayershell.namespace: "dynamic-island-wallpaper-carousel"
+    WlrLayershell.namespace: "kuroshima-wallpaper-carousel"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 

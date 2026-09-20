@@ -48,7 +48,7 @@ QtObject {
     }
 
     property FileView _file: FileView {
-        path: Quickshell.env("HOME") + "/.config/dynamic-island/wallpaper-state.json"
+        path: Quickshell.env("HOME") + "/.config/kuroshima/wallpaper-state.json"
         blockLoading: true
         printErrors: false
         Component.onCompleted: {

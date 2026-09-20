@@ -74,7 +74,7 @@ QtObject {
     }
 
     property FileView _busCache: FileView {
-        path: Quickshell.env("HOME") + "/.config/dynamic-island/brightness-bus.json"
+        path: Quickshell.env("HOME") + "/.config/kuroshima/brightness-bus.json"
         blockLoading: true
         printErrors: false
         Component.onCompleted: {

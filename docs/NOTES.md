@@ -1576,6 +1576,37 @@ monochrome palette was a real tradeoff, not an obvious win. `install.sh` links i
 the same not-a-symlink-already caution as its own `QS_TARGET`, since this is a real
 user config file fuzzel itself also reads.
 
+## Renamed dynamic-island to kuroshima
+
+"dynamic-island" was always the working title, not a real product name - generic,
+hard to search for, and not distinct from Apple's own feature. Haziq wanted a real
+name to put on a public repo. Landed on `kuroshima` (黒島, "black island"): keeps the
+literal island metaphor, extends the existing Kuro brand (the Obsidian theme, the
+`//kuro.` fuzzel prompt) instead of starting a new identity, and reads fine as a repo
+name, a `qs -c` scope, and a directory name.
+
+Full rename, not just the repo name, since the old name was load-bearing on a live
+desktop: local project directory (`~/Projects/dynamic-island` -> `~/Projects/kuroshima`),
+`WlrLayershell.namespace` on the main window and both wallpaper surfaces
+(`dynamic-island[-wallpaper-bg|-wallpaper-carousel]` -> `kuroshima[-wallpaper-bg|
+-wallpaper-carousel]`), the config directory (`~/.config/dynamic-island/` ->
+`~/.config/kuroshima/`, existing `config.json`/`brightness-bus.json`/
+`wallpaper-state.json` migrated in place, not regenerated), the `~/.config/quickshell/`
+symlink, and every live niri config that invokes it by name (`autostart.kdl`,
+`keybinds.kdl`'s 11 `qs -c dynamic-island ...` IPC calls, `rules.kdl`'s wallpaper-bg
+namespace match). Verified live: killed the old process, re-ran `install.sh` from the
+renamed directory, launched `qs -c kuroshima`, confirmed the compact pill still
+rendered and `qs -c kuroshima ipc call island demo audio` round-tripped correctly.
+
+Deliberately did NOT rewrite: this file's own history above (a decision log, not
+meant to be edited to match later renames), `plans/2026-09-18-foundation-plan.md`
+(a dated point-in-time planning doc, same reasoning), the `plans/Claude Design -
+Dynamic Island/` reference asset (a historical design capture, its name documents
+what it was called when captured), `theme/Theme.qml`'s comment pointing at that same
+asset path, `theme/Motion.qml`'s comment about macOS's actual Dynamic Island feature
+(a different product, not ours), and the already-tagged `v0.1.0` CHANGELOG entry
+(tags are frozen; the rename is its own `Unreleased` entry instead).
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Symlinks this repo into Quickshell's config path so `qs -c dynamic-island`
+# Symlinks this repo into Quickshell's config path so `qs -c kuroshima`
 # (and niri autostart, which uses the same invocation) finds it, and seeds
-# ~/.config/dynamic-island/config.json from the example on first run. Never
+# ~/.config/kuroshima/config.json from the example on first run. Never
 # touches niri's or Noctalia's own config files: those are printed below for
 # Haziq to apply by hand, since they're live host config this script has no
 # business editing unattended.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # -P (physical path, symlinks resolved): running this a second time FROM
-# the installed symlink itself (`~/.config/quickshell/dynamic-island/scripts/
+# the installed symlink itself (`~/.config/quickshell/kuroshima/scripts/
 # install.sh`, the exact path a user re-runs it from) would otherwise leave
 # REPO_DIR pointing at QS_TARGET's own logical path, making `ln -sfn` below
 # link that path to itself - a self-referential symlink that looks like a
@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 # "Too many levels of symbolic links".
 REPO_DIR="$(pwd -P)"
 
-QS_TARGET="$HOME/.config/quickshell/dynamic-island"
+QS_TARGET="$HOME/.config/quickshell/kuroshima"
 mkdir -p "$HOME/.config/quickshell"
 if [ -e "$QS_TARGET" ] && [ ! -L "$QS_TARGET" ]; then
     echo "error: $QS_TARGET already exists and isn't a symlink, not touching it" >&2
@@ -29,7 +29,7 @@ else
     echo "linked $QS_TARGET -> $REPO_DIR"
 fi
 
-CONFIG_DIR="$HOME/.config/dynamic-island"
+CONFIG_DIR="$HOME/.config/kuroshima"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 mkdir -p "$CONFIG_DIR"
 if [ ! -e "$CONFIG_FILE" ]; then
@@ -60,12 +60,12 @@ cat <<'EOF'
 Next, apply these by hand (not touched by this script):
 
 1. niri autostart (~/.config/niri/cfg/autostart.kdl):
-       spawn-sh-at-startup "qs -c dynamic-island"
+       spawn-sh-at-startup "qs -c kuroshima"
 
 2. niri layer rule (~/.config/niri/cfg/rules.kdl), so niri's own gaps/rules
    treat the island as its own surface:
        layer-rule {
-           match namespace="dynamic-island"
+           match namespace="kuroshima"
        }
 
 3. Noctalia (~/.config/noctalia/settings.json), to stop it fighting the
@@ -80,5 +80,5 @@ Next, apply these by hand (not touched by this script):
 
 To enable the island's own notification server (off by default so it
 doesn't silently lose a race with Noctalia's), set "notificationServer":
-true in ~/.config/dynamic-island/config.json AFTER step 3 above.
+true in ~/.config/kuroshima/config.json AFTER step 3 above.
 EOF

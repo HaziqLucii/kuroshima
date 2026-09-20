@@ -4,7 +4,7 @@ import Quickshell
 import Quickshell.Io
 
 // User-facing config surface, per the plan's "JSON config (under 8 keys)".
-// Read once at startup from ~/.config/dynamic-island/config.json (NOT the
+// Read once at startup from ~/.config/kuroshima/config.json (NOT the
 // repo's config.example.json, which is just the template `install.sh`
 // copies from on first run). Missing file or bad JSON both degrade to the
 // same defaults a fresh install ships with - this is a convenience surface,
@@ -22,7 +22,7 @@ QtObject {
     property bool notificationServer: false
 
     property FileView _configFile: FileView {
-        path: Quickshell.env("HOME") + "/.config/dynamic-island/config.json"
+        path: Quickshell.env("HOME") + "/.config/kuroshima/config.json"
         blockLoading: true
         printErrors: false
         Component.onCompleted: {

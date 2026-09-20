@@ -1,4 +1,4 @@
-# dynamic-island
+# kuroshima
 
 Apple-style Dynamic Island for niri (target: Hyprland later), built in Quickshell/QML.
 Full architecture: `plans/2026-09-18-foundation-plan.md`. Progress: `docs/NOTES.md`.

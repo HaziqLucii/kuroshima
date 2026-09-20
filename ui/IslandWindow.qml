@@ -35,7 +35,7 @@ PanelWindow {
 
     implicitHeight: Theme.canvasH
 
-    WlrLayershell.namespace: "dynamic-island"
+    WlrLayershell.namespace: "kuroshima"
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 

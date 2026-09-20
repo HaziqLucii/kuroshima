@@ -23,7 +23,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     color: "#000000"
 
-    WlrLayershell.namespace: "dynamic-island-wallpaper-bg"
+    WlrLayershell.namespace: "kuroshima-wallpaper-bg"
     WlrLayershell.layer: WlrLayer.Background
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
