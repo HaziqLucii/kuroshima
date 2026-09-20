@@ -1607,6 +1607,26 @@ asset path, `theme/Motion.qml`'s comment about macOS's actual Dynamic Island fea
 (a different product, not ours), and the already-tagged `v0.1.0` CHANGELOG entry
 (tags are frozen; the rename is its own `Unreleased` entry instead).
 
+## Media thumbnail height fix (MediaExpanded)
+
+Haziq flagged the MEDIA section's art thumbnail as visually floating: it was a fixed
+54x54 `ClippingRectangle`, while the row's actual content column (title/artist, scrub
+bar, transport row) is naturally taller, leaving dead space above/below the art.
+
+Fix: gave the info `Column` an id (`mediaInfoColumn`) and bound the art's `width`/
+`height` to `mediaInfoColumn.implicitHeight` instead of the literal `54`, then narrowed
+the column's own width by the art's new (larger) width instead of the old constant.
+No binding loop: the column's implicit height only depends on its children's heights,
+never its own width, so the art can safely depend on it. Kept the width/height fix
+entirely inside the MEDIA row itself, no `Theme.qml` canvas-size changes needed.
+
+Verified: `scripts/lint.sh` unchanged at 1917 warning lines before and after (same
+known noise, no new categories). Restarted the live `qs -c kuroshima` process cleanly
+(no new errors in the log), expanded to `MediaExpanded` via
+`qs -c kuroshima ipc call island expand MediaExpanded` with a real YouTube track
+playing, and screenshotted it: the art now reads as a proper square flush with the
+full row height instead of a smaller box floating inside it.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

@@ -218,9 +218,17 @@ Item {
                 // custom Shape path; at this size a large-radius rounded
                 // rect reads the same and is what most UI toolkits mean by
                 // "squircle" in practice, so that's what ships here.
+                //
+                // Sized off mediaInfoColumn's implicitHeight (not a fixed
+                // 54) so it always fills the row's real height instead of
+                // floating short with dead space above/below - the column's
+                // height depends only on its children's own heights, never
+                // its width, so binding the art's width to it here doesn't
+                // create a layout loop.
                 ClippingRectangle {
-                    width: 54
-                    height: 54
+                    id: mediaArt
+                    width: mediaInfoColumn.implicitHeight
+                    height: mediaInfoColumn.implicitHeight
                     radius: 18
                     color: Theme.hairline
 
@@ -234,7 +242,8 @@ Item {
                 }
 
                 Column {
-                    width: parent.width - 54 - 14
+                    id: mediaInfoColumn
+                    width: parent.width - mediaArt.width - 14
                     spacing: 8
 
                     Item {
