@@ -47,7 +47,14 @@ Item {
     }
 
     implicitWidth: Theme.notificationW
-    implicitHeight: Theme.notificationH
+    // Was a fixed Theme.notificationH (100px) regardless of actual
+    // content - a single-line notification with no actions sat inside
+    // that box with real dead space above/below it, since the icon and
+    // text column were just anchors.verticalCenter'd within a taller-
+    // than-needed Row. Derived from the taller of icon/content instead,
+    // +28 for the Row's own top/bottom anchors.margins (14 each) below -
+    // as compact as the actual content allows, not a fixed swatch size.
+    implicitHeight: Math.max(iconBox.height, contentCol.implicitHeight) + 28
     width: implicitWidth
     height: implicitHeight
 
@@ -125,6 +132,7 @@ Item {
         }
 
         Column {
+            id: contentCol
             width: parent.width - iconBox.width - 13
             anchors.verticalCenter: parent.verticalCenter
             spacing: 5
@@ -162,11 +170,11 @@ Item {
                 text: root.n ? root.n.summary : ""
             }
 
-            // Actions take priority over body when both would otherwise
-            // compete for the one remaining line in this fixed 100px-tall
-            // peek: the design's own swatch has no room budgeted for both,
-            // and an actionable "OK"/"Dismiss" button is more useful here
-            // than descriptive text you can't act on from this compact view.
+            // Actions take priority over body, not both stacked: the
+            // design's own swatch has no room budgeted for both on one
+            // row, and an actionable "OK"/"Dismiss" button is more useful
+            // here than descriptive text you can't act on from this
+            // compact view.
             Text {
                 width: parent.width
                 visible: !root.hasActions

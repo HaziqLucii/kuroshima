@@ -2439,6 +2439,26 @@ headless regressions - but couldn't visually confirm the peek now shows
 the real message text instead of the button, since this session has no
 way to see the rendered screen; needs a live look to fully close out.
 
+## NotificationPeek: fixed height -> content-driven
+
+Haziq: "also the notification i feel like you hardcoded the height isnt?
+shouldnt it dynamic height? because i want it to be as compact as it can."
+Correct - `implicitHeight: Theme.notificationH` was a flat 100px
+regardless of actual content, and since the icon/text column were only
+`anchors.verticalCenter`'d within that fixed-height Row (not what was
+sizing it), most notifications sat inside real dead space above and
+below their own content.
+
+Changed to `Math.max(iconBox.height, contentCol.implicitHeight) + 28`
+(the 28 being the Row's own `anchors.margins: 14` top+bottom) - the peek
+is only ever as tall as its icon or its text column actually needs, plus
+that margin, nothing fixed. `Theme.notificationH` removed from
+`theme/Theme.qml` entirely now that nothing reads it. Verified with both
+an action-less and an action-having notification live (different content
+heights) - no crash, no lint/headless regressions either way; couldn't
+visually confirm the sizing itself reads as "compact" rather than just
+"not fixed" since this session has no way to see the rendered screen.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

@@ -82,6 +82,10 @@ history and `docs/NOTES.md` for decision-level detail.
   as e.g. WhatsApp Web notifications via Firefox showing "Activate"
   instead of the message. Filtered out of the rendered action list; tapping
   the body now invokes it if present, matching the spec's own convention.
+- `pages/NotificationPeek.qml` had a fixed 100px height (`Theme.notificationH`,
+  now removed) regardless of actual content, leaving real dead space
+  above/below shorter notifications. Height now derives from the icon/
+  text content itself, as compact as the content allows.
 - Wallpaper carousel's background scrim was too light for its header/footer
   text (WALLPAPER label, selection counter, keyboard hints) to read clearly
   over a bright wallpaper - `opacity: 0.34` -> `0.62`.

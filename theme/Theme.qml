@@ -76,7 +76,8 @@ QtObject {
     readonly property int expandedH: 650
     readonly property int expandedRadius: 30
     readonly property int notificationW: 412
-    readonly property int notificationH: 100
+    // No notificationH: pages/NotificationPeek.qml derives its height from
+    // actual content instead of a fixed swatch size now.
     readonly property int notificationRadius: 22
     // Battery/charging state: height/radius already match the shared
     // peek-family defaults (peekH/radius), only the width is distinct.
