@@ -1989,6 +1989,33 @@ value. Matches the reference's actual rhythm (loose around the ticks,
 tight within the text block) instead of one compromise value applied
 everywhere.
 
+## `GoodNight` greeting line: Poppins, wider letter-spacing
+
+Haziq's next reference-image comparison round: the greeting line
+("GOOD"/mood-word) needed more letter-spacing to match the original, and
+"I think Poppins is better" than `Theme.fontFamily` (JetBrainsMono Nerd
+Font) for that line specifically. A monospace font's fixed advance width
+can't reproduce the reference's letter-spaced caps look at any spacing
+value - every glyph already occupies the same width regardless of the
+letter itself, so widening the gaps between them still reads as
+mechanical rather than the reference's more organic tracking.
+
+Installed `ttf-poppins` from the AUR, confirmed the real family name via
+`fc-match "Poppins"` before use (unlike Fraunces, Poppins isn't split by
+optical size - plain `"Poppins"` resolves correctly, weights come from
+`font.weight`). Used `Font.Medium`. README's Widgets section now lists
+`ttf-poppins` alongside `ttf-fraunces` as a `GoodNight` dependency.
+
+`letterSpacing` went `2` -> `4` -> `8`: the first two bumps looked
+identical to Haziq because the running `qs -c kuroshima` process was
+never restarted after either edit - editing a bundled widget's `.qml`
+file on disk does nothing to an already-running instance, there's no
+file-watch/hot-reload wired into the installed (non-dev) shell. Only
+`scripts/dev.sh`'s sandbox picks up changes live. Killed and relaunched
+the real process (`pkill -f "qs -c kuroshima"` then `qs -c kuroshima &`)
+before the `8` value was visible - worth remembering before assuming a
+QML edit "didn't work."
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

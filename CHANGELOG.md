@@ -29,6 +29,9 @@ history and `docs/NOTES.md` for decision-level detail.
   Two-line greeting ("GOOD" / mood-word, always, so "GOOD AFTERNOON" isn't
   visibly wider than the other three), long thin `Theme.ink` hairline ticks
   with a real gap around them, tight spacing within the text block itself.
+  Greeting line uses "Poppins" (Medium, wide letter-spacing) instead of the
+  monospace meta font - needs `ttf-poppins` from the AUR, see the README's
+  Widgets section.
 
 ## [0.3.0] - 2026-09-20
 

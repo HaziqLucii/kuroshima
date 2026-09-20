@@ -10,15 +10,14 @@ import qs.theme
 // but this one's bundled with kuroshima itself, so it follows the same
 // house style as everywhere else here.
 //
-// Two fonts, matching this project's own established type system (see
-// user CLAUDE.md's aesthetic notes: monospace for labels/meta, a distinct
-// display face for the big element): Theme.fontFamily (JetBrainsMono Nerd
-// Font) for the greeting/date/time meta text, "Fraunces 144pt" (Black) for
-// the day abbreviation - Haziq wanted something with more character there,
-// not a normal grotesk (tried Inter Display first, correctly called out
-// as too plain). A monospace font couldn't have worked either way: it
-// can't produce a display face's tight, proportional-width look at any
-// weight, since every glyph is forced to the same advance width.
+// Three fonts, all confirmed via fc-match before use rather than guessed:
+// Theme.fontFamily (JetBrainsMono Nerd Font) for the date/time meta text,
+// "Poppins" (Medium, wide letter-spacing) for the greeting line - a
+// monospace font's fixed advance width can't reproduce the reference's
+// letter-spaced caps look, and "Fraunces 144pt" (Black) for the day
+// abbreviation - Haziq wanted something with more character there, not a
+// normal grotesk (tried Inter Display first, correctly called out as too
+// plain).
 Item {
     id: root
 
@@ -73,9 +72,10 @@ Item {
                 text: root.greeting
                 horizontalAlignment: Text.AlignHCenter
                 color: Theme.inkMuted
-                font.family: Theme.fontFamily
+                font.family: "Poppins"
+                font.weight: Font.Medium
                 font.pixelSize: Math.max(8, root.height * 0.07)
-                font.letterSpacing: 2
+                font.letterSpacing: 8
             }
 
             Text {

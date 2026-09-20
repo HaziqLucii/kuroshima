@@ -168,10 +168,11 @@ Two sources of widget types, both listed together in the picker:
   placeholder that proved the mechanics) and `widgets/GoodNight.qml` (a
   greeting/day/date/time card, inspired by a ryoku.dev showcase widget, in this
   repo's own bone-on-black palette). `GoodNight` needs `ttf-fraunces` (AUR,
-  `paru -S ttf-fraunces`) for its day-abbreviation display font - not installed
-  automatically by `install.sh`, since fonts aren't config it should be
-  installing packages for you. Missing it just means that one `Text` silently
-  falls back to a default face, not a crash.
+  `paru -S ttf-fraunces`) for its day-abbreviation display font and
+  `ttf-poppins` (AUR, `paru -S ttf-poppins`) for its letter-spaced greeting
+  line - neither installed automatically by `install.sh`, since fonts aren't
+  config it should be installing packages for you. Missing either just means
+  that one `Text` silently falls back to a default face, not a crash.
 - **Custom**: drop your own `.qml` file into `~/.config/kuroshima/widgets/`, following
   the widget contract in `CLAUDE.md` (`implicitWidth`/`implicitHeight`, nothing else
   required). Rescanned every time edit mode opens, so a freshly-dropped file shows up
