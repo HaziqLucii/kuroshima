@@ -335,7 +335,18 @@ Item {
                                 }
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "◀◀"
+                                    // fa-step_backward, not the raw "◀◀"
+                                    // dingbat: confirmed via a crosshair
+                                    // render test that plain Unicode
+                                    // triangles/bars sit noticeably off
+                                    // within their own glyph box (blank
+                                    // trailing space baked into the
+                                    // character, not designed for
+                                    // icon-button centering the way a real
+                                    // icon font glyph is) - exactly the
+                                    // misalignment Haziq spotted once the
+                                    // hover bubble made it visible.
+                                    text: String.fromCodePoint(0xf048)
                                     color: Theme.inkMuted
                                     opacity: Media.canGoPrevious ? 1.0 : 0.35
                                     font.family: Theme.fontFamily
@@ -362,7 +373,9 @@ Item {
                                 }
                                 Text {
                                     anchors.centerIn: parent
-                                    text: Media.isPlaying ? "▮▮" : "▶"
+                                    // fa-pause / fa-play - see the prev
+                                    // button's comment above for why.
+                                    text: String.fromCodePoint(Media.isPlaying ? 0xf04c : 0xf04b)
                                     color: Theme.ink
                                     opacity: Media.canTogglePlaying ? 1.0 : 0.35
                                     font.family: Theme.fontFamily
@@ -394,7 +407,9 @@ Item {
                                 }
                                 Text {
                                     anchors.centerIn: parent
-                                    text: "▶▶"
+                                    // fa-step_forward - see the prev
+                                    // button's comment above for why.
+                                    text: String.fromCodePoint(0xf051)
                                     color: Theme.inkMuted
                                     opacity: nextHit.enabled_ ? 1.0 : 0.35
                                     font.family: Theme.fontFamily
@@ -1160,7 +1175,24 @@ Item {
 
                     Text {
                         id: lockLabel
-                        anchors.centerIn: parent
+                        // Not centerIn: font.letterSpacing adds space AFTER
+                        // every character including the last one, so a
+                        // naive centerIn sits the text visibly left of true
+                        // centre (confirmed empirically with a crosshair
+                        // test - most visible on odd-length labels like
+                        // SLEEP/POWER, where centerIn landed the middle
+                        // character's edge on the box's actual centre
+                        // instead of its own middle). Half the letter-
+                        // spacing corrects it. The +1 vertical offset
+                        // corrects a separate, unrelated effect: an
+                        // all-caps label (no descenders) still centers
+                        // against the font's full line metrics, which
+                        // include descender space it never uses, so it
+                        // sits visibly high without this.
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.horizontalCenterOffset: font.letterSpacing / 2
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: 1
                         // LOCK/SLEEP/POWER now step up in visual weight
                         // (dimmest to brightest, staying entirely within
                         // the ink ramp - no new hue) to read as
@@ -1211,7 +1243,12 @@ Item {
                     }
                     Text {
                         id: sleepLabel
-                        anchors.centerIn: parent
+                        // See lockLabel's comment for why centerIn alone
+                        // isn't right here.
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.horizontalCenterOffset: font.letterSpacing / 2
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: 1
                         color: sleepBtn.armed ? Theme.ink : Theme.inkMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: 8
@@ -1261,7 +1298,12 @@ Item {
                     }
                     Text {
                         id: powerLabel
-                        anchors.centerIn: parent
+                        // See lockLabel's comment for why centerIn alone
+                        // isn't right here.
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.horizontalCenterOffset: font.letterSpacing / 2
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenterOffset: 1
                         color: powerBtn.armed ? "#d75f5f" : Theme.inkSubtle
                         font.family: Theme.fontFamily
                         font.pixelSize: 8
