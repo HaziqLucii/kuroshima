@@ -47,7 +47,13 @@ Item {
             height: 11
             anchors.verticalCenter: parent.verticalCenter
             color: Theme.divider
-            visible: Media.available
+            // Media.isPlaying, not Media.available: a paused-but-loaded
+            // player (e.g. a YouTube tab you tabbed away from) used to
+            // leave the divider (and a static EQ) stuck on screen
+            // indefinitely. Haziq wanted the pill to collapse back to
+            // clock-only the instant playback actually stops, not just
+            // when the player disappears entirely.
+            visible: Media.isPlaying
         }
 
         // Matches the design's real compact/idle pill: no title/artist
@@ -58,18 +64,19 @@ Item {
         // version this project had built before.
         EqualizerBars {
             anchors.verticalCenter: parent.verticalCenter
-            visible: Media.available
+            visible: Media.isPlaying
             active: Media.isPlaying
             barHeight: 11
         }
     }
 
-    // Compact is where the now-playing marquee actually lives most of the
-    // time (MediaPeek is only a brief transient right when a track
-    // changes), so this is the natural place to click to see the full
-    // media view, not just during that narrow window.
+    // MediaExpanded stopped being just the media view once CONTROLS,
+    // TOGGLES, SYSTEM, INBOX and SESSION landed - it's the whole
+    // dashboard now, useful with or without anything playing. Gating this
+    // on Media.available (an early-slice leftover from when it really was
+    // media-only) made the compact pill silently unclickable whenever no
+    // player was active, which is most of the time.
     TapHandler {
-        enabled: Media.available
         onTapped: root.requestExpand("MediaExpanded")
     }
 }
