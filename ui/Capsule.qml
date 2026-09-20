@@ -58,17 +58,6 @@ Item {
         color: Theme.bg
         border.width: 0
 
-        // `inset 0 1px 0 rgba(255,255,255,0.05)` from the design: a hairline
-        // top highlight. MultiEffect only does drop shadows, not CSS-style
-        // inset shadows, so it's drawn directly instead.
-        Rectangle {
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 1
-            color: Theme.insetHighlight
-        }
-
         PageHost {
             id: host
             anchors.centerIn: parent
