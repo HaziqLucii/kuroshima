@@ -52,7 +52,20 @@ QtObject {
     // SESSION row landed: live-measured builtSections.implicitHeight hit
     // 616 against a 568 available (content minus margins) budget, a 48px
     // real overflow the capsule's own clip was silently swallowing.
-    readonly property int expandedH: 660
+    //
+    // Bumped again (660 -> 682) once 06 INBOX grew a real scrollable
+    // ListView (2 full notification cards) instead of a shorter
+    // Repeater+Column: 07 SESSION is independently anchored to
+    // content's own bottom (see MediaExpanded.qml's sessionFooter), not
+    // part of this same top-down Column, so nothing was actually
+    // guaranteeing a gap between them - only however much headroom this
+    // page happened to have left over. Live-measured again rather than
+    // guessed: builtSections landed at height 593 (y=0, so bottom=593)
+    // against sessionFooter starting at y=587, a real 6px overlap Haziq
+    // spotted as "the notification row overflowed the bottom line
+    // separator." +22 clears that and restores a ~16px gap matching the
+    // spacing already used between every other section.
+    readonly property int expandedH: 682
     readonly property int expandedRadius: 30
     readonly property int notificationW: 412
     readonly property int notificationH: 100
@@ -80,8 +93,10 @@ QtObject {
     // once the capsule gets close enough to it. Expanded (604px) at
     // topInset(5) only left ~11px of bottom margin, well under what even a
     // modest blur needs, hence the cutoff. 60px of slack accounts for it.
+    // Bumped by the same +22 as expandedH above, to preserve that exact
+    // slack margin rather than eating into it.
     readonly property int canvasW: 800
-    readonly property int canvasH: 736
+    readonly property int canvasH: 758
 
     // Floating-overlay shadow: `0 24px 60px -18px rgba(0,0,0,0.95)` from the
     // design. MultiEffect has no spread parameter, so CSS's -18px spread
