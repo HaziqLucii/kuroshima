@@ -158,8 +158,10 @@ edit mode entirely, same as pressing `Mod+Shift+W` again. Position and size pers
 resize, or remove something - no save step.
 
 Two sources of widget types, both listed together in the picker:
-- **Bundled**: `widgets/*.qml` in this repo. Just `widgets/Clock.qml` for now, a
-  minimal placeholder proving the mechanics - not the point of this feature.
+- **Bundled**: `widgets/*.qml` in this repo - `widgets/Clock.qml` (the minimal
+  placeholder that proved the mechanics) and `widgets/GoodNight.qml` (a
+  greeting/day/date/time card, inspired by a ryoku.dev showcase widget, in this
+  repo's own bone-on-black palette).
 - **Custom**: drop your own `.qml` file into `~/.config/kuroshima/widgets/`, following
   the widget contract in `CLAUDE.md` (`implicitWidth`/`implicitHeight`, nothing else
   required). Rescanned every time edit mode opens, so a freshly-dropped file shows up

@@ -49,7 +49,7 @@ QtObject {
     // Unlike customTypes below, no need to list the repo's own directory
     // at runtime just to discover files that only change when this file
     // itself changes.
-    readonly property var bundledTypes: ["Clock"]
+    readonly property var bundledTypes: ["Clock", "GoodNight"]
 
     // Arbitrary user-dropped files ARE unknown ahead of time, so this one
     // genuinely needs a runtime directory listing - same shell-out-for-

@@ -1883,6 +1883,42 @@ suggestion ("↘", U+2198) - confirmed present in JetBrainsMono Nerd Font via
 `fontTools` first, this project's own established rule for icon glyphs, not
 guessed from memory.
 
+## First real bundled widget: `widgets/GoodNight.qml`
+
+The actual feature request from the start of this whole widget-system thread -
+a ryoku.dev showcase widget Haziq wanted (greeting + huge day abbreviation +
+date/time, bracketed by short hairline ticks), now that the framework exists
+to hold it. Registered in `Widgets.bundledTypes` alongside `Clock`.
+
+Kept in this repo's own bone-on-black palette rather than the reference's
+colour accents (teal glow, red day-label, coloured dock icons) - Haziq's own
+words on widget content were "up to user of their own creativity," but this
+one ships WITH kuroshima, so it follows the same house style as every other
+bundled surface. He specifically flagged that the font matters for the look
+working at all - used `Theme.fontFamily` throughout (same JetBrainsMono Nerd
+Font everything else in this repo already uses), `Font.Black` weight for the
+day abbreviation specifically, matching how the fastfetch wordmark logo
+earlier in this session also went straight for the Black weight for its own
+big display element.
+
+Deliberately left out of scope, both clearly separate design elements in the
+reference rather than part of the greeting card itself: the vertical icon
+dock (WiFi/BT/mic/volume/battery - reads as Noctalia's own always-on sidebar,
+not something this one widget should absorb) and the diagonal audio-
+visualizer streak. Also dropped the reference's redundant second date label
+(bottom-left "Saturday · August 22", repeating the same date already shown
+in the main block) - sensible on a huge wallpaper-covering canvas with empty
+space to fill, not on a compact resizable widget.
+
+Font sizes scale with `root.width`/`root.height` the same way
+`widgets/Clock.qml` already does (fixed `implicitWidth`/`implicitHeight`
+constants, never derived from the child labels, to avoid the exact binding
+loop documented in that file's own comment) - resizing this one changes
+every line's size together, not just the day abbreviation. Greeting is
+genuinely time-of-day aware (`GOOD MORNING`/`AFTERNOON`/`EVENING`/`NIGHT`
+via `clock.date.getHours()`), not hardcoded to match whatever the reference
+screenshot happened to show.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

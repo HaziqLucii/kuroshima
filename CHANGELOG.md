@@ -17,12 +17,14 @@ history and `docs/NOTES.md` for decision-level detail.
   focus it and reveal its resize handle and delete badge. `<Enter>` defocuses
   (stays in edit mode), `<Escape>` exits edit mode entirely. An
   "+ ADD WIDGET" picker lists every available type. Widgets are plain `.qml`
-  files - bundled ones in `widgets/` (just `widgets/Clock.qml` for now, a
-  placeholder) or user-dropped ones in `~/.config/kuroshima/widgets/`, no repo
-  changes needed for the latter. Position and size persist to
-  `~/.config/kuroshima/widgets.json`. New widget contract documented in
-  `CLAUDE.md`. Widget content is explicitly not held to this repo's
-  bone-on-black rule - see `docs/NOTES.md`.
+  files - bundled ones in `widgets/` or user-dropped ones in
+  `~/.config/kuroshima/widgets/`, no repo changes needed for the latter.
+  Position and size persist to `~/.config/kuroshima/widgets.json`. New widget
+  contract documented in `CLAUDE.md`. Widget content is explicitly not held
+  to this repo's bone-on-black rule - see `docs/NOTES.md`.
+- `widgets/GoodNight.qml`: a greeting/day/date/time card (inspired by a
+  ryoku.dev showcase widget), the first real bundled widget alongside the
+  `Clock` placeholder.
 
 ## [0.3.0] - 2026-09-20
 
