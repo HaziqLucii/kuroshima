@@ -57,4 +57,69 @@ ShellRoot {
             wallpaperCarousel.toggle()
         }
     }
+
+    // Full Noctalia handoff: niri's hardware media keys previously called
+    // `noctalia msg volume-up` etc, which actually performed the PipeWire/
+    // DDC-CI change (this project's own OSD only ever observed the result
+    // and popped a peek - it never drove the hardware itself). These three
+    // handlers are what niri's keybinds now call directly instead, using
+    // the exact same Audio/Media/Brightness services already backing this
+    // project's own CONTROLS UI.
+    IpcHandler {
+        target: "audio"
+
+        readonly property int step: 5
+
+        function volumeUp(): void {
+            Audio.setVolume(Math.min(100, Math.round(Audio.volume * 100) + step))
+        }
+
+        function volumeDown(): void {
+            Audio.setVolume(Math.max(0, Math.round(Audio.volume * 100) - step))
+        }
+
+        function toggleMute(): void {
+            Audio.toggleMuted()
+        }
+
+        function toggleMicMute(): void {
+            Audio.toggleMicMuted()
+        }
+    }
+
+    IpcHandler {
+        target: "media"
+
+        function next(): void {
+            Media.next()
+        }
+
+        function previous(): void {
+            Media.previous()
+        }
+
+        function toggle(): void {
+            Media.togglePlaying()
+        }
+    }
+
+    IpcHandler {
+        target: "brightness"
+
+        readonly property int step: 5
+
+        // Brightness.value is -1 until the first ddcutil read completes
+        // (~8s on this hardware, see Brightness.qml's own comment) - a
+        // key pressed in that window has no current value to step from,
+        // so it's a no-op rather than guessing a starting point.
+        function up(): void {
+            if (Brightness.value < 0) return
+            Brightness.setBrightness(Math.min(100, Math.round(Brightness.value * 100) + step))
+        }
+
+        function down(): void {
+            if (Brightness.value < 0) return
+            Brightness.setBrightness(Math.max(0, Math.round(Brightness.value * 100) - step))
+        }
+    }
 }

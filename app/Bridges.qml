@@ -36,6 +36,33 @@ Item {
         }
     }
 
+    // Full Noctalia handoff added niri's hardware brightness keys calling
+    // this project's own IPC (shell.qml's "brightness" target) instead of
+    // `noctalia msg brightness-up`. That's what makes Brightness stop
+    // being effectively dead code: it was only ever referenced from
+    // pages/MediaExpanded.qml (an on-demand page), so nothing forced its
+    // first ~8s DDC/CI read to happen until the dashboard was opened -
+    // meaning the very first hardware key press after every boot would
+    // silently no-op for the whole read. This Connections target, same
+    // trick as Audio/Media above, forces it to start at shell launch
+    // instead. Kinds.table already had an "osd.brightness" entry and
+    // OsdPeek.qml already renders it (both since whichever slice added
+    // MediaExpanded's brightness slider) - this just finally connects it,
+    // giving brightness keys the same OSD feedback volume keys already had.
+    Connections {
+        target: Brightness
+        function onValueChanged() {
+            if (Brightness.value < 0) return
+            if (Island.isExpanded && Island.expandedPage === "MediaExpanded") {
+                return
+            }
+            Island.show("osd.brightness", {
+                kind: "brightness",
+                value: Brightness.value
+            }, { key: "osd:brightness" })
+        }
+    }
+
     Connections {
         target: Media
         function onTrackChanged() {

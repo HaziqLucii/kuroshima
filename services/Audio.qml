@@ -16,6 +16,11 @@ QtObject {
         sink.audio.volume = Math.max(0, Math.min(1, pct / 100))
     }
 
+    function toggleMuted() {
+        if (!available) return
+        sink.audio.muted = !sink.audio.muted
+    }
+
     // Mic: same shape as the sink above, but the input device. No OSD/
     // debounce/changed() signal for it (nothing currently pops a peek on
     // mic volume changing), it's read for the expanded view's CONTROLS
