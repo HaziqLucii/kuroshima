@@ -9,6 +9,8 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-20
+
 ### Added
 
 - Bundled `fastfetch/config.jsonc`: a plain-text `//kuroshima クロシマ` header
