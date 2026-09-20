@@ -2459,6 +2459,47 @@ heights) - no crash, no lint/headless regressions either way; couldn't
 visually confirm the sizing itself reads as "compact" rather than just
 "not fixed" since this session has no way to see the rendered screen.
 
+## MediaExpanded: fixed page height -> content-derived, same class of fix as NotificationPeek
+
+Haziq, from a screenshot showing a large dead gap between 06 INBOX (only
+2 short notifications) and the 07 SESSION footer row: "nice but now the
+inbox section in expanded height is like bigger now that it is more
+than the content height." Same underlying pattern as NotificationPeek's
+fixed-100px fix just before this - `implicitHeight: Theme.expandedH`
+was a flat 650px regardless of actual content, and NOTES.md's own
+earlier history shows this exact constant already got hand-retuned 3
+times (604 -> 660 -> 682 -> 650) chasing content shape changes rather
+than ever just being derived.
+
+Real wrinkle here `sessionFooter` (07 SESSION) was deliberately anchored
+to the PAGE's bottom, independent of `builtSections`' own top-down
+Column, specifically because a short/hidden INBOX previously left it
+floating right under 05 SYSTEM with a dead gap *below* it instead - a
+real problem that fix solved, just by relocating where the dead space
+showed up (between INBOX and SESSION) rather than removing it. Once
+root's `implicitHeight` is computed from content instead of fixed
+(`18 + builtSections.height + 16 + sessionFooter.height + 18`), that
+leftover space doesn't exist in the first place - `sessionFooter` just
+went back to being anchored directly below `builtSections.bottom` (a
+plain 16px gap, same rhythm as gaps between sections inside
+`builtSections` itself), no space left over for it to be dislocated
+into.
+
+Side effect, noted in `pages/SettingsExpanded.qml`'s own comment:
+`Theme.expandedH` still exists (kept, other pages read it, e.g.
+`SettingsExpanded` for its own fixed footprint) but MediaExpanded no
+longer always equals it - an unusually short or tall MediaExpanded
+state can now make the push/pop slide's height not match Settings'
+height exactly, adding a small vertical morph alongside the horizontal
+slide. Not worth chasing - width (the dominant axis for how a
+horizontal push reads) still always matches.
+
+Verified via IPC round-trips (expand MediaExpanded, expand
+SettingsExpanded, collapse) against the live process - no errors, no
+lint/headless regressions - but same caveat as the NotificationPeek fix:
+couldn't visually confirm the gap is actually gone, only that nothing
+broke computing the new height. Needs a live look.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

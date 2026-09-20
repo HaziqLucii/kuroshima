@@ -45,7 +45,16 @@ Item {
     readonly property real cornerRadius: Theme.expandedRadius
 
     implicitWidth: Theme.expandedW
-    implicitHeight: Theme.expandedH
+    // Was a fixed Theme.expandedH (650px) - content.anchors.margins(18
+    // top/bottom) + builtSections' own height + the gap above
+    // sessionFooter + sessionFooter's own height, computed directly
+    // instead. A fixed height tuned for one content shape (media
+    // playing, a fuller INBOX) left real dead space whenever the actual
+    // content was shorter (no media, 1-2 notifications) - NOTES.md's own
+    // history shows this exact constant already got retuned 3 times
+    // (604 -> 660 -> 682 -> 650) chasing content shape changes rather
+    // than just deriving it.
+    implicitHeight: 18 + builtSections.height + 16 + sessionFooter.height + 18
     width: implicitWidth
     height: implicitHeight
 
@@ -1155,19 +1164,24 @@ Item {
 
         }
 
-        // Anchored to content's own bottom, deliberately OUTSIDE
-        // builtSections' top-down Column: with 06 INBOX hidden (no
-        // notifications) or short (1-2 items), a plain top-down flow left
-        // this row floating right under 05 SYSTEM with a large dead gap
-        // below it. The design's own flexbox has INBOX as `flex:1` so it
-        // (invisibly) absorbs whatever's left and this row always lands
-        // at the true bottom - anchoring this row directly reproduces
-        // that outcome without needing a real flex-shrink implementation.
+        // Used to be anchored to content's own bottom (a FIXED page
+        // height, Theme.expandedH, left real space below whatever
+        // builtSections actually needed) specifically so a short/hidden
+        // 06 INBOX didn't leave this row floating right under 05 SYSTEM
+        // with a dead gap below it. Now that root's implicitHeight is
+        // computed from builtSections + this Column's own heights (not a
+        // fixed budget), that problem doesn't exist in the first place -
+        // there's no leftover space for this row to be dislocated into,
+        // so it just sits directly below builtSections in normal flow,
+        // same anchors.top-margin rhythm as sections inside builtSections
+        // use between each other (see NOTES.md for the fixed-height
+        // history this replaces).
         Column {
             id: sessionFooter
+            anchors.top: builtSections.bottom
+            anchors.topMargin: 16
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.bottom: parent.bottom
             spacing: 16
 
             Rectangle {

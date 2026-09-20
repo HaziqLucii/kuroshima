@@ -5,9 +5,14 @@ import qs.theme
 // dashboard (ui/Capsule.qml's directionFor() picks "pushRight" for this
 // page specifically, "popLeft" on the way back) rather than the plain
 // crossfade every other page transition uses - the maintainer wanted a real
-// Android-style slide + back button. Same footprint as MediaExpanded
-// (Theme.expandedW/H) so the transition reads as a pure horizontal push,
-// not a simultaneous width/height morph.
+// Android-style slide + back button. Theme.expandedW/H matches
+// MediaExpanded's own width always, and its height in the common case -
+// MediaExpanded's own height is content-derived now (not a fixed budget,
+// see its own comment/docs/NOTES.md), so an unusually short or tall
+// state there (very little content, or a lot of it) can make the two
+// heights differ, adding a small vertical morph to the slide alongside
+// the horizontal one. Not worth chasing exactly here - width, the
+// dominant axis for how this transition actually reads, always matches.
 //
 // Left sidebar of category "bubbles" - just Audio today
 // (pages/SettingsAudioPanel.qml), but built as a real model/Loader pair

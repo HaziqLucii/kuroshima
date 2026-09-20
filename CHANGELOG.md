@@ -86,6 +86,12 @@ history and `docs/NOTES.md` for decision-level detail.
   now removed) regardless of actual content, leaving real dead space
   above/below shorter notifications. Height now derives from the icon/
   text content itself, as compact as the content allows.
+- Expanded dashboard's overall height (`Theme.expandedH`, fixed 650px)
+  left a large dead gap between 06 INBOX and the 07 SESSION footer
+  whenever INBOX had few/no notifications - `pages/MediaExpanded.qml`'s
+  height is content-derived now, and the footer sits directly below the
+  rest of the content instead of being separately anchored to the page's
+  bottom to work around the old fixed-height gap.
 - Wallpaper carousel's background scrim was too light for its header/footer
   text (WALLPAPER label, selection counter, keyboard hints) to read clearly
   over a bright wallpaper - `opacity: 0.34` -> `0.62`.
