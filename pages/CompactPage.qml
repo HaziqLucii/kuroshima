@@ -82,25 +82,19 @@ Item {
         // isn't empty" - there's no separate read/unread tracking
         // anywhere else in this project, and CLEAR ALL in the expanded
         // INBOX (Notifs.clearHistory()) is the only thing that empties
-        // it, so that's also what makes this disappear.
-        Row {
+        // it, so that's also what makes this disappear. A single icon,
+        // not a separate bell+counter-bubble pair: cod-bell_dot already
+        // draws the "unread" indicator as a dot on the bell's own
+        // top-right corner - codepoint verified against this font's
+        // actual cmap via fontTools, then visually confirmed against two
+        // other bell-badge candidates before picking this one.
+        Text {
             anchors.verticalCenter: parent.verticalCenter
             visible: Notifs.history.length > 0
-            spacing: 4
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                color: Theme.ink
-                font.family: Theme.fontFamily
-                font.pixelSize: 11
-                // Verified codepoint (plain bell), already in use for the
-                // DND toggle's off-state icon in pages/MediaExpanded.qml.
-                text: String.fromCodePoint(0xf0f3)
-            }
-            CountBadge {
-                anchors.verticalCenter: parent.verticalCenter
-                count: Notifs.history.length
-            }
+            color: Theme.ink
+            font.family: Theme.fontFamily
+            font.pixelSize: 13
+            text: String.fromCodePoint(0xeb9a)
         }
     }
 
