@@ -18,6 +18,27 @@ QtObject {
 
     property bool editMode: false
 
+    // Which single widget currently shows its border/resize-handle/delete
+    // badge (ui/WidgetFrame.qml). Empty outside edit mode and right after
+    // entering it - a widget only shows its own editing chrome once
+    // clicked, not for the whole canvas at once. `<Enter>` clears this
+    // (defocus, stay in edit mode); `<Escape>` clears editMode itself,
+    // which also clears this via onEditModeChanged below.
+    property string focusedWidgetId: ""
+
+    function focusWidget(id) {
+        root.focusedWidgetId = id
+    }
+
+    function clearFocus() {
+        root.focusedWidgetId = ""
+    }
+
+    onEditModeChanged: {
+        if (editMode) rescanCustomTypes()
+        else root.focusedWidgetId = ""
+    }
+
     // Each entry: { id, type, custom, x, y, w, h }. `custom` picks which
     // directory urlFor() resolves `type` against. `w`/`h` are absent (or 0)
     // until the widget's been resized at least once - WidgetFrame falls
@@ -49,10 +70,6 @@ QtObject {
         }
     }
 
-    onEditModeChanged: {
-        if (editMode) rescanCustomTypes()
-    }
-
     function urlFor(type, custom) {
         return custom
             ? "file://" + Quickshell.env("HOME") + "/.config/kuroshima/widgets/" + type + ".qml"
@@ -71,11 +88,16 @@ QtObject {
             x: 80 + (n % 6) * 24,
             y: 80 + (n % 6) * 24
         }])
+        // Focused immediately - otherwise a just-added widget shows no
+        // border/handles at all until separately clicked, which reads as
+        // broken rather than "not focused yet".
+        root.focusedWidgetId = id
         _persist()
     }
 
     function removeWidget(id) {
         root.placed = root.placed.filter(w => w.id !== id)
+        if (root.focusedWidgetId === id) root.focusedWidgetId = ""
         _persist()
     }
 

@@ -31,7 +31,21 @@ PanelWindow {
     // Top/Overlay, where real application windows live, so normal windows
     // still win over widgets exactly like before.
     WlrLayershell.layer: WlrLayer.Bottom
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // None outside edit mode - a keyboard-grabbing background surface for
+    // no reason would eat normal desktop input. Exclusive only while
+    // editing, same conditional pattern WallpaperCarousel.qml uses (that
+    // one gets away with always-Exclusive because it's also
+    // visible:false when closed - "an invisible layer surface holds no
+    // focus at all" per its own comment - which isn't true here since
+    // this surface is always visible for the widgets themselves).
+    WlrLayershell.keyboardFocus: Widgets.editMode ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+    Connections {
+        target: Widgets
+        function onEditModeChanged() {
+            if (Widgets.editMode) Qt.callLater(() => keyScope.forceActiveFocus())
+        }
+    }
 
     // Subtle full-screen tint while editing, so it's unambiguous the
     // desktop is in a different mode - not meant to be loud.
@@ -39,6 +53,18 @@ PanelWindow {
         anchors.fill: parent
         visible: Widgets.editMode
         color: Qt.rgba(0, 0, 0, 0.25)
+    }
+
+    Item {
+        id: keyScope
+        anchors.fill: parent
+        focus: true
+
+        // <Enter> defocuses whatever widget is focused, staying in edit
+        // mode - "done editing this one", not "done editing". <Escape>
+        // exits edit mode entirely (equivalent to Mod+Shift+W again).
+        Shortcut { sequences: ["Return", "Enter"]; onActivated: Widgets.clearFocus() }
+        Shortcut { sequence: "Escape"; onActivated: Widgets.editMode = false }
     }
 
     Repeater {

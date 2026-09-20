@@ -1858,6 +1858,31 @@ since getting this backwards (copying the page contract's self-sizing rule) woul
 silently make every widget resize-proof in a way that's easy to not notice until
 someone actually drags the handle.
 
+**Click-to-focus, right after**: Haziq wanted a real edit interaction model, not
+every widget's border/handles showing at once for the whole time edit mode is
+open. Added `Widgets.focusedWidgetId` - a widget's border/resize-handle/delete
+badge now only show when it's the focused one (click to focus), while dragging
+to move stays available on any widget without needing focus first. `<Enter>`
+clears focus (stays in edit mode, matching his description: "the box will
+disappear, means the widget is done already... can click the widget to focus
+again"); `<Escape>` exits edit mode entirely, per his explicit ask.
+
+Needed real keyboard input for the first time on this surface, which meant
+`WlrLayershell.keyboardFocus` couldn't stay a fixed `WlrKeyboardFocus.None`
+anymore - made it conditional on `Widgets.editMode` instead (`Exclusive` while
+editing, `None` otherwise). `WallpaperCarousel.qml` already does something
+similar but gets away with a FIXED `Exclusive` because it's also `visible:
+false` when closed - its own comment notes "an invisible layer surface holds no
+focus at all" - which doesn't apply here since this surface is always visible
+for the widgets themselves, hence the actual conditional rather than relying on
+visibility. `forceActiveFocus()` on entering edit mode follows the same
+`Qt.callLater` pattern `WallpaperCarousel._open()` already uses.
+
+Also added a diagonal resize-direction glyph to the resize handle per Haziq's
+suggestion ("↘", U+2198) - confirmed present in JetBrainsMono Nerd Font via
+`fontTools` first, this project's own established rule for icon glyphs, not
+guessed from memory.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

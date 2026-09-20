@@ -42,10 +42,17 @@ Item {
         onLoaded: {}
     }
 
+    // "Focused" (Widgets.focusedWidgetId === this widget) gates the border/
+    // resize-handle/delete-badge below - clicking a widget focuses it,
+    // <Enter> defocuses (ui/WidgetCanvas.qml's Shortcut), staying in edit
+    // mode either way. Dragging to move works on ANY widget in edit mode
+    // without needing focus first - only the extra chrome is focus-gated.
+    readonly property bool focused: Widgets.editMode && Widgets.focusedWidgetId === widgetId
+
     Rectangle {
         anchors.fill: parent
         anchors.margins: -6
-        visible: Widgets.editMode
+        visible: root.focused
         color: "transparent"
         border.width: 1
         border.color: Theme.divider
@@ -58,11 +65,12 @@ Item {
         enabled: Widgets.editMode
         cursorShape: Widgets.editMode ? Qt.SizeAllCursor : Qt.ArrowCursor
         drag.target: Widgets.editMode ? root : null
+        onClicked: Widgets.focusWidget(root.widgetId)
         onReleased: Widgets.moveWidget(root.widgetId, root.x, root.y)
     }
 
     Rectangle {
-        visible: Widgets.editMode
+        visible: root.focused
         width: 16
         height: 16
         radius: 2
@@ -89,17 +97,28 @@ Item {
     }
 
     Rectangle {
-        visible: Widgets.editMode
-        width: 14
-        height: 14
+        visible: root.focused
+        width: 16
+        height: 16
         radius: 2
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.rightMargin: -7
-        anchors.bottomMargin: -7
+        anchors.rightMargin: -8
+        anchors.bottomMargin: -8
         color: Theme.bg
         border.width: 1
         border.color: Theme.inkDim
+
+        // Diagonal arrow, confirmed present in JetBrainsMono Nerd Font via
+        // fontTools before use (this project's own established convention
+        // for icon glyphs - never guess a codepoint).
+        Text {
+            anchors.centerIn: parent
+            text: "↘"
+            color: Theme.inkMuted
+            font.family: Theme.fontFamily
+            font.pixelSize: 10
+        }
 
         MouseArea {
             id: resizeHandle
