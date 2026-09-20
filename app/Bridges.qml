@@ -162,4 +162,18 @@ Item {
             Island.show("power", {}, {})
         }
     }
+
+    // No signal to react to here (unlike Audio/Media/Brightness above) -
+    // this exists purely to force SystemStats to stop being lazy, same
+    // reasoning as Brightness: it was only ever referenced from the
+    // on-demand MediaExpanded page, so its poll Timer never started until
+    // the dashboard was first opened, compounding CPU%'s own "needs two
+    // samples" wait with the poll not even having begun yet. Haziq:
+    // "the cpu stats thing comes in late." Referencing it here starts
+    // polling at shell launch instead, so by the time anyone actually
+    // opens the dashboard, real numbers are usually already sitting
+    // there waiting.
+    Connections {
+        target: SystemStats
+    }
 }

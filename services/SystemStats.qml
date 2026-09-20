@@ -37,7 +37,13 @@ QtObject {
                 const total = parts.reduce((a, b) => a + b, 0)
                 // First sample has no prior point to delta against; CPU%
                 // needs two, so it just stays -1 (hidden) for one tick.
-                if (root._prevTotal >= 0) {
+                // Haziq: "the cpu stats thing comes in late" - waiting for
+                // the full 3s pollInterval to get that second sample felt
+                // sluggish, so a quick one-off follow-up (250ms) gets a
+                // real CPU% almost immediately instead, then normal
+                // polling resumes on its usual cadence.
+                const hadPrior = root._prevTotal >= 0
+                if (hadPrior) {
                     const deltaTotal = total - root._prevTotal
                     if (deltaTotal > 0) {
                         root.cpuPercent = Math.round((1 - (idle - root._prevIdle) / deltaTotal) * 100)
@@ -45,8 +51,16 @@ QtObject {
                 }
                 root._prevIdle = idle
                 root._prevTotal = total
+                if (!hadPrior) {
+                    root._cpuQuickFollowup.start()
+                }
             }
         }
+    }
+
+    property Timer _cpuQuickFollowup: Timer {
+        interval: 250
+        onTriggered: root._cpuProc.running = true
     }
 
     property Process _memProc: Process {
