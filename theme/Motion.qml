@@ -35,8 +35,10 @@ QtObject {
     readonly property int hoverGrace: 700
     readonly property int debounceOsd: 16
 
-    // "AUTO COLLAPSE: 1800ms after exit" in the design. Currently only
-    // drives ui/Capsule.qml's expanded-page auto-collapse (slice 3.5); the
-    // design also uses it for the not-yet-built hover-peek pill.
-    readonly property int autoCollapseDelay: 1800
+    // Was 1800ms ("AUTO COLLAPSE: 1800ms after exit" in the design) -
+    // Haziq felt that lagged too long after moving the mouse off the
+    // expanded dashboard. Currently only drives ui/Capsule.qml's
+    // expanded-page auto-collapse (slice 3.5); the design also uses it
+    // for the not-yet-built hover-peek pill.
+    readonly property int autoCollapseDelay: 1000
 }
