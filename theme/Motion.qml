@@ -16,8 +16,15 @@ QtObject {
     // integrator is only stable for small spring values relative to the
     // frame timestep, "hundreds" from generic spring-UI advice does not
     // apply to it.
+    // damping/(2*sqrt(spring*mass)) was ~0.41 (underdamped enough to
+    // visibly oscillate before settling) - Haziq wanted the morph
+    // smoother. Raised damping only, not spring: the file's own warning
+    // above is specifically about spring diverging, damping is the
+    // stabilizing term and raising it can't cause that failure mode.
+    // Landed at a ratio of ~0.76 (still a hair underdamped, so it keeps
+    // some spring character rather than reading as a mechanical snap).
     readonly property real morphSpring: 18
-    readonly property real morphDamping: 3.5
+    readonly property real morphDamping: 6.5
     readonly property real morphMass: 1.0
 
     // Content crossfade: "220ms ease-out, +4px rise" in the design, applied
