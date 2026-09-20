@@ -9,6 +9,31 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-20
+
+### Added
+
+- Bundled dotfiles, installed and symlinked by `install.sh` the same way as the
+  existing fuzzel theme: `foot/foot.ini` (bone-on-black, opaque), `fastfetch/foot.jsonc`
+  (no image logo, foot can't render it) with a `fish/functions/fastfetch.fish` wrapper
+  that routes to it whenever `$TERM` is `foot`, and a full `yazi/` setup (bone-on-black
+  `theme.toml` built from yazi's own upstream defaults, `//kuro.` status-bar mark via
+  `init.lua`, `smart-enter` plugin wired through `keymap.toml`/`package.toml`) plus a
+  `fish/functions/y.fish` shell wrapper. See the README's Foot/Fastfetch/Yazi sections.
+- `install.sh` now prints the extra manual steps these need: a `Mod+E` niri keybind for
+  yazi, and an `EDITOR`/`VISUAL` addition to niri's `environment{}` block.
+
+### Fixed
+
+- Yazi's `<Enter>` crashed on every directory (`process exited with status code: 127`):
+  stock yazi tries to open directories with `${EDITOR:-vi}` before navigating into them,
+  and this system has neither set. Fixed via the `smart-enter` plugin (navigate dirs,
+  open files) and by actually setting `EDITOR`/`VISUAL`. Full root-cause writeup in
+  `docs/NOTES.md`.
+- Media thumbnail in the expanded dashboard's MEDIA section was a fixed 54x54 box
+  regardless of the row's real (taller) height, floating with visible dead space
+  above/below. Now sized off the info column's own `implicitHeight`.
+
 ### Changed
 
 - Renamed the project from `dynamic-island` to `kuroshima` (黒島, "black island"):

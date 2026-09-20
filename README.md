@@ -16,10 +16,11 @@ Compositor support: niri only, for now.
 
 This symlinks the repo into `~/.config/quickshell/kuroshima` (so `qs -c
 kuroshima` finds it), seeds `~/.config/kuroshima/config.json` from
-`config.example.json` on first run, and links `fuzzel/fuzzel.ini` (bundled - see
-Fuzzel theme below) to `~/.config/fuzzel/fuzzel.ini` unless you already have a real
-(non-symlink) fuzzel config, which it leaves alone. It does not touch niri's or
-Noctalia's config - those are printed for you to apply by hand:
+`config.example.json` on first run, and links every bundled dotfile below
+(fuzzel, foot, fastfetch, the fish functions, yazi) to its real config path,
+unless you already have a real (non-symlink) file there, which it leaves
+alone. It does not touch niri's or Noctalia's config - those are printed for
+you to apply by hand:
 
 1. **niri autostart** (`~/.config/niri/cfg/autostart.kdl` or wherever your `spawn-sh-at-startup`
    lines live):
@@ -43,7 +44,29 @@ Noctalia's config - those are printed for you to apply by hand:
    Noctalia keeps its bar, launcher, lock and wallpaper. No keybind changes: the island
    reads PipeWire directly, so volume keys and `noctalia msg volume-up` keep working.
 
-4. Restart niri (or log out/in) to pick up the autostart line.
+4. **niri keybind** (`~/.config/niri/cfg/keybinds.kdl`), to make yazi your `Mod+E`
+   file manager instead of whatever you have bound now:
+   ```kdl
+   Mod+E hotkey-overlay-title="File Manager: Yazi" { spawn-sh "foot -e yazi"; }
+   ```
+
+5. **niri environment** (`~/.config/niri/cfg/misc.kdl`'s `environment{}` block), so
+   yazi's default "open with `$EDITOR`" opener has something to run:
+   ```kdl
+   EDITOR "nvim"
+   VISUAL "nvim"
+   ```
+   Without this, opening a file (or a directory the smart-enter keymap below
+   doesn't catch) fails with `process exited with status code: 127` - stock yazi's
+   `<Enter>` tries `${EDITOR:-vi} %s` on directories before anything else, and this
+   system ships neither. `environment{}` only applies to processes niri spawns after
+   its own startup, so this needs a niri restart/relogin to take effect; adding `set
+   -gx EDITOR nvim` / `set -gx VISUAL nvim` to your own shell config covers anything
+   launched from an interactive terminal in the meantime (not bundled - it's a couple
+   of lines in your own `config.fish`, not something this repo should own).
+
+6. Restart niri (or log out/in) to pick up the autostart line and the environment
+   block above.
 
 ## Config
 
@@ -68,6 +91,44 @@ but losing at-a-glance app recognition was a real tradeoff, not an obvious win, 
 keeps them. Fuzzel has no way to pin arbitrary text to a corner of its window (it's a
 plain list launcher, not a custom canvas), so `//kuro.` lives in the prompt slot rather
 than as a separate label.
+
+## Foot theme
+
+`foot/foot.ini`, linked to `~/.config/foot/foot.ini`: same tokens as `theme/Theme.qml`
+exactly (`#050506` background, `#ededed` foreground), fully opaque (`alpha=1.0` - a
+transparent terminal doesn't match a fixed-palette theme, since whatever's behind it
+shows through and breaks the intended contrast).
+
+## Fastfetch (foot)
+
+`fastfetch/foot.jsonc`, linked to `~/.config/fastfetch/foot.jsonc`: no image logo (foot
+only supports Sixel, not the kitty graphics protocol a default fastfetch config's PNG
+logo usually needs), flat hairline-bordered key/value rows instead, matching the
+dossier style used everywhere else in this repo. `fish/functions/fastfetch.fish`
+(linked to `~/.config/fish/functions/fastfetch.fish`) wraps the real `fastfetch`
+command and injects `-c ~/.config/fastfetch/foot.jsonc` whenever `$TERM` is `foot`,
+so both the shell greeting and a manually-typed `fastfetch` pick it up - the default
+config keeps working unchanged in any other terminal.
+
+## Yazi
+
+Bone-on-black theme (`yazi/theme.toml`, built from yazi's own upstream defaults, not
+guessed - same monochrome/no-accent-hue rule as the rest of this repo, differentiation
+via bold/underline/italic instead of hue) plus a `//kuro.` mark in the status bar's
+corner (`yazi/init.lua`), same placement logic as the fuzzel prompt.
+
+`yazi/keymap.toml` binds `<Enter>` and `l` to the official `smart-enter` plugin
+(`yazi/package.toml`, restored by `install.sh` via `ya pkg install` - or run that
+yourself in `~/.config/yazi` if yazi wasn't installed yet when you ran `install.sh`).
+This isn't just a preference: stock yazi's `<Enter>` tries to open a directory with
+`${EDITOR:-vi}` before falling back to anything else, which is surprising on its own
+and fails outright on a system with no `vi` (see the niri environment step above) -
+smart-enter makes `<Enter>`/`l` navigate directories and open files, the behavior
+most file managers already have.
+
+`fish/functions/y.fish` (linked to `~/.config/fish/functions/y.fish`) adds a `y`
+shell function: exiting yazi normally doesn't change your shell's directory, `y`
+does, via yazi's own documented `--cwd-file` pattern.
 
 ## Dev loop
 

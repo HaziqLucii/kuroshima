@@ -1,0 +1,14 @@
+# Stock yazi binds <Enter> to `open`, which for a directory tries the
+# "edit" opener (`${EDITOR:-vi}`) before falling back to anything sane -
+# surprising, and it crashed outright here since this system has no `vi`.
+# smart-enter makes <Enter> (and `l`) do the obviously-expected thing:
+# navigate into directories, open files.
+[[mgr.prepend_keymap]]
+on   = "<Enter>"
+run  = "plugin smart-enter"
+desc = "Enter the child directory, or open the file"
+
+[[mgr.prepend_keymap]]
+on   = "l"
+run  = "plugin smart-enter"
+desc = "Enter the child directory, or open the file"

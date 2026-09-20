@@ -1627,6 +1627,67 @@ known noise, no new categories). Restarted the live `qs -c kuroshima` process cl
 playing, and screenshotted it: the art now reads as a proper square flush with the
 full row height instead of a smaller box floating inside it.
 
+## Bundled foot, fastfetch, yazi (same treatment as the earlier fuzzel bundle)
+
+Haziq made yazi his default file manager and asked for the same "bundle it so
+installing the island gets it too" treatment already applied to fuzzel, plus a
+matching bone-on-black theme for it, foot, and fastfetch.
+
+Added `foot/foot.ini`, `fastfetch/foot.jsonc`, `fish/functions/{fastfetch,y}.fish`,
+`yazi/{theme.toml,init.lua,keymap.toml,package.toml}`, all linked by `install.sh`
+with the same not-a-symlink-already caution as the existing `fuzzel/fuzzel.ini`
+block. Converted the real, already-in-place versions of each on this machine into
+actual symlinks by running `install.sh` for real (removed the standalone files
+first, then let the script link them from the repo), the same way fuzzel was
+dogfooded earlier.
+
+Two real bugs surfaced and got fixed as part of this, not just theming:
+
+- **Yazi's `<Enter>` crashed on every directory** with `process exited with status
+  code: 127`. Root cause: stock yazi's `[open] rules` maps `folder/*` to try the
+  `edit` opener FIRST (`${EDITOR:-vi} %s`) before anything else - `<Enter>` on a
+  directory does not natively `cd`, it tries to open it in `$EDITOR`. This system
+  has neither `$EDITOR` set nor a `vi` binary (only `nvim`/`vim`/`micro`/`nano`), so
+  the fallback resolved to a literal `vi` that doesn't exist. Confirmed via
+  `yazi-actor/src/mgr/open_do.rs` (fetched from upstream, no native is-directory
+  branch at all - directories go through the same mime-matched opener path as
+  files) and `yazi-config/preset/yazi-default.toml`'s `[open] rules` (`{ mime =
+  "folder/*", use = ["edit", "open", "reveal"] }`). Reproduced deterministically
+  with `ydotoold` + `ydotool key` sending real keypresses into a live yazi window
+  (confirmed via `niri msg focused-window` first) rather than guessing, and
+  confirmed it affected every directory, not just the one Haziq happened to report
+  (`~/Desktop`) - `l` (bound to yazi's separate native `enter` action) navigated
+  fine, only `<Enter>` (bound to `open`) broke.
+  Fixed two ways: installed the official `smart-enter.yazi` plugin (`ya pkg add
+  yazi-rs/plugins:smart-enter`) and bound `<Enter>`/`l` to it in `keymap.toml`, so
+  Enter does the expected thing (navigate dirs, open files) instead of hitting the
+  opener path at all; and set `EDITOR`/`VISUAL` to `nvim` in niri's `misc.kdl`
+  `environment{}` block (fixes actually opening files too, not just the directory
+  case) - that block only applies at niri's own startup though, not on live config
+  reload, so it needs a niri restart/relogin to take effect, unlike everything else
+  in this pass. Added the same two lines to `config.fish` for immediate effect from
+  an interactive shell.
+- **Foot's fastfetch greeting broke**: `config.jsonc`'s dithered PNG logo uses the
+  kitty graphics protocol, which foot doesn't support (Sixel only). New
+  `fastfetch/foot.jsonc` (flat hairline key/value rows, no image) plus a
+  `~/.config/fish/functions/fastfetch.fish` wrapper that injects `-c
+  .../foot.jsonc` whenever `$TERM` is `foot` - covers both the shell greeting and
+  a manually-typed `fastfetch`, and this needed to be a wrapper around the actual
+  command, not just a `fish_greeting` override, since the first fix attempt only
+  caught the greeting and left manual invocations still crashing on the PNG logo.
+
+Yazi's theme (`yazi/theme.toml`) was built from yazi's actual upstream
+`theme-dark.toml` and `yazi-default.toml` (fetched from `sxyazi/yazi` on GitHub via
+`gh api`), not guessed - confirmed the real `[mgr]`/`[status]`/`[filetype]`/`[icon]`
+schema and field names against the installed binary's own embedded defaults
+(`strings /usr/bin/yazi`) before writing anything. Kept every icon glyph from the
+stock `[icon]` tables (700+ file-type entries) but stripped their per-language `fg`
+hex colors via a regex pass, same "keep icons, drop hue" call as fuzzel. Directories
+and the four marker states (`copied`/`cut`/`marked`/`selected`) are told apart by
+ink-tier brightness instead of hue; the three modes (`normal`/`select`/`unset`) by
+bold/underline/italic, since the status bar still needs to say which one is active
+at a glance without color to lean on.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
