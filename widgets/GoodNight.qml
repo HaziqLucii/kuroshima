@@ -10,11 +10,12 @@ import qs.theme
 // but this one's bundled with kuroshima itself, so it follows the same
 // house style as everywhere else here.
 //
-// Three fonts, all confirmed via fc-match before use rather than guessed:
-// Theme.fontFamily (JetBrainsMono Nerd Font) for the date/time meta text,
-// "Poppins" (Medium, wide letter-spacing) for the greeting line - a
-// monospace font's fixed advance width can't reproduce the reference's
-// letter-spaced caps look, and "Fraunces 144pt" (Black) for the day
+// Two fonts, both confirmed via fc-match before use rather than guessed:
+// "Poppins" for the greeting, date, and time - Theme.fontFamily (JetBrains
+// Mono Nerd Font) was the original choice for all three, but a monospace
+// font's fixed advance width can't reproduce the reference's letter-spaced
+// look on the greeting line, so the whole meta-text set moved to Poppins
+// for consistency. "Fraunces 144pt" (Black) stays on just the day
 // abbreviation - Haziq wanted something with more character there, not a
 // normal grotesk (tried Inter Display first, correctly called out as too
 // plain).
@@ -101,7 +102,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.dateLabel
                 color: Theme.inkMuted
-                font.family: Theme.fontFamily
+                font.family: "Poppins"
                 font.pixelSize: Math.max(8, root.height * 0.065)
                 font.letterSpacing: 1.5
             }
@@ -110,7 +111,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.timeLabel
                 color: Theme.inkFaint
-                font.family: Theme.fontFamily
+                font.family: "Poppins"
                 font.pixelSize: Math.max(9, root.height * 0.08)
                 font.letterSpacing: 1
             }

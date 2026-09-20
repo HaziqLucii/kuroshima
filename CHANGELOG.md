@@ -29,9 +29,19 @@ history and `docs/NOTES.md` for decision-level detail.
   Two-line greeting ("GOOD" / mood-word, always, so "GOOD AFTERNOON" isn't
   visibly wider than the other three), long thin `Theme.ink` hairline ticks
   with a real gap around them, tight spacing within the text block itself.
-  Greeting line uses "Poppins" (Medium, wide letter-spacing) instead of the
-  monospace meta font - needs `ttf-poppins` from the AUR, see the README's
-  Widgets section.
+  Greeting, date, and time lines use "Poppins" (greeting: Medium, wide
+  letter-spacing) instead of the monospace meta font - needs `ttf-poppins`
+  from the AUR, see the README's Widgets section.
+- Wallpaper carousel (`Mod+P`, `ui/WallpaperCarousel.qml`,
+  `services/Wallpaper.qml`) documented for the first time: it existed and
+  worked, but had no README section and no printed `install.sh` keybind
+  step. Both added, see the README's Wallpaper carousel section.
+
+### Fixed
+
+- Wallpaper carousel's background scrim was too light for its header/footer
+  text (WALLPAPER label, selection counter, keyboard hints) to read clearly
+  over a bright wallpaper - `opacity: 0.34` -> `0.62`.
 
 ## [0.3.0] - 2026-09-20
 

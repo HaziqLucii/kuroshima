@@ -171,7 +171,11 @@ Next, apply these by hand (not touched by this script):
    canvas's edit mode:
        Mod+Shift+W hotkey-overlay-title="Toggle Widget Edit Mode" { spawn-sh "qs -c kuroshima ipc call island toggleWidgetEdit"; }
 
-7. Restart niri (or just log out/in) to pick up the autostart line and
+7. niri keybind (~/.config/niri/cfg/keybinds.kdl), to open the wallpaper
+   carousel:
+       Mod+P hotkey-overlay-title="Wallpaper Carousel: kuroshima" { spawn-sh "qs -c kuroshima ipc call island wallpaperToggle"; }
+
+8. Restart niri (or just log out/in) to pick up the autostart line and
    the environment block above.
 
 To enable the island's own notification server (off by default so it

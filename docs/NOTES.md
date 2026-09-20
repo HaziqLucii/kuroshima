@@ -2016,6 +2016,25 @@ the real process (`pkill -f "qs -c kuroshima"` then `qs -c kuroshima &`)
 before the `8` value was visible - worth remembering before assuming a
 QML edit "didn't work."
 
+## Wallpaper carousel: darker scrim, catching up on missing docs
+
+Haziq's feedback on the `Mod+P` carousel: the header/footer text (WALLPAPER
+label, selection counter, keyboard hints) was hard to read over the dim
+scrim behind it. `ui/WallpaperCarousel.qml`'s background `Rectangle`
+(`color: "#000000"`) went `opacity: 0.34` -> `0.62`.
+
+Also caught while touching this: the wallpaper carousel (`Mod+P`,
+`ui/WallpaperCarousel.qml`, `services/Wallpaper.qml`) was fully built,
+committed, and even manually wired into the live `keybinds.kdl` on this
+machine, but was never added to `scripts/install.sh`'s printed niri-keybind
+steps or given a README section - the only bundled feature in this state.
+Fixed: `install.sh` step 7 now prints the `Mod+P` keybind (old step 7,
+"restart niri", renumbered to 8), README's Install section mirrors it, and
+a new "## Wallpaper carousel" section documents the directory it reads
+(`~/Pictures/Wallhaven`, hardcoded, no config key yet), live-preview vs.
+commit/revert (`services/Wallpaper.qml`), and the no-thumbnail-generation
+tradeoff.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
@@ -2023,3 +2042,14 @@ QML edit "didn't work."
   don't keep retrying against a wedged socket.
 - Quickshell config selection: `qs -p <dir>` runs `<dir>/shell.qml` directly, no need to
   symlink into `~/.config/quickshell/`.
+- `pkill -f "qs -c kuroshima"` from a scripting/tool shell can self-match: `-f` matches
+  the full command line of every process, including the invoking shell's own argv when
+  the search string is literally embedded in the command being run (e.g. `bash -c 'pkill
+  -f "qs -c kuroshima"; ...'` - that whole string is the shell's own cmdline too). Kills
+  the wrapper instead of the target, silently, with no output. Use `pgrep -x qs` (exact
+  binary name, not full args) to find the real PID, then `kill <pid>` by PID instead.
+- The real `qs -c kuroshima` process does not hot-reload on file edits the way
+  `scripts/dev.sh`'s `qs -n -p .` sandbox does - editing a bundled file and expecting
+  the live desktop shell to pick it up without a restart looks exactly like "the edit
+  did nothing." Always restart (`pgrep -x qs` -> `kill` -> relaunch) before judging
+  whether a live-shell-only change worked.

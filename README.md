@@ -78,7 +78,13 @@ you to apply by hand:
    Mod+Shift+W hotkey-overlay-title="Toggle Widget Edit Mode" { spawn-sh "qs -c kuroshima ipc call island toggleWidgetEdit"; }
    ```
 
-7. Restart niri (or log out/in) to pick up the autostart line and the environment
+7. **niri keybind** (`~/.config/niri/cfg/keybinds.kdl`), to open the wallpaper
+   carousel (see Wallpaper carousel below):
+   ```kdl
+   Mod+P hotkey-overlay-title="Wallpaper Carousel: kuroshima" { spawn-sh "qs -c kuroshima ipc call island wallpaperToggle"; }
+   ```
+
+8. Restart niri (or log out/in) to pick up the autostart line and the environment
    block above.
 
 ## Config
@@ -178,6 +184,19 @@ Two sources of widget types, both listed together in the picker:
   required). Rescanned every time edit mode opens, so a freshly-dropped file shows up
   without restarting the shell. Widget content is explicitly *not* held to this repo's
   bone-on-black rule - style it however you want.
+
+## Wallpaper carousel
+
+`Mod+P` opens a carousel (`ui/WallpaperCarousel.qml`) over every image in
+`~/Pictures/Wallhaven` (`services/Wallpaper.qml`, hardcoded - this repo doesn't
+have a config key for the directory yet). Arrow keys move the selection and
+live-preview it on the actual desktop background immediately, without writing
+anything to disk. `<Enter>` commits the current selection, persisting it to
+`~/.config/kuroshima/wallpaper-state.json` and closing the carousel; `<Esc>`
+reverts to whatever was last committed and closes without saving. Unlike
+Noctalia's own wallpaper picker, there's no thumbnail generation step - it
+reads full images directly out of the directory, so a very large library will
+be slower to page through than to look at.
 
 ## Dev loop
 

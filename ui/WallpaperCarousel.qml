@@ -116,7 +116,7 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: "#000000"
-        opacity: 0.34
+        opacity: 0.62
     }
 
     Item {
