@@ -66,7 +66,13 @@ you to apply by hand:
    launched from an interactive terminal in the meantime (not bundled - it's a couple
    of lines in your own `config.fish`, not something this repo should own).
 
-6. Restart niri (or log out/in) to pick up the autostart line and the environment
+6. **niri keybind** (`~/.config/niri/cfg/keybinds.kdl`), to toggle the widget canvas's
+   edit mode (see Widgets below):
+   ```kdl
+   Mod+Shift+W hotkey-overlay-title="Toggle Widget Edit Mode" { spawn-sh "qs -c kuroshima ipc call island toggleWidgetEdit"; }
+   ```
+
+7. Restart niri (or log out/in) to pick up the autostart line and the environment
    block above.
 
 ## Config
@@ -138,6 +144,24 @@ most file managers already have.
 `fish/functions/y.fish` (linked to `~/.config/fish/functions/y.fish`) adds a `y`
 shell function: exiting yazi normally doesn't change your shell's directory, `y`
 does, via yazi's own documented `--cwd-file` pattern.
+
+## Widgets
+
+`Mod+Shift+W` toggles edit mode on a desktop-background surface (`ui/WidgetCanvas.qml`,
+sitting one wlr-layer above the wallpaper, still below real windows): a dim tint, an
+"+ ADD WIDGET" picker (bottom-right) listing every available widget type, and per-widget
+drag-to-move plus a delete badge on whatever's already placed. Positions persist to
+`~/.config/kuroshima/widgets.json` (`services/Widgets.qml`) as soon as you add, move, or
+remove something - no save step.
+
+Two sources of widget types, both listed together in the picker:
+- **Bundled**: `widgets/*.qml` in this repo. Just `widgets/Clock.qml` for now, a
+  minimal placeholder proving the mechanics - not the point of this feature.
+- **Custom**: drop your own `.qml` file into `~/.config/kuroshima/widgets/`, following
+  the widget contract in `CLAUDE.md` (`implicitWidth`/`implicitHeight`, nothing else
+  required). Rescanned every time edit mode opens, so a freshly-dropped file shows up
+  without restarting the shell. Widget content is explicitly *not* held to this repo's
+  bone-on-black rule - style it however you want.
 
 ## Dev loop
 

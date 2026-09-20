@@ -26,6 +26,22 @@ doesn't self-size the way a Control does).
 This is the seam design work happens against later: a new page only has to honour this
 contract, nothing in `ui/` or `core/` should need to change for it.
 
+## Widget contract (`widgets/*.qml`)
+
+Every file in `widgets/*.qml` (bundled) or `~/.config/kuroshima/widgets/*.qml` (user
+custom, dropped in without touching this repo) is a plain `Item`. Required:
+`implicitWidth`, `implicitHeight`, and it sets its own `width`/`height` to match (same
+reason as the page contract - a plain `Item` doesn't self-size). No `payload`: a widget
+reads live services directly (`SystemClock`, `Media`, etc.), same as pages already do.
+Must tolerate being placed more than once (no widget-root singleton state) - a user can
+add the same type twice.
+
+Unlike pages, widget *content* is explicitly not held to this repo's bone-on-black/
+no-accent-hue rule - it's user content, placed via the edit mode `Mod+Shift+W` toggles
+(`services/Widgets.qml`, `ui/WidgetCanvas.qml`, `ui/WidgetFrame.qml`), styled however
+its author wants. Only the edit-mode chrome itself (drag handles, the add-widget picker)
+follows house style.
+
 ## Working style for this repo
 
 - One slice per session (see the plan's slice list). Build on Sonnet, then run the

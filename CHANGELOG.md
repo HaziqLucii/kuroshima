@@ -9,6 +9,18 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ## [Unreleased]
 
+### Added
+
+- Desktop widget canvas: `Mod+Shift+W` toggles an edit mode (drag to move, a
+  delete badge, an "+ ADD WIDGET" picker) on a new background-layer surface
+  (`ui/WidgetCanvas.qml`, `ui/WidgetFrame.qml`, `services/Widgets.qml`).
+  Widgets are plain `.qml` files - bundled ones in `widgets/` (just
+  `widgets/Clock.qml` for now, a placeholder) or user-dropped ones in
+  `~/.config/kuroshima/widgets/`, no repo changes needed for the latter.
+  Positions persist to `~/.config/kuroshima/widgets.json`. New widget
+  contract documented in `CLAUDE.md`. Widget content is explicitly not held
+  to this repo's bone-on-black rule - see `docs/NOTES.md`.
+
 ## [0.3.0] - 2026-09-20
 
 ### Added

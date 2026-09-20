@@ -1774,6 +1774,71 @@ the image approach entirely:
    fixed by putting the whole line in `key` with no `format`, matching how the
    box's own border-line modules already did it.
 
+## Desktop widget canvas: edit mode, `services/Widgets.qml`
+
+Haziq wants desktop widgets, inspired by a ryoku.dev showcase and Noctalia's own
+widget-edit-mode, but explicitly scoped this pass to the *framework*, not any
+specific widget: an edit mode to add/move/remove widgets, open enough that he
+(or anyone) can drop in custom QML without touching this repo. Explicit: widget
+*content* is not held to this repo's bone-on-black rule - "up to user of their
+own creativity." The "good night" greeting widget itself is a deliberate
+follow-up once this landed, not part of this pass.
+
+New: `services/Widgets.qml` (editMode + placed[] + FileView persistence, same
+shape as `services/Wallpaper.qml`), `ui/WidgetCanvas.qml` (the background
+surface), `ui/WidgetFrame.qml` (per-instance edit-mode chrome: border, drag,
+delete badge), `widgets/Clock.qml` (one bundled placeholder, proves the
+mechanics, not the point). `Mod+Shift+W` toggles edit mode via a new
+`toggleWidgetEdit` function on `shell.qml`'s existing `island` IpcHandler,
+same pattern as `wallpaperToggle`.
+
+Three real bugs found and fixed while building this, all confirmed via direct
+log evidence rather than guessing from screenshots (see below for why):
+
+1. **`Widgets` singleton wasn't resolvable at all** (`ReferenceError: Widgets is
+   not defined`) despite `pragma Singleton` and `import qs.services` - missed
+   that `services/qmldir` explicitly lists every singleton by name
+   (`singleton Wallpaper 1.0 Wallpaper.qml`, etc.); a new singleton needs an
+   entry there too, plain `import` alone isn't enough for Quickshell's
+   directory-as-module convention. Non-singleton types (`ui/WidgetCanvas.qml`,
+   `widgets/Clock.qml`) don't need this - confirmed no `ui/qmldir` exists
+   either.
+2. **`WidgetCanvas` never rendered above the wallpaper**, even though it's
+   instantiated after `WallpaperBackground` in `shell.qml` - same-layer
+   (`WlrLayer.Background`) stacking order is NOT guaranteed by creation order,
+   confirmed live (widget data was correct, Loader status was Ready, nothing
+   ever appeared on screen). Fixed by moving it up one real wlr-layer-shell
+   layer (`WlrLayer.Bottom`) instead of relying on ordering within the same
+   layer - Bottom is still below Top/Overlay, where real windows effectively
+   sit, so normal windows still win over widgets exactly as before.
+3. **`required property` on `WidgetFrame` intermittently stuck at empty
+   string** when set via a Repeater delegate's model-row bindings
+   (`widgetType: modelData.type`), causing `Widgets.urlFor("", false)` to
+   resolve to a nonexistent `widgets/.qml` and the Loader to fail silently.
+   `modelData` itself was always correct (confirmed via
+   `console.log(JSON.stringify(modelData))` directly in the delegate) - the
+   break was specifically between the model row and the `required` property
+   receiving it. Switched to plain `property string widgetType: ""` (not
+   required) and it started working reliably; never fully root-caused why
+   `required` specifically behaved this way with an external-file delegate
+   type, but the practical fix is confirmed solid across multiple hot-reloads.
+
+**On verification for this one being lighter than usual**: the real desktop was
+extremely active this session (browser tabs, Spotify, other real windows
+constantly opening/moving), and repeated attempts to visually confirm the
+widget canvas via screenshots kept landing on unrelated real personal content
+by coincidence of window layout - handled per this project's own established
+rule (never analyze or keep screenshots of content that isn't what was being
+tested), but it meant abandoning the visual-click-through verification
+(add/drag/delete via actual mouse input) that every other feature this session
+got. What IS verified: qmllint clean, headless `qs -n -p .` launches with zero
+warnings, `console.log`-confirmed correct data flow end-to-end (JSON ->
+`Widgets.placed` -> `modelData` -> `WidgetFrame.widgetType` -> `Loader` ->
+`Loader.status` never `Error`), and the IPC toggle (`toggleWidgetEdit`)
+round-trips cleanly on the real live process. Haziq should confirm the actual
+visual/drag/drop experience himself via `Mod+Shift+W` - he has full context of
+his own screen and won't hit the same "which window is this" confusion.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

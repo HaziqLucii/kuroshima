@@ -15,6 +15,11 @@ ShellRoot {
     // or not the picker below is currently open.
     WallpaperBackground {}
 
+    // Sits above the wallpaper (instantiated after it), below real windows
+    // (same WlrLayer.Background). Toggled via IPC (see toggleWidgetEdit
+    // below) or the niri keybind that calls it.
+    WidgetCanvas {}
+
     // Hidden until toggled via IPC (see wallpaperToggle below) or the
     // niri keybind that calls it.
     WallpaperCarousel { id: wallpaperCarousel }
@@ -55,6 +60,10 @@ ShellRoot {
         // separate from the capsule's small-panel PageHost model.
         function wallpaperToggle(): void {
             wallpaperCarousel.toggle()
+        }
+
+        function toggleWidgetEdit(): void {
+            Widgets.editMode = !Widgets.editMode
         }
     }
 

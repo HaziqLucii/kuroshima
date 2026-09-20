@@ -167,7 +167,11 @@ Next, apply these by hand (not touched by this script):
    on a live config reload) - `set -gx EDITOR nvim` in your shell config
    covers anything launched from an interactive terminal in the meantime.
 
-6. Restart niri (or just log out/in) to pick up the autostart line and
+6. niri keybind (~/.config/niri/cfg/keybinds.kdl), to toggle the widget
+   canvas's edit mode:
+       Mod+Shift+W hotkey-overlay-title="Toggle Widget Edit Mode" { spawn-sh "qs -c kuroshima ipc call island toggleWidgetEdit"; }
+
+7. Restart niri (or just log out/in) to pick up the autostart line and
    the environment block above.
 
 To enable the island's own notification server (off by default so it
