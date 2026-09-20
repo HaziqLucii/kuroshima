@@ -72,7 +72,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.greeting
                 horizontalAlignment: Text.AlignHCenter
-                color: Theme.inkMuted
+                color: Theme.ink
                 font.family: "Poppins"
                 font.weight: Font.Medium
                 font.pixelSize: Math.max(8, root.height * 0.07)
@@ -101,7 +101,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.dateLabel
-                color: Theme.inkMuted
+                color: Theme.ink
                 font.family: "Poppins"
                 font.pixelSize: Math.max(8, root.height * 0.065)
                 font.letterSpacing: 1.5
@@ -110,7 +110,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: root.timeLabel
-                color: Theme.inkFaint
+                color: Theme.ink
                 font.family: "Poppins"
                 font.pixelSize: Math.max(9, root.height * 0.08)
                 font.letterSpacing: 1
