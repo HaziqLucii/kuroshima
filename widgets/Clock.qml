@@ -8,14 +8,13 @@ import qs.theme
 Item {
     id: root
 
-    // implicitWidth/Height only - no width/height binding. The host frame
-    // (ui/WidgetFrame.qml) fills this item to whatever size it's actually
-    // given (natural or user-resized); binding width/height here would
-    // fight that. anchors.centerIn on the label below is what makes this
-    // widget adapt reasonably to a resize instead of just sitting in a
-    // corner of a bigger box.
-    implicitWidth: label.implicitWidth + 24
-    implicitHeight: label.implicitHeight + 16
+    // Fixed natural size, deliberately NOT derived from the label below -
+    // see the font.pixelSize binding's own comment for why that matters.
+    // The host frame (ui/WidgetFrame.qml) fills this item to whatever size
+    // it's actually given (this natural size, or a user-resized one);
+    // binding width/height here would fight that.
+    implicitWidth: 160
+    implicitHeight: 40
 
     SystemClock {
         id: clock
@@ -27,7 +26,13 @@ Item {
         anchors.centerIn: parent
         color: Theme.ink
         font.family: Theme.fontFamily
-        font.pixelSize: 14
+        // Scales with the box so a resize is actually visible, not just a
+        // bigger frame around a still-tiny clock. Deliberately derived from
+        // root.width/height, NEVER the other way around (implicitWidth/
+        // Height above do not reference this label) - font size affecting
+        // its own implicit size would feed back into root's size and back
+        // into this binding again, an infinite binding loop.
+        font.pixelSize: Math.max(10, Math.min(root.height * 0.4, root.width * 0.12))
         font.letterSpacing: 1
         text: Qt.formatDateTime(clock.date, "hh:mm:ss")
     }
