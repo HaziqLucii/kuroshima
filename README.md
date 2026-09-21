@@ -14,6 +14,8 @@ Compositor support: niri only, for now.
 |---|---|
 | ![Compact idle pill](docs/screenshots/island-compact.png) | ![Expanded dashboard](docs/screenshots/island-expanded.png) |
 
+![Island Faces: media player](docs/screenshots/island-media-player.png)
+
 | Notification peek | Settings island screen |
 |---|---|
 | ![Notification peek](docs/screenshots/island-notification.png) | ![Settings island screen](docs/screenshots/island-settings.png) |
