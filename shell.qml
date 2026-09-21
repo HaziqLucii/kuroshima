@@ -140,4 +140,23 @@ ShellRoot {
             Brightness.setBrightness(Math.max(0, Math.round(Brightness.value * 100) - step))
         }
     }
+
+    // Read-only bridge for niri-lockscreen's "WHILE AWAY" notifications
+    // panel (sibling project, separate `qs -c` shell). This process is the
+    // real owner of org.freedesktop.Notifications on this machine
+    // (Config.notificationServer is true here) - niri-lockscreen can't run
+    // its own NotificationServer instance to get the same data, it would
+    // silently never receive anything, so it polls this instead
+    // (`qs -c kuroshima ipc call notifications history`, spawned as a
+    // Process on its side). Just a JSON-stringified slice of the same
+    // history array services/Notifs.qml already keeps for the dashboard's
+    // own INBOX section - no new state, no change to the real notification
+    // lifecycle.
+    IpcHandler {
+        target: "notifications"
+
+        function history(): string {
+            return JSON.stringify(Notifs.history.slice(0, 5))
+        }
+    }
 }

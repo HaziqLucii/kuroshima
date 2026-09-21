@@ -2592,6 +2592,71 @@ becomes true, before this project's own 40px on top of that even starts
 counting) - worth knowing before deciding it feels too stiff or too
 trigger-happy.
 
+## Correction: the lockscreen idea below was already shipped elsewhere
+
+The entry directly below this one was written earlier the same session, on
+the wrong assumption that no session-lock work existed anywhere in this
+project family yet - a reasonable belief at the time (this repo's own
+`shell.qml`/`pages/`/`services/` were the only things checked), but wrong.
+`~/Projects/niri-lockscreen` already existed, already shipped through Slice
+5 (real `WlSessionLock`, real PAM auth via `PamContext`, idle- and
+suspend-triggered locking, a proven crash self-heal ritual), and was already
+installed and running on the real host session. Both "open questions" listed
+below were already answered in that shipped code before this note was ever
+written. `refuter` caught this contradiction directly: the notifications IPC
+bridge added to this file's own `shell.qml` in this same session exists
+specifically to feed niri-lockscreen's "WHILE AWAY" panel - one file
+describing that project as a live consumer, the other describing it as an
+unstarted idea, in the same diff.
+
+What actually happened once this was discovered: the mockup below became the
+target for a real visual redesign of niri-lockscreen itself (its own
+`docs/HANDOFF.md` has the full build), not new work in this repo. Kept below
+for the mockup's own design reference value (colors, states, motion timings
+are all still accurate to what was built), not as a live TODO.
+
+## (historical, corrected above) Idea for a future slice: real session lockscreen
+
+The maintainer, 2026-09-20: brought a full interactive mockup built in Claude
+Design (`~/Downloads/Linux Lockscreen/Lockscreen.dc.html`, plus reference
+images under its `uploads/`) as the target design for a real lockscreen.
+
+What the mockup specifies (reference only - see niri-lockscreen's own
+`docs/HANDOFF.md` for what actually got built):
+- **Surface**: true `#000000`, deliberately darker than the rest of the
+  shell's near-black. Clock centered (108px/500/-0.035em), a square (not
+  capsule) 380x44 "AUTH" field below it - explicitly "the island owns round;
+  the lock plate is a terminal field." Session/battery chrome top corners,
+  CAPS/layout/attempts bottom-left, power actions (lock out / sleep / power)
+  bottom-right. MPRIS now-playing panel left (read-only transport, no
+  volume), notifications panel right - titles show, bodies dithered-hidden
+  by default behind a REVEAL CONTENT toggle.
+- **States**: RESTING -> TYPING -> CHECKING -> DENIED or GRANTED -> IDLE/OFF
+  after 45s idle (everything but clock+battery fades to `#3a3a3a`). No
+  spinner anywhere - CHECKING is a single 2px dither bar creeping along the
+  field's bottom edge in 9 steps. DENIED: border+label to `#d75f5f`, 380ms
+  shake, field clears; 5 failures freezes input 30s, counter always visible.
+  GRANTED: 180ms hold, then the plate dither-dissolves and the island drops
+  in from above (520ms spring) as the handoff.
+- **Signature texture**: one 8x8px dithered square per typed password
+  character instead of bullet dots - matches the halftone/dither accent this
+  project already leans on elsewhere (see the wallpaper carousel, and
+  `ryoku.dev` as the house reference).
+- **Named data sources**: PAM via a helper process for auth, Mpris
+  (read-only), `NotificationServer` (buffered), `wl_keyboard` modifiers for
+  caps/layout, logind + UPower for power actions.
+- **Stated rules worth keeping literally**: "the island never draws on the
+  lock surface, this is its own surface, same vocabulary" - and "one plate,
+  one clock, one user, no user switcher, no session list."
+
+Both "open questions" originally listed here were already resolved in
+niri-lockscreen's own shipped code before this note was written: Quickshell
+does expose `ext-session-lock-v1` (`Quickshell.Wayland.WlSessionLock`,
+confirmed present in the installed QML modules), and PAM auth works directly
+from QML via `Quickshell.Services.Pam.PamContext` - no privileged helper
+binary needed, contrary to what this note originally guessed. See the
+correction above.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)

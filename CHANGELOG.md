@@ -11,6 +11,13 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- Read-only IPC bridge for the sibling `niri-lockscreen` project's "WHILE
+  AWAY" notifications panel: `qs ipc call notifications history` returns the
+  same capped `services/Notifs.qml` history the dashboard's INBOX already
+  shows, as a JSON string. No new state, no change to the real notification
+  lifecycle - kuroshima owns `org.freedesktop.Notifications` on this
+  machine, so a sibling shell can't run its own `NotificationServer` to get
+  the same data.
 - Island Faces: the compact pill swipes between several faces of content
   instead of one fixed layout (`faces/ClockEq.qml`, `faces/ClockDate.qml`,
   `faces/MediaFace.qml`). Reuses `ui/PageHost.qml` (a second, independent
