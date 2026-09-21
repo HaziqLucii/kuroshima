@@ -11,6 +11,13 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- The "media" Island Face is a real player now, not just title/artist text:
+  real album art, progress bar, prev/pause/next transport, and an equalizer
+  at the trailing edge (reusing the existing `ui/EqualizerBars.qml`, not new
+  dithering code). The compact pill's own height now tracks whichever face
+  is active instead of a fixed size, so this face grows/shrinks it smoothly.
+  `pages/MediaPeek.qml` (the transient track-change popup) got the same
+  real-art-plus-equalizer treatment.
 - Read-only IPC bridge for the sibling `niri-lockscreen` project's "WHILE
   AWAY" notifications panel: `qs ipc call notifications history` returns the
   same capped `services/Notifs.qml` history the dashboard's INBOX already

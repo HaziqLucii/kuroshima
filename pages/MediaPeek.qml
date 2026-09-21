@@ -1,5 +1,7 @@
 import QtQuick
+import Quickshell.Widgets
 import qs.theme
+import qs.ui
 
 // payload: { title, artist, artUrl, isPlaying } (see app/Bridges.qml)
 Item {
@@ -16,24 +18,40 @@ Item {
 
     readonly property string title: payload ? payload.title : ""
     readonly property string artist: payload ? payload.artist : ""
+    readonly property string artUrl: payload ? payload.artUrl : ""
+    readonly property bool isPlaying: payload ? payload.isPlaying : false
 
-    implicitWidth: textColumn.implicitWidth + 20 + 32
+    implicitWidth: contentRow.implicitWidth + 32
     implicitHeight: Theme.peekH
     width: implicitWidth
     height: implicitHeight
 
     Row {
+        id: contentRow
         anchors.centerIn: parent
         spacing: 10
 
-        // No real album art for this slice: a plain placeholder swatch.
-        // payload.artUrl loading is the maintainer's design-phase work.
-        Rectangle {
+        // Real album art - was always a flat placeholder swatch
+        // regardless of whether real art existed (payload.artUrl was
+        // already being passed in from app/Bridges.qml, just never
+        // actually used here - the maintainer caught it: "the thumbnail
+        // isnt shown, it is just grey squircle"). Same squircle treatment
+        // pages/MediaExpanded.qml and faces/MediaFace.qml already use for
+        // the same Media.artUrl source.
+        ClippingRectangle {
             width: 20
             height: 20
             radius: 4
             color: Theme.hairline
             anchors.verticalCenter: parent.verticalCenter
+
+            Image {
+                anchors.fill: parent
+                source: root.artUrl
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                visible: root.artUrl !== ""
+            }
         }
 
         Column {
@@ -57,6 +75,14 @@ Item {
                 elide: Text.ElideRight
                 width: Math.min(implicitWidth, 220)
             }
+        }
+
+        // At the trailing edge, matching faces/MediaFace.qml's own
+        // layout - reusing the existing dithered EQ glyph, not new code.
+        EqualizerBars {
+            anchors.verticalCenter: parent.verticalCenter
+            active: root.isPlaying
+            barHeight: 12
         }
     }
 

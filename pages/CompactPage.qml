@@ -24,7 +24,23 @@ Item {
     readonly property real cornerRadius: 15
 
     implicitWidth: content.implicitWidth + 28
-    implicitHeight: Theme.compactH
+    // Was a fixed Theme.compactH - every face stayed pill-sized regardless
+    // of content. Now tracks content's own implicitHeight (a Row, so this
+    // is just the tallest child's height), which itself tracks whichever
+    // face facesHost currently hosts (ui/PageHost.qml's own targetHeight
+    // binding already does this reactively - nothing new needed there).
+    // The richer "media" face (faces/MediaFace.qml) is the first face
+    // that's ever taller than compactH. refuter corrected this comment:
+    // it's not a discrete page-swap morph that "picks up" the change -
+    // ui/Capsule.qml's own animatedWidth/animatedHeight are continuously
+    // bound to host.targetWidth/targetHeight behind a Behavior, so ANY
+    // change here (a face swipe, or Media.available flipping mid-face)
+    // animates automatically, already proven for MediaExpanded<->
+    // SettingsExpanded. That continuity is also what makes a live
+    // Media.available flip (nothing playing -> a track starts, without
+    // ever swiping faces) resize smoothly instead of leaving a stale
+    // capsule size behind.
+    implicitHeight: content.implicitHeight
     // Plain Item doesn't self-size from implicitWidth/Height the way a
     // Control does; the page contract relies on width/height tracking it
     // so a host can anchor/center against this item directly.
@@ -135,11 +151,19 @@ Item {
     // target: null, same idiom as ui/ScrubBar.qml's own DragHandler - reports
     // pointer position without trying to move anything. Paired with the
     // TapHandler above as siblings (not parent/child), no exclusive-grab
-    // gesturePolicy needed: Qt's own drag-threshold disambiguation already
-    // lets a still tap fall through to it untouched, same as ScrubBar's own
-    // tap-or-drag pairing. Direction-only, no live-follow drag preview for
-    // v1 - purely a swipe-direction detector, same role
-    // WallpaperCarousel.qml's Left/Right keys play, just via touch/mouse.
+    // gesturePolicy needed BETWEEN THESE TWO SPECIFICALLY: Qt's own
+    // drag-threshold disambiguation already lets a still tap fall through
+    // to it untouched, same as ScrubBar's own tap-or-drag pairing. This
+    // does NOT generalize to descendant tap targets, though - refuter
+    // caught faces/MediaFace.qml's transport buttons (nested inside
+    // facesHost, below this TapHandler) needing their own
+    // ReleaseWithinBounds grab, since a plain passive-grab TapHandler
+    // does not stop THIS ancestor handler from also firing for the same
+    // tap (the exact trap pages/NotificationPeek.qml's own action
+    // buttons already document, for the same reason). Direction-only, no
+    // live-follow drag preview for v1 - purely a swipe-direction detector,
+    // same role WallpaperCarousel.qml's Left/Right keys play, just via
+    // touch/mouse.
     DragHandler {
         id: swipeHandler
         target: null

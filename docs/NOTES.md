@@ -2657,6 +2657,94 @@ from QML via `Quickshell.Services.Pam.PamContext` - no privileged helper
 binary needed, contrary to what this note originally guessed. See the
 correction above.
 
+## Media Island Face: from title/artist text to a real player, plus a real MediaPeek upgrade
+
+The maintainer, live-iterating against the real hot-reloading `qs -c kuroshima`
+process (see niri-lockscreen's own docs/HANDOFF.md for the same discovery in that
+sibling repo - this project's `-c` install turns out to hot-reload too, at least
+for ordinary QML changes, not just new top-level IpcHandler registrations):
+brought a reference screenshot of a media-player notch layout and asked for
+`faces/MediaFace.qml` (one of the three swappable Island Faces) to grow from
+plain title/artist text into something that actually looks like a player -
+thumbnail left, title/artist/progress/transport on the right, an equalizer at
+the trailing edge.
+
+**Reuse, not new risk**: real album art (`Media.artUrl`) via the exact
+`ClippingRectangle` + `Image` squircle pattern `pages/MediaExpanded.qml`
+already uses, and `ui/EqualizerBars.qml` - this project's own already-shipped
+Canvas-based ordered-dither EQ glyph - reused as-is for the equalizer, not a
+new dithering attempt (the sibling niri-lockscreen project hit a real
+unresolved ShaderEffect bug the same day trying exactly that; this component
+uses a completely different, already-proven technique - a plain 2D Canvas
+`fillRect` loop against a Bayer matrix, not a GLSL shader - and was never at
+risk of that bug).
+
+**`pages/CompactPage.qml`'s own `implicitHeight`** changed from a hardcoded
+`Theme.compactH` to `content.implicitHeight`, tracking whichever face is
+active via `ui/PageHost.qml`'s already-existing `targetHeight` binding - no
+new plumbing needed there. `ui/Capsule.qml`'s own `animatedWidth`/
+`animatedHeight` are continuously `Behavior`-bound to the host's target size
+(refuter corrected an early comment here that called this a "page-swap
+morph" - it's not discrete, it's continuous, which is also what makes a
+live `Media.available` flip mid-face resize smoothly instead of leaving a
+stale capsule size behind), so a taller face grows/shrinks the whole pill
+for free, already proven for MediaExpanded<->SettingsExpanded.
+
+**Iterated live against real feedback**, not a one-shot build - three real
+rounds:
+1. Initial build: content read as too small, and "nothing playing" had
+   shrunk shorter than the original pill (root's height stopped being a
+   fixed `Theme.compactH` once it became content-derived). Fixed: bigger
+   art/fonts/spacing throughout the playing state, and the idle fallback
+   pinned back to exactly `Theme.compactH` via an explicit height, not just
+   the text's own implicit size.
+2. "the top is near the edge" - the playing state's content sat flush
+   against the pill's rounded top/bottom edges once it grew taller. Fixed:
+   `Media.available ? content.height + 24 : content.height`, split evenly
+   top/bottom by the existing `anchors.centerIn` - the idle state
+   deliberately gets none of this padding, staying exactly compactH.
+3. **refuter MUST-FIX, a real bug**: tapping the new prev/pause/next
+   buttons also fired `pages/CompactPage.qml`'s own root
+   `TapHandler` (anywhere-on-the-pill -> `requestExpand("MediaExpanded")`),
+   since a plain default-policy `TapHandler` only takes a PASSIVE grab,
+   which doesn't stop an ancestor handler from also firing for the same
+   tap - so pressing pause also expanded the whole dashboard. This exact
+   trap is already documented in `pages/NotificationPeek.qml`'s own action
+   buttons, for the identical reason; missed here because this page's root
+   tap handler lives one file away (`CompactPage.qml`), not obviously in
+   view while writing the face. Fixed: `gesturePolicy:
+   TapHandler.ReleaseWithinBounds` on all three transport TapHandlers,
+   verified against the exact fix in a dedicated QtTest harness before
+   landing it. Also wrapped each glyph in a proper 22-24px hit-target
+   `Item` (refuter measured the bare `Text` glyphs alone at ~10x20px,
+   fiddly to tap, against `MediaExpanded.qml`'s own 24x24/26x26 precedent
+   for the same three buttons).
+
+**Also upgraded in the same pass**: `pages/MediaPeek.qml` (the transient
+popup that fires on `Media.trackChanged()`, separate from the Island Face)
+had the identical "no real art" gap - `payload.artUrl` was already being
+passed in from `app/Bridges.qml`, just never actually rendered, so it
+always showed a flat gray placeholder swatch regardless of whether real art
+existed. Fixed the same way, plus added the same trailing-edge
+`EqualizerBars`. The maintainer's original idea was actually to swap this
+peek for the full `MediaExpanded` dashboard on every track change - talked
+through the tradeoff first (a full 700x650 dashboard auto-popping on every
+track change, several times a session, breaks the whole "peek" contract of
+being brief and non-blocking, and fights the same `Island.isExpanded` guard
+`app/Bridges.qml` already has for the volume/brightness OSDs) - the
+maintainer agreed and went with the smaller, lower-risk upgrade instead.
+
+**Known, deliberately not fixed this pass**: `ui/IslandWindow.qml`'s
+`exclusiveZone` still reserves a fixed `Theme.compactH` height regardless of
+which face is showing - refuter flagged that the media face now makes the
+pill ~113px tall while idle-parked on it (Island Faces persist via
+`PersistentProperties`, so this isn't transient), meaning windows below can
+sit up to ~73px under the pill's real bounds. Visual only (`mask: Region {
+item: capsule }` already makes the pill click-through, confirmed clicks
+still reach what's underneath) - not fixed here since it'd mean making the
+window's own reserved-space calculation dynamic, a bigger, separate change
+from this face's own content.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
