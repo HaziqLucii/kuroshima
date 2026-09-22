@@ -26,6 +26,22 @@ QtObject {
         _persist()
     }
 
+    // Drag-to-reorder in ui/AppLauncher.qml's FAVORITES row - a plain
+    // pairwise swap, not a general move-to-index, since dropping one card
+    // onto another is the only gesture the UI actually offers. Any
+    // permutation of up to 4 items is still reachable via a few swaps.
+    function swap(idA, idB) {
+        const a = root.ids.indexOf(idA)
+        const b = root.ids.indexOf(idB)
+        if (a === -1 || b === -1 || a === b) return
+        let next = root.ids.slice()
+        const tmp = next[a]
+        next[a] = next[b]
+        next[b] = tmp
+        root.ids = next
+        _persist()
+    }
+
     function _persist() {
         root._file.setText(JSON.stringify({ ids: root.ids }))
     }

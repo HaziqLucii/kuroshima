@@ -245,18 +245,30 @@ Item {
             }
 
             Row {
+                id: favRow
                 spacing: 8
 
+                // Favorites.ids order (add order), not Apps.list order -
+                // and guards against a favorited id whose .desktop file no
+                // longer exists in the current scan (the app was
+                // uninstalled since it was starred). Named here, not
+                // inlined into the Repeater's own model:, so each card's
+                // reorder-drag (ui/AppCard.qml) can compute its target
+                // slot against the ACTUAL rendered order - refuter caught
+                // that using Favorites.ids directly there desyncs the
+                // moment any favorite gets filtered out (rendered slot i
+                // stops being Favorites.ids[i]), swapping the wrong pair
+                // or silently doing nothing.
+                readonly property var apps: Favorites.ids.map(id => Apps.list.find(a => a.id === id)).filter(a => a !== undefined)
+
                 Repeater {
-                    // Favorites.ids order (add order), not Apps.list order
-                    // - and guards against a favorited id whose .desktop
-                    // file no longer exists in the current scan (the app
-                    // was uninstalled since it was starred).
-                    model: Favorites.ids.map(id => Apps.list.find(a => a.id === id)).filter(a => a !== undefined)
+                    model: favRow.apps
                     delegate: AppCard {
                         required property var modelData
                         app: modelData
                         tapToLaunch: true
+                        reorderable: true
+                        slotIds: favRow.apps.map(a => a.id)
                         onLaunch: root._launch(modelData)
                     }
                 }
