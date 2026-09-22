@@ -2745,6 +2745,164 @@ still reach what's underneath) - not fixed here since it'd mean making the
 window's own reserved-space calculation dynamic, a bigger, separate change
 from this face's own content.
 
+## App launcher: replacing fuzzel entirely
+
+Haziq wanted `Mod+Space` to stop spawning fuzzel (a visually disconnected
+centered popup) and open something that reads as part of the island itself
+instead - search bar on top, apps below in a horizontally-scrollable row,
+`//KUROSHIMA` corner mark. Explicitly not an Island Face (those live inside
+the idle compact pill and are reached by swiping).
+
+**Real architecture, corrected**: this went through two shapes in the same
+build. First built as its own separate overlay window - a direct port of
+`ui/WallpaperCarousel.qml`'s shape (own `PanelWindow`, `WlrLayer.Overlay`,
+`WlrKeyboardFocus.Exclusive` only while mapped, `toggle()`/`_open()`/
+`_cancel()`). That version worked, but was purely static - no morph
+animation opening or closing. Haziq caught it live ("no morph animation at
+all. very static... that thing should be apart of the island... so
+basically it is inside the island") and asked for it to become a real page
+instead. **What actually shipped**: `ui/AppLauncher.qml` is a plain `Item`
+page in `ui/Capsule.qml`'s own `pageMap`, reached via
+`Island.toggle("AppLauncher")` (`shell.qml`'s new `launcherToggle()`
+IpcHandler function, which niri's `Mod+Space` keybind calls instead of
+spawning fuzzel) - the same mechanism `MediaExpanded`/`SettingsExpanded`
+already use, so it gets `ui/Capsule.qml`'s existing continuous
+`animatedWidth`/`animatedHeight`/`animatedRadius` `Behavior` for free, no
+new animation code. There is no `PanelWindow`, no `WlrLayer.Overlay`, and no
+`toggle()`/`_open()`/`_cancel()` on this file anymore - an earlier version
+of this note described the abandoned window version as if it had shipped;
+that was wrong, refuter caught it, this is the correction.
+
+The one genuinely new risk this created: `ui/IslandWindow.qml` is the
+single, PERMANENTLY-mapped surface hosting the whole capsule - unlike the
+carousel's own window (which only exists, and only needs keyboard focus,
+while visible), this file's `WlrLayershell.keyboardFocus` had been
+hardcoded `WlrKeyboardFocus.None` since the very first slice, and is now
+reactive: `Island.page === "AppLauncher" ? WlrKeyboardFocus.Exclusive :
+WlrKeyboardFocus.None`. This is a keyboard-interactivity change happening
+WHILE the surface stays mapped, not at open/close - this file's own
+existing comments already document a real historical niri hang from a
+different surface-property change, which is why this got extra scrutiny.
+`ui/Capsule.qml`'s existing hover-based auto-collapse
+(`shouldAutoCollapse`) also gained a `&& Island.page !== "AppLauncher"`
+exemption - every other expanded page is pointer-driven (fine to close once
+the cursor leaves), but the launcher is keyboard-driven, typing a query
+doesn't keep the cursor over the capsule.
+
+**First real text-search + keyboard-nav + app-launching surface in this
+codebase.** No Quickshell module does desktop-entry discovery
+(`Bluetooth`/`DBusMenu`/`Hyprland`/`I3`/`Io`/`Networking`/`Services`/
+`Wayland`/`Widgets`/`_Window`/`WindowManager`/`X11` - nothing named Apps or
+Desktop), so `scripts/list-apps.py` (bundled Python, not hand-rolled QML/JS
+parsing of a not-quite-INI format) does the real work: scans
+`$XDG_DATA_HOME/applications` then each `$XDG_DATA_DIRS` entry's own
+`applications/` dir, in priority order, dedupes by desktop-file ID (user
+entries win over system, first-seen wins across dirs, matching the XDG spec's
+own precedence rule), skips `NoDisplay=true`/`Hidden=true`, reads only bare
+`Name=`/`Icon=`/`Exec=`/`Terminal=` keys (never localized `Name[xx]=`
+variants), prints one JSON array. 245 raw `.desktop` files on this machine,
+97 real launchable entries after filtering. Run fresh on every launcher open
+(`services/Apps.qml`'s `refresh()`), not cached or polled - fast enough that
+"always current after installing something new" wins over caching against a
+stale list.
+
+`Quickshell.iconPath(entry.icon, true)` (existing precedent,
+`pages/NotificationPeek.qml`) resolves real icon theme entries; a hairline
+placeholder square (matching `pages/MediaExpanded.qml`'s own art-fallback
+convention) shows when one doesn't resolve. `Quickshell.execDetached()`
+(existing precedent, `pages/MediaExpanded.qml`'s lock/sleep/power/
+workspace-switch buttons) does the actual launch -
+`Terminal=true` entries get wrapped in `["kitty", "-e", ...]` (this
+project's own established terminal, replacing foot).
+
+### refuter caught 4 real bugs, all fixed and re-verified
+
+1. **A peek could steal keyboard focus mid-type and silently wipe the
+   in-progress search.** `Island.page` becomes whatever transient is
+   currently showing (`current ? current.page : (expandedPage ||
+   "compact")`), and `core/Kinds.qml`'s own priority table lets a
+   notification (50) or volume/brightness OSD (40) override ANY expanded
+   page whenever `expandedBlockBelow` (40 by default) is at or below their
+   priority - normally harmless (every other expanded page just re-renders
+   from live services once the peek clears), but two things made it a real
+   bug here: `ui/IslandWindow.qml`'s new keyboard-focus binding keys off
+   `page` (not `expandedPage`), so it dropped to `None` for the peek's
+   whole ~3.2s duration, leaking keystrokes into whatever window was
+   underneath; and `ui/PageHost.qml` destroys and recreates the page
+   instance on every `page` change, silently wiping the typed query and
+   `currentIndex`, which are local state on `ui/AppLauncher.qml` itself
+   (unlike every other page, which owns no state worth losing). Verified
+   live via `niri msg layers`: opening the launcher then firing a demo
+   notification/OSD dropped the real surface's keyboard interactivity to
+   `none` for the peek's full duration. Fixed in `app/Island.qml`:
+   `expandedBlockBelow: expandedPage === "AppLauncher" ? 999 : 40` - high
+   enough that even a notification now queues behind the launcher instead
+   of interrupting it, the same as power/media/workspace peeks already do
+   for every other expanded page today.
+2. **Nothing closed the launcher if the user clicked into a different
+   window instead of dismissing it deliberately**, which could leave the
+   island holding exclusive keyboard focus indefinitely while typing into
+   that other window silently landed in the (invisible, elsewhere) search
+   field instead. `ui/IslandWindow.qml`'s `mask: Region { item: capsule }`
+   passes every click outside the capsule straight through to whatever's
+   underneath (intentional, needed everywhere else), so this page never
+   even sees that click to react to it - and the `shouldAutoCollapse`
+   exemption above (needed so typing doesn't self-close it) also removed
+   the only thing that would have caught this. No Quickshell API exists to
+   detect "did the compositor actually move keyboard focus elsewhere", so
+   this is bounded with a plain 20s idle timeout instead
+   (`ui/AppLauncher.qml`'s `idleTimer`, restarted by any real activity -
+   typing, arrow-key nav) rather than solved exactly - it doesn't stop the
+   very first stray keystroke from a click-away, but it stops "stuck
+   forever" from being possible.
+3. **`scripts/list-apps.py` leaked a literal field code into a real launch
+   command on this exact machine.** The original `strip_field_codes` only
+   dropped tokens that were ENTIRELY a field code - `spotify.desktop`'s own
+   `Exec=spotify --uri=%u` survived as `["spotify", "--uri=%u"]`, and
+   `Quickshell.execDetached` passes that straight through. Confirmed live
+   (Spotify is one of the apps installed here, and this project's whole
+   media-face stack is built around exactly this kind of player). Fixed
+   with a regex substring strip (`FIELD_CODE_RE.sub("", tok)`) instead of
+   whole-token filtering, `%%` protected first so a literal percent sign
+   round-trips correctly. Re-ran the script afterward: 0 of the 97 real
+   entries contain a literal `%` anywhere in their `exec` array now.
+4. **This section itself, and two shipped code comments, described the
+   abandoned separate-window version as if it had shipped** - see the
+   "Real architecture, corrected" paragraph above. `services/Apps.qml` had
+   two matching stale comments: one crediting `AppLauncher`'s own `_open()`
+   (that function doesn't exist on the page version), and one citing
+   "services/Network.qml's own on-demand-not-timer poll" - there is no
+   `services/Network.qml` in this repo at all, that line was copy-pasted
+   from writing the sibling niri-lockscreen project's own service of the
+   same name. Both corrected to describe the real `Component.onCompleted`-
+   driven, no-timer refresh this file actually has.
+
+**Verified live, methodically** in a nested niri sandbox (this repo's own
+standing preferred approach): `bash scripts/lint.sh` and `bash
+scripts/test.sh` both clean (24/24 tests passing, no new lint categories),
+`python3 scripts/list-apps.py` re-run directly against the fixes above,
+live `niri msg layers` checks confirming the keyboard-focus grab
+transitions correctly through collapse/expand/six-rapid-toggles/a full hot
+reload, and confirming the launcher and the wallpaper carousel can both
+independently hold `exclusive` focus at once (niri resolves it sanely by
+layer, and their identical `Shortcut` sequences never collide since
+`Qt.WindowShortcut` context is scoped per-window, not global - each lives
+in its own separate window). The one thing that still genuinely needs
+Haziq's own hands-on check: typing a query and confirming Left/Right/
+Home/End feel right and Enter launches the highlighted result - no way to
+verify real keyboard *feel* from a scripted session, only that the
+mechanism is wired correctly and not crashing.
+
+**The actual "removing fuzzel" step** lives in a different repo:
+`~/Projects/cachyos-setup/kuro/wm/niri/cfg/keybinds.kdl`'s `Mod+Space` line,
+repointed from `spawn "fuzzel"` to `spawn-sh "qs -c kuroshima ipc call
+island launcherToggle"`. niri live-reloads its config on save (confirmed via
+its own journal: "loaded config from ... config.kdl" logged immediately
+after the edit, no parse errors) - this is live on the real session now,
+not just a sandbox change. `fuzzel` itself (the package, and
+`~/.config/fuzzel/fuzzel.ini`) was deliberately left alone, not
+uninstalled - only the keybind stopped using it.
+
 ## Environment notes worth not rediscovering
 
 - Nested niri IPC (`niri msg`) hangs the whole socket if a client (e.g. `action spawn`)
@@ -2758,11 +2916,19 @@ from this face's own content.
   -f "qs -c kuroshima"; ...'` - that whole string is the shell's own cmdline too). Kills
   the wrapper instead of the target, silently, with no output. Use `pgrep -x qs` (exact
   binary name, not full args) to find the real PID, then `kill <pid>` by PID instead.
-- The real `qs -c kuroshima` process does not hot-reload on file edits the way
-  `scripts/dev.sh`'s `qs -n -p .` sandbox does - editing a bundled file and expecting
-  the live desktop shell to pick it up without a restart looks exactly like "the edit
-  did nothing." Always restart (`pgrep -x qs` -> `kill` -> relaunch) before judging
-  whether a live-shell-only change worked.
+- **Correction to this note's own earlier self**: the real `qs -c kuroshima` process
+  DOES hot-reload on file edits, confirmed repeatedly and directly (its own log
+  shows "Reloading configuration..." after a save, and live screenshots/behavior
+  changes confirm it) - this note originally claimed otherwise. The one real
+  exception found: a BRAND NEW top-level `IpcHandler { target: "..." }` block (the
+  kuroshima notifications bridge, added for niri-lockscreen) didn't register until
+  an actual restart - ordinary property/content/logic edits to files already loaded
+  hot-reload fine, adding a wholly new IPC target apparently doesn't. Given this,
+  every edit to this repo reaches the real, live desktop session immediately on
+  save, not just a sandbox copy - worth remembering as a real risk profile, not just
+  a convenience, for anything touching auth-adjacent or keyboard-focus-adjacent code
+  (see the app launcher's own `ui/IslandWindow.qml` keyboard-focus change for the
+  one case this actually mattered this session).
 - `pgrep -x qs` misses the ACTUAL system instance: niri's own autostart
   (`spawn-sh-at-startup "qs -c kuroshima"`) execs into the real binary,
   which shows up as comm name `quickshell`, not `qs` - `qs` is a thin
@@ -2778,6 +2944,20 @@ from this face's own content.
   alive - `ps -eo pid,cmd | grep -iE "quickshell|qs -c kuroshima"` is
   the check that actually catches every instance, not `pgrep -x qs`
   alone.
+- **`niri msg layers`'s own `Keyboard interactivity` field does not reliably
+  reflect a live property change** on an already-mapped layer surface - only
+  discovered because `ui/AppLauncher.qml` needed exactly this (see that
+  section above). Opening the launcher and immediately checking `niri msg
+  layers` showed `none` even though `ui/IslandWindow.qml`'s own
+  `WlrLayershell.keyboardFocus` binding had genuinely already flipped to
+  `Exclusive` - confirmed independently via a temporary `console.log` inside
+  that file reading `root.WlrLayershell.keyboardFocus` directly (printed
+  `1`, i.e. `Exclusive`, correctly). Reproduced 3 times, including against a
+  freshly-launched process, so this isn't a one-off race. If a future
+  surface-property-change bug needs verifying, don't trust `niri msg layers`
+  alone for it - read the QML-level property back directly (a temporary
+  `console.log`/debug `IpcHandler`, same as this session's own approach) for
+  ground truth instead.
 - A 4th qmllint noise category, alongside the 3 `scripts/lint.sh` already documents:
   `Info: Set "pragma ComponentBehavior: Bound" in order to use IDs from outer
   components in nested components.` Fires for any `Repeater.delegate` (or similar

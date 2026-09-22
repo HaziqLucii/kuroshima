@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.theme
 import qs.ui
+import qs.app
 
 // One surface, not two: an earlier version split rendering (this file)
 // from space reservation (a second, separate PanelWindow) specifically to
@@ -37,7 +38,16 @@ PanelWindow {
 
     WlrLayershell.namespace: "kuroshima"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // None for every page except the app launcher (ui/AppLauncher.qml),
+    // which needs real keyboard input for its search field - this is the
+    // one place this permanently-mapped, always-visible surface's
+    // keyboard-interactivity changes WHILE mapped, not on open/close like
+    // ui/WallpaperCarousel.qml's own separate window (whose Exclusive
+    // focus is safe by construction: the whole surface only exists while
+    // visible). Genuinely new territory for this file - tested carefully
+    // in the nested sandbox specifically for this, given this file's own
+    // documented niri-hang history around surface-property changes.
+    WlrLayershell.keyboardFocus: Island.page === "AppLauncher" ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // Tracks the capsule's live geometry automatically, so clicks outside
     // it always pass through to the window underneath.

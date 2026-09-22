@@ -62,6 +62,18 @@ ShellRoot {
             wallpaperCarousel.toggle()
         }
 
+        // Unlike wallpaperToggle above, this IS routed through Island -
+        // ui/AppLauncher.qml is a real page now (ui/Capsule.qml's own
+        // pageMap), not its own overlay window (see that file's own
+        // comment for why it started as one and stopped being one). A
+        // dedicated named function anyway, not a bare `toggle AppLauncher`
+        // call from the niri keybind, matching wallpaperToggle/
+        // toggleWidgetEdit's own established naming convention for
+        // keybind-facing IPC entry points.
+        function launcherToggle(): void {
+            Island.toggle("AppLauncher")
+        }
+
         function toggleWidgetEdit(): void {
             Widgets.editMode = !Widgets.editMode
         }

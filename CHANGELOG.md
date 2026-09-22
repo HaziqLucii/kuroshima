@@ -11,6 +11,14 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- An in-island app launcher (`Mod+Space`), replacing fuzzel entirely: a
+  search bar plus a horizontally-scrollable, keyboard-navigable app row. A
+  real page in the capsule (`ui/AppLauncher.qml`), not a separate popup
+  window - morphs open/closed through the same spring animation every other
+  page already uses. Real desktop-entry discovery (`scripts/list-apps.py`,
+  `services/Apps.qml`) - 97 launchable apps on this machine, real icons via
+  `Quickshell.iconPath`, real launching via `Quickshell.execDetached`
+  (terminal apps wrapped in `kitty -e`).
 - The "media" Island Face is a real player now, not just title/artist text:
   real album art, progress bar, prev/pause/next transport, and an equalizer
   at the trailing edge (reusing the existing `ui/EqualizerBars.qml`, not new
@@ -91,6 +99,16 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Fixed
 
+- App launcher: a real notification or volume/brightness OSD firing while
+  the launcher was open used to preempt it entirely - silently wiping the
+  in-progress search and dropping the island's keyboard focus for the
+  peek's whole duration, leaking keystrokes into whatever window was
+  underneath. Notifications and OSDs now queue behind the launcher instead
+  of interrupting it. Also: `scripts/list-apps.py` was leaking a literal
+  field code (e.g. `%u`) into real launch commands for apps whose `Exec=`
+  embeds one inside a larger argument (confirmed against the real Spotify
+  entry on this machine) - fixed to strip field codes as substrings, not
+  just whole tokens.
 - Island Faces: an unrecognized `compactFace` value (a typo'd IPC call, or
   a face id renamed out from under a value that survived a hot reload)
   would have permanently killed the swipe gesture in both directions until

@@ -17,6 +17,11 @@ Item {
     Component { id: workspacePeekComponent; WorkspacePeek {} }
     Component { id: powerPeekComponent; PowerPeek {} }
     Component { id: settingsExpandedComponent; SettingsExpanded {} }
+    // Lives in ui/, not pages/ - it started as a ui-owned overlay window
+    // (ui/WallpaperCarousel.qml's own shape) before becoming a real page,
+    // and the content never needed to move. Same-directory implicit
+    // visibility already makes it reachable here with no extra import.
+    Component { id: appLauncherComponent; AppLauncher {} }
 
     // SettingsExpanded is the one page reached by pushing (not just
     // crossfading) from the normal dashboard - the maintainer wanted a real
@@ -94,7 +99,8 @@ Item {
                 "NotificationPeek": notificationPeekComponent,
                 "WorkspacePeek": workspacePeekComponent,
                 "PowerPeek": powerPeekComponent,
-                "SettingsExpanded": settingsExpandedComponent
+                "SettingsExpanded": settingsExpandedComponent,
+                "AppLauncher": appLauncherComponent
             })
 
             Component.onCompleted: host.setPage(Island.page, Island.payload, root.directionFor(Island.page, host.pageName))
@@ -137,7 +143,13 @@ Item {
     // toggle calls, never on a timer. View-level, not controller-level:
     // like the slice-1.5 click toggle, this is UI convenience layered on
     // top of the state machine, not one of its core rules.
-    readonly property bool shouldAutoCollapse: Island.isExpanded && !Island.hovered
+    // Island.page !== "AppLauncher": every other expanded page is
+    // pointer-driven (nothing forces the cursor to stay on the capsule
+    // while reading it), so the hover-based grace period is the right
+    // signal there - but the launcher is keyboard-driven, typing a query
+    // doesn't require the cursor to be anywhere near the capsule, so the
+    // same rule would silently close it out from under someone mid-type.
+    readonly property bool shouldAutoCollapse: Island.isExpanded && !Island.hovered && Island.page !== "AppLauncher"
     onShouldAutoCollapseChanged: {
         if (shouldAutoCollapse) {
             collapseGraceTimer.restart()

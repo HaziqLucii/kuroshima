@@ -42,8 +42,10 @@ Singleton {
     // "compact" isn't a first-class concept in the controller at all (its
     // own `page` is just `expandedPage || "compact"`, a fallback string),
     // so which face is showing inside that fallback state is none of its
-    // business. `faces/ClockEq.qml` is the default, matching what the
-    // compact pill always showed before faces existed.
+    // business. `faces/ClockEq.qml` is the default - originally clock + an
+    // EqualizerBars glyph (matching what the compact pill always showed
+    // before faces existed), simplified to clock-only once
+    // faces/MediaFace.qml took over media-signaling on its own face.
     property string compactFace: "clockEq"
 
     signal transientStarted(var t)
@@ -60,6 +62,23 @@ Singleton {
     IslandController {
         id: controller
         hoverGrace: Motion.hoverGrace
+        // refuter caught a real bug: the default expandedBlockBelow (40)
+        // lets a notification (priority 50) or volume/brightness OSD
+        // (priority 40) preempt ANY expanded page, including the app
+        // launcher - harmless for every other page (they just re-render
+        // from live services once the peek clears), but ui/AppLauncher.qml
+        // keeps its typed query/currentIndex as LOCAL instance state, and
+        // ui/IslandWindow.qml's keyboard-focus binding keys off `page`
+        // (which a peek temporarily overrides), not `expandedPage`. So a
+        // single notification while typing silently destroyed the
+        // in-progress search AND dropped keyboard focus for the peek's
+        // full ~3.2s duration, leaking keystrokes into whatever window was
+        // underneath - confirmed live via `niri msg layers`. Bumped high
+        // enough that even the highest-priority kind (notification, 50)
+        // queues behind the launcher instead of interrupting it, exactly
+        // like power/media/workspace peeks already do for every other
+        // expanded page today.
+        expandedBlockBelow: expandedPage === "AppLauncher" ? 999 : 40
         onTransientStarted: (t) => root.transientStarted(t)
         onTransientEnded: (t, reason) => root.transientEnded(t, reason)
     }

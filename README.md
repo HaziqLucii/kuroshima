@@ -16,6 +16,10 @@ Compositor support: niri only, for now.
 
 ![Island Faces: media player](docs/screenshots/island-media-player.png)
 
+![App launcher](docs/screenshots/island-searchbar.png)
+
+![Desktop widget edit mode](docs/screenshots/island-widget-edit-mode.png)
+
 | Notification peek | Settings island screen |
 |---|---|
 | ![Notification peek](docs/screenshots/island-notification.png) | ![Settings island screen](docs/screenshots/island-settings.png) |
