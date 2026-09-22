@@ -51,7 +51,7 @@ Item {
     // Settings island screen later, not built yet. Clamped at both ends
     // when swiping (matches ui/WallpaperCarousel.qml's own Left/Right
     // precedent), not wrapping.
-    readonly property var faceOrder: ["clockEq", "clockDate", "media"]
+    readonly property var faceOrder: ["clockEq", "clockDate", "media", "clipboard"]
 
     function _goToFace(id, direction) {
         facesHost.setPage(id, null, direction)
@@ -81,6 +81,7 @@ Item {
     Component { id: clockEqComponent; ClockEq {} }
     Component { id: clockDateComponent; ClockDate {} }
     Component { id: mediaComponent; MediaFace {} }
+    Component { id: clipboardComponent; ClipboardFace {} }
 
     Row {
         id: content
@@ -93,7 +94,8 @@ Item {
             pageMap: ({
                 "clockEq": clockEqComponent,
                 "clockDate": clockDateComponent,
-                "media": mediaComponent
+                "media": mediaComponent,
+                "clipboard": clipboardComponent
             })
 
             Component.onCompleted: root._syncFaceHost()
@@ -164,18 +166,40 @@ Item {
     // live-follow drag preview for v1 - purely a swipe-direction detector,
     // same role WallpaperCarousel.qml's Left/Right keys play, just via
     // touch/mouse.
+    //
+    // dragThreshold explicitly set to the same constant the release-time
+    // delta check already used, not left at Qt's small platform default
+    // (~startDragDistance(), a handful of px) - without it, this handler
+    // was claiming the exclusive grab on ANY tiny movement anywhere on the
+    // pill, including directly on top of faces/ClipboardFace.qml's own
+    // chips, before that chip's own (default-threshold) drag-out
+    // DragHandler ever got a chance to react at all - confirmed live via a
+    // temporary console.log on the chip's handler that never once fired
+    // while this bug was live. Now this handler doesn't even start
+    // tracking until genuine 40px movement, so a chip's own smaller-
+    // threshold drag-out handler wins any short gesture first. A real
+    // swipe now needs slightly LESS total movement than before this fix,
+    // not literally identical (refuter measured the minimum effective
+    // distance: ~49px pre-fix, ~41px post-fix - the old unset-threshold
+    // handler could already be mid-gesture, tracking from a small
+    // platform-default distance, by the time the release-time 40px check
+    // ran, effectively stacking a bit past 40; dragThreshold now gates
+    // activation on exactly 40px instead). Close enough not to be felt,
+    // but worth naming accurately rather than claiming "identical."
+    // centroid.pressPosition, not a hand-tracked _startX captured in
+    // onActiveChanged - with a real
+    // dragThreshold, active only flips true AFTER the threshold is already
+    // exceeded, so capturing "start" position at that point would measure
+    // from partway through the gesture, not the true press origin.
     DragHandler {
         id: swipeHandler
         target: null
-        property real _startX: 0
+        dragThreshold: Motion.compactFaceSwipeThreshold
 
         onActiveChanged: {
-            if (active) {
-                swipeHandler._startX = swipeHandler.centroid.position.x
-                return
-            }
+            if (active) return
 
-            const delta = swipeHandler.centroid.position.x - swipeHandler._startX
+            const delta = swipeHandler.centroid.position.x - swipeHandler.centroid.pressPosition.x
             if (Math.abs(delta) < Motion.compactFaceSwipeThreshold) return
 
             const idx = root.faceOrder.indexOf(Island.compactFace)

@@ -2592,6 +2592,20 @@ becomes true, before this project's own 40px on top of that even starts
 counting) - worth knowing before deciding it feels too stiff or too
 trigger-happy.
 
+**Correction (faces/ClipboardFace.qml pass):** the ~48px figure above is
+stale. `pages/CompactPage.qml`'s `swipeHandler` now sets
+`dragThreshold: Motion.compactFaceSwipeThreshold` explicitly (it used to
+rely on Qt's small platform default to start tracking at all, only
+checking the 40px constant afterward at release) - a real fix for a real
+bug, not a tuning tweak: without it, this handler claimed the pointer grab
+on almost any movement anywhere on the pill, before a chip's own nested
+drag-out DragHandler in ClipboardFace ever got a chance to react, making
+dragging a file back out of the clipboard impossible. Side effect:
+refuter's harness now measures the effective swipe distance at ~41px, not
+~48px (the two checks no longer stack the way an unset-then-40px check
+did). See `theme/Motion.qml`'s own comment on `compactFaceSwipeThreshold`
+for why this constant shouldn't be lowered much below ~10px.
+
 ## Correction: the lockscreen idea below was already shipped elsewhere
 
 The entry directly below this one was written earlier the same session, on
@@ -2965,3 +2979,37 @@ uninstalled - only the keybind stopped using it.
   occurrences in this codebase before the wallpaper carousel rework added 10 more.
   Real problems (missing properties, unknown types, typos) still surface distinctly
   from this too.
+- **`log.qslog` is a binary format, not plain text** - a `console.log()` call
+  inside a real `qs -c kuroshima` process does NOT reliably show up via
+  `grep`/`strings` on `/run/user/1000/quickshell/by-id/<id>/log.qslog` the
+  way it does for a `qs -n -p <path>` dev-mode process (confirmed working
+  for that invocation style earlier, e.g. the drag-and-drop feasibility
+  spike's own log). Discovered while debugging the clipboard face's
+  (eventually dropped) text-history section: several `console.log`
+  diagnostics added directly to real handlers produced zero matches across
+  many restarts, which fed a long, wrong chain of reasoning about handlers
+  never firing at all. If a live `-c` instance needs a console.log-based
+  diagnostic, verify the capture channel itself first (e.g. a trivial,
+  unmissable log line) before trusting a "zero matches" result as real
+  evidence of anything.
+- **A `grim` screenshot taken from this session's own shell tooling can
+  show stale content that doesn't match the real live screen**, for reasons
+  never root-caused (this machine's dual-GPU setup - "Number of Logical
+  Video Cards: 2" in `system-spec.md` - is a plausible suspect, not
+  confirmed). Discovered the same session as the `log.qslog` issue above:
+  a source-level test (`title: "ZZZZ TEST 99999"`), confirmed present on
+  disk, confirmed loaded by a freshly-SIGKILL'd-and-relaunched process (new
+  PID, single surface via `niri msg layers`, QML disk cache at
+  `~/.cache/quickshell/qmlcache/` even cleared for good measure), still
+  screenshotted via `grim` as the old "CLIPBOARD" text - repeatedly, across
+  fresh screenshot files with genuinely fresh mtimes. The human tester
+  looking at their own actual screen confirmed the change WAS live the
+  whole time. Combined with the `log.qslog` issue above, this means most of
+  this session's attempted live-diagnosis of the text-history section's
+  broken clicks (console.log silence, a debug border/highlight rectangle
+  that never showed up in a screenshot) was built on unreliable tooling,
+  not necessarily real evidence of what the app was actually doing -
+  worth remembering before trusting either channel again. When something
+  needs visual ground-truth from a live `-c` instance, ask the human
+  tester to look directly and describe what they see, rather than trusting
+  a self-captured `grim` screenshot alone.

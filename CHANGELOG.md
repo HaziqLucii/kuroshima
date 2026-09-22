@@ -11,6 +11,33 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- A "clipboard" Island Face (`faces/ClipboardFace.qml`, `services/Clipboard.qml`):
+  drag files onto it from one workspace, they stay staged as removable chips,
+  drag them back out to another app/workspace elsewhere. Real cross-application
+  Wayland drag-and-drop on this project's own wlr-layer-shell surface, proven
+  working both directions via a standalone feasibility spike before this was
+  built. Chips wrap onto new rows (`Flow`, not a scrolling `ListView` - the
+  first version scrolled, but that competed with the face-swipe gesture for
+  the same horizontal drag, see the fix below) with a real-file thumbnail
+  (`Item.grabToImage`-based, capped to a small `sourceSize` so a dropped
+  photo doesn't decode at full native resolution) or an extension-text
+  fallback for non-images, each with a remove badge. Dragging a chip back out
+  shows a correctly-sized, rounded drag-cursor icon (also grabbed, not the
+  raw file). Pure in-memory staging, not persisted across restarts. A
+  text-clipboard section (backed by `cliphist`) was built and tried
+  alongside this too, but dropped - its rows never received clicks no matter
+  what was tried, while the file half worked correctly throughout, so it
+  shipped without that half rather than keep chasing it.
+- Fixed a real gesture-conflict bug in `pages/CompactPage.qml`'s face-swipe
+  `DragHandler` while building the clipboard face above: it had no explicit
+  `dragThreshold`, so it claimed the pointer grab on almost any movement
+  anywhere on the pill (Qt's small platform default), before a chip's own
+  nested drag-out `DragHandler` ever got a chance to react - dragging a file
+  back out was completely impossible, the pill just swiped between faces
+  instead. Now gated on the same `Motion.compactFaceSwipeThreshold` (40px)
+  already used to decide whether a genuine swipe happened, so it doesn't
+  even start tracking until that's exceeded. See `theme/Motion.qml`'s own
+  comment on that constant before lowering it.
 - An in-island app launcher (`Mod+Space`), replacing fuzzel entirely: a
   search bar plus a horizontally-scrollable, keyboard-navigable app row. A
   real page in the capsule (`ui/AppLauncher.qml`), not a separate popup

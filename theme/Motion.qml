@@ -52,14 +52,21 @@ QtObject {
     // as the capsule's own width/height/radius morph.
     readonly property real pushSlideDistance: 32
 
-    // Island Faces (pages/CompactPage.qml): minimum horizontal drag distance,
-    // in px, before a swipe actually advances/retreats a face - below this
-    // it's treated as not a swipe at all (a still tap already falls through
-    // to the pill's own TapHandler via DragHandler's own default drag
-    // threshold; this is the SEPARATE "did you mean it" distance once a
-    // drag has genuinely started). A feel constant, not derived from
-    // anything - tune this one directly if swiping ever feels too
-    // trigger-happy or too stiff once actually tried live.
+    // Island Faces (pages/CompactPage.qml): dual-purpose distance, in px,
+    // for the face-swipe DragHandler. It's both the handler's own
+    // dragThreshold (nothing is tracked, and the handler doesn't grab the
+    // gesture, until a drag exceeds this) AND the "did you mean it" check
+    // at release. Both uses share this one constant deliberately -
+    // faces/ClipboardFace.qml's own chips have their OWN nested DragHandler
+    // (default, much smaller platform threshold) for dragging a file back
+    // out, and it only wins that gesture race because THIS handler doesn't
+    // even start competing for the grab until this threshold is crossed.
+    // Do not lower this much below ~10px (Qt's own default drag-start
+    // distance) - that would let this handler start racing the chip's
+    // handler again and silently reintroduce that exact conflict (chips
+    // becoming un-draggable, swiping between faces instead). A still tap
+    // is unaffected either way - it never reaches this threshold at all,
+    // so it always falls through to the pill's own TapHandler.
     readonly property int compactFaceSwipeThreshold: 40
 
     readonly property int hoverGrace: 700
