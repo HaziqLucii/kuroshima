@@ -2979,19 +2979,27 @@ uninstalled - only the keybind stopped using it.
   occurrences in this codebase before the wallpaper carousel rework added 10 more.
   Real problems (missing properties, unknown types, typos) still surface distinctly
   from this too.
-- **`log.qslog` is a binary format, not plain text** - a `console.log()` call
-  inside a real `qs -c kuroshima` process does NOT reliably show up via
-  `grep`/`strings` on `/run/user/1000/quickshell/by-id/<id>/log.qslog` the
-  way it does for a `qs -n -p <path>` dev-mode process (confirmed working
-  for that invocation style earlier, e.g. the drag-and-drop feasibility
-  spike's own log). Discovered while debugging the clipboard face's
-  (eventually dropped) text-history section: several `console.log`
-  diagnostics added directly to real handlers produced zero matches across
-  many restarts, which fed a long, wrong chain of reasoning about handlers
-  never firing at all. If a live `-c` instance needs a console.log-based
-  diagnostic, verify the capture channel itself first (e.g. a trivial,
-  unmissable log line) before trusting a "zero matches" result as real
-  evidence of anything.
+- **`console.log()` needs `-v`/`-vv` to actually show up for a real `qs -c
+  kuroshima` process - the plain invocation runs at INFO level, which
+  silently drops DEBUG-level output (the category `console.log` itself
+  logs at)** - this is the real fix; a first pass at this same problem
+  (below, since corrected) wrongly blamed `log.qslog`'s binary format
+  instead. Confirmed conclusively while debugging a real keyboard-nav bug
+  in the app-launcher favorites feature: identical `console.log`
+  diagnostics produced zero matches across several restarts, right up
+  until `qs -c kuroshima -vv > file.log 2>&1` was tried - at which point
+  ordinary Qt category debug lines (pipewire, dbus, fileview, ...)
+  immediately started appearing in that same plain stdout redirect, and
+  the diagnostic's own output showed up right alongside them. `log.qslog`
+  itself genuinely is a binary format unsuitable for `grep`, but that was
+  never the actual blocker - a plain stdout redirect (`> file.log 2>&1`)
+  was reliable all along, it just needed `-vv` to not filter DEBUG level
+  out in the first place. If a live `-c` instance needs a console.log-based
+  diagnostic, launch it with `-vv` and redirect stdout to a file, and
+  verify the capture channel itself first (e.g. a trivial, unmissable log
+  line) before trusting a "zero matches" result as real evidence of
+  anything - a wrong "the handler never fires" conclusion from believing a
+  silently-broken capture channel is a real risk here, confirmed twice now.
 - **A `grim` screenshot taken from this session's own shell tooling can
   show stale content that doesn't match the real live screen**, for reasons
   never root-caused (this machine's dual-GPU setup - "Number of Logical
@@ -3004,12 +3012,30 @@ uninstalled - only the keybind stopped using it.
   screenshotted via `grim` as the old "CLIPBOARD" text - repeatedly, across
   fresh screenshot files with genuinely fresh mtimes. The human tester
   looking at their own actual screen confirmed the change WAS live the
-  whole time. Combined with the `log.qslog` issue above, this means most of
-  this session's attempted live-diagnosis of the text-history section's
-  broken clicks (console.log silence, a debug border/highlight rectangle
-  that never showed up in a screenshot) was built on unreliable tooling,
-  not necessarily real evidence of what the app was actually doing -
-  worth remembering before trusting either channel again. When something
-  needs visual ground-truth from a live `-c` instance, ask the human
-  tester to look directly and describe what they see, rather than trusting
-  a self-captured `grim` screenshot alone.
+  whole time. Combined with the console.log/`-vv` issue above (both hit in
+  the same stretch of debugging), this means the text-history section's
+  broken clicks were diagnosed almost entirely blind - console.log silence
+  that just needed `-vv`, and a debug border/highlight rectangle that never
+  showed up in a screenshot for a reason never found. Worth remembering
+  before trusting either channel again, `-vv` now fixes one of the two but
+  not the other. When something needs visual ground-truth from a live `-c`
+  instance, ask the human tester to look directly and describe what they
+  see, rather than trusting a self-captured `grim` screenshot alone.
+- **`pkill -f '<pattern>'` silently stops matching if the real command line
+  changes shape** - hit this a second time this project, a different
+  variant of the exact bug `Meta+Shift+R`'s own restart keybind was fixed
+  for earlier (that one was a self-match false positive; this one's a
+  false negative). Restarting the live instance with `qs -c kuroshima -vv`
+  to get real debug output (see above), while still killing the old one
+  with the anchored `pkill -f '^qs -c kuroshima$'` pattern used all
+  session - which no longer matches `qs -c kuroshima -vv` at all, since the
+  anchor requires the string to end right after `kuroshima`. The old
+  process was never actually killed; a second one just started alongside
+  it, and the two fought over the Wayland surface/notification-server
+  registration for several restart cycles before the duplicate was
+  noticed via a plain `ps aux | grep kuroshima` (not `pgrep -f` with the
+  same stale anchored pattern - it obviously wouldn't have caught this
+  either). Any exact-match `pkill`/`pgrep` pattern needs to stay in sync
+  with the actual command line being launched, including flags added
+  later in the same session - a stale anchor doesn't error, it just quietly
+  stops working.

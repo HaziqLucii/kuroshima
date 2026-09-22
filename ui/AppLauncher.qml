@@ -107,10 +107,28 @@ Item {
         Qt.callLater(() => searchInput.forceActiveFocus())
     }
 
-    Shortcut { sequence: "Left"; onActivated: { root.currentIndex = Math.max(0, root.currentIndex - 1); root._registerActivity() } }
-    Shortcut { sequence: "Right"; onActivated: { root.currentIndex = Math.min(root.filtered.length - 1, root.currentIndex + 1); root._registerActivity() } }
-    Shortcut { sequence: "Home"; onActivated: { root.currentIndex = 0; root._registerActivity() } }
-    Shortcut { sequence: "End"; onActivated: { root.currentIndex = root.filtered.length - 1; root._registerActivity() } }
+    // Left/Right/Home/End used to be Shortcut items (Qt.WindowShortcut
+    // context, "fires regardless of which item has QML-level focus" per
+    // this file's own original comment) - that turned out not to hold in
+    // practice: confirmed live, with a real console.log trail, that
+    // searchInput's own native cursor-movement handling for these exact
+    // keys (a focused TextInput's built-in behavior, not something this
+    // file's own QML code controls) consumes them before Shortcut's
+    // window-level matching ever gets a chance to activate. A pre-existing
+    // bug, not something the favorites feature introduced - arrow-key
+    // browsing specifically just hadn't been exercised carefully before.
+    // Return/Enter and Esc aren't natively handled by TextInput the same
+    // way, so those two stay as plain Shortcut items below, unaffected.
+    // Fix: handle the four here directly, on the actual focused item,
+    // explicitly marking each event accepted so it never reaches
+    // TextInput's own native handling at all. Deliberate trade, not free:
+    // the search field's own text editing loses ALL Left/Right/Home/End-
+    // based cursor movement now, including modified forms (Shift+Left to
+    // select, Ctrl+Left/Right to jump a word, Shift+Home/End) - the
+    // handlers below don't check modifiers, so every variant is consumed
+    // for app-grid navigation instead. Fine for a short search query, and
+    // exactly the intended trade, but a real behavior change, not just a
+    // pure bugfix - worth naming here rather than only in the CHANGELOG.
     Shortcut { sequences: ["Return", "Enter"]; onActivated: root._launch(root.filtered[root.currentIndex]) }
     Shortcut { sequence: "Esc"; onActivated: Island.collapse() }
 
@@ -168,6 +186,32 @@ Item {
                         font.family: Theme.fontFamily
                         font.pixelSize: 13
                         onTextEdited: root._registerActivity()
+                        // Explicitly consumed here, not left to a
+                        // Shortcut item - see the comment above the
+                        // Return/Esc Shortcuts for why (TextInput's own
+                        // native cursor-movement handling for these exact
+                        // keys otherwise wins first).
+                        Keys.onLeftPressed: (event) => {
+                            root.currentIndex = Math.max(0, root.currentIndex - 1)
+                            root._registerActivity()
+                            event.accepted = true
+                        }
+                        Keys.onRightPressed: (event) => {
+                            root.currentIndex = Math.min(root.filtered.length - 1, root.currentIndex + 1)
+                            root._registerActivity()
+                            event.accepted = true
+                        }
+                        Keys.onPressed: (event) => {
+                            if (event.key === Qt.Key_Home) {
+                                root.currentIndex = 0
+                                root._registerActivity()
+                                event.accepted = true
+                            } else if (event.key === Qt.Key_End) {
+                                root.currentIndex = root.filtered.length - 1
+                                root._registerActivity()
+                                event.accepted = true
+                            }
+                        }
                     }
                 }
 
@@ -177,6 +221,44 @@ Item {
                     color: Theme.inkDim
                     font.family: Theme.fontFamily
                     font.pixelSize: 10
+                }
+            }
+        }
+
+        // ── favorites ────────────────────────────────────────
+        // The "browse" front page - gone the moment a query is typed
+        // (same condition the filtered property's own empty-query branch
+        // already uses), handing the results row full space. Nested
+        // visible check: no empty "FAVORITES" header with nothing under
+        // it on a fresh install, before anything's ever been starred.
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: searchInput.text.length === 0 && Favorites.ids.length > 0
+            spacing: 8
+
+            Text {
+                text: "FAVORITES"
+                color: Theme.inkDim
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+                font.letterSpacing: 2
+            }
+
+            Row {
+                spacing: 8
+
+                Repeater {
+                    // Favorites.ids order (add order), not Apps.list order
+                    // - and guards against a favorited id whose .desktop
+                    // file no longer exists in the current scan (the app
+                    // was uninstalled since it was starred).
+                    model: Favorites.ids.map(id => Apps.list.find(a => a.id === id)).filter(a => a !== undefined)
+                    delegate: AppCard {
+                        required property var modelData
+                        app: modelData
+                        tapToLaunch: true
+                        onLaunch: root._launch(modelData)
+                    }
                 }
             }
         }
@@ -194,64 +276,15 @@ Item {
             highlightMoveDuration: 140
             onCurrentIndexChanged: root.currentIndex = currentIndex
 
-            delegate: Item {
+            delegate: AppCard {
                 id: card
                 required property int index
                 required property var modelData
-                readonly property bool current: index === root.currentIndex
-                width: 84
+                app: modelData
+                current: index === root.currentIndex
                 height: appList.height
-
-                TapHandler {
-                    onTapped: root.currentIndex = card.index
-                    onDoubleTapped: root._launch(card.modelData)
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 8
-                    color: card.current ? Theme.hairline : "transparent"
-                    border.width: 1
-                    border.color: card.current ? Theme.divider : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                }
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 6
-
-                    Item {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: 40
-                        height: 40
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 8
-                            color: Theme.hairline
-                            visible: iconImg.status !== Image.Ready
-                        }
-                        Image {
-                            id: iconImg
-                            anchors.fill: parent
-                            source: Quickshell.iconPath(card.modelData.icon, true)
-                            fillMode: Image.PreserveAspectFit
-                            asynchronous: true
-                        }
-                    }
-
-                    Text {
-                        width: 80
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        horizontalAlignment: Text.AlignHCenter
-                        text: card.modelData.name
-                        color: card.current ? Theme.ink : Theme.inkFaint
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 9
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                    }
-                }
+                onSelected: root.currentIndex = card.index
+                onLaunch: root._launch(card.modelData)
             }
         }
 

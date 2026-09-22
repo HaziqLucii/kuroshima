@@ -13,3 +13,4 @@ singleton Battery 1.0 Battery.qml
 singleton Wallpaper 1.0 Wallpaper.qml
 singleton Widgets 1.0 Widgets.qml
 singleton Clipboard 1.0 Clipboard.qml
+singleton Favorites 1.0 Favorites.qml

@@ -11,6 +11,16 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- Favorite apps in the launcher (`Mod+Space`): star up to 4 apps and they
+  show in a dedicated FAVORITES section above the results, visible only
+  while the search box is empty. Single-tap launches a favorite directly
+  (no select-then-launch step, unlike the main results row) - the whole
+  point is fastest possible access. Star toggle on every card in both
+  rows, persisted to `~/.config/kuroshima/favorites.json`
+  (`services/Favorites.qml`, same `FileView` pattern `services/
+  Widgets.qml` already established). The shared card markup moved out of
+  `ui/AppLauncher.qml`'s own inline `ListView` delegate into a new
+  `ui/AppCard.qml`, reused by both rows.
 - A "clipboard" Island Face (`faces/ClipboardFace.qml`, `services/Clipboard.qml`):
   drag files onto it from one workspace, they stay staged as removable chips,
   drag them back out to another app/workspace elsewhere. Real cross-application
@@ -184,6 +194,16 @@ history and `docs/NOTES.md` for decision-level detail.
   Audio panel re-triggered the exact "OSD morphs the expanded dashboard
   down mid-drag" bug its own comment already documented being fixed once.
   Generalized to plain `Island.isExpanded`.
+- App launcher: Left/Right/Home/End keyboard navigation was a real,
+  pre-existing bug, not just untested - plain top-level `Shortcut` items
+  on the assumption that `Qt.WindowShortcut` context fires regardless of
+  which item has focus, but the focused search `TextInput`'s own native
+  cursor-movement handling for those exact keys consumed them first, so
+  the `Shortcut` items never activated at all (confirmed via a real
+  console.log trail, surfaced while building the favorites feature
+  above). Moved onto `searchInput` itself as explicit `Keys.onXPressed`
+  handlers that mark the event accepted before TextInput's own handling
+  can claim it.
 
 ## [0.3.0] - 2026-09-20
 
