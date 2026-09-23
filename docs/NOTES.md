@@ -3137,3 +3137,53 @@ consistent with the plan's ~460 MB baseline. Not a controlled before/after - the
 change above means this isn't attributable cleanly to this slice alone. Slice 3 is where
 a real controlled measurement happens; this slice added no new subprocess (IdleInhibitor
 is a Wayland protocol object, not a Process) so the expected delta is ~0 regardless.
+
+## Slice 2 (2026-09-22 faces/screens roadmap): FocusFace + Focus.qml (pomodoro)
+
+Per `plans/2026-09-22-faces-and-screens-plan.md` Wave 1. `services/Focus.qml`: bare
+`QtObject` singleton (same non-persistence as `Notifs.dnd`/`Toggles.idleInhibit` from
+Slice 1), `presets: [25, 50, 5]` minutes, `totalSeconds`/`remaining`/`running`/
+`phaseLabel`, `start(minutes)`/`pause()`/`reset()`, a 1s `Timer` gated
+`running: root.running && root.remaining > 0` so it costs nothing outside an active
+session. `phaseLabel` is a simple heuristic (5 min = "BREAK", else "FOCUS"), not
+user-configurable. On completion, spawns `notify-send -a kuroshima "Focus" <label>` via
+a `Process` - lands in INBOX and fires the existing `NotificationPeek` bridge, no new
+`core/Kinds.qml` row, exactly as the plan predicted.
+
+**Real overflow bug, caught live, not in review**: the plan's own text said "Height
+stays `Theme.compactH` in both states." First implementation took that literally - a
+fixed-height `Item` with the countdown/progress-bar content packed to fit within exactly
+30px via tight font sizes and spacing. Looked fine in the code, genuinely overflowed the
+pill on the real screen ("you really need to give some spaces... too compact that it
+overflows in the island"). This is the same class of bug `faces/ClipboardFace.qml` hit
+twice already this session (a badge, then a whole section, extending past whatever
+height the capsule's mask was actually sized to) - font metrics rendering taller than a
+rough pixelSize-based estimate is an easy way to end up there without ever seeing an
+explicit error. Fixed by abandoning the fixed-height approach entirely: idle stays
+exactly `Theme.compactH` (the plain chip row genuinely does fit there, no complaint),
+the running/paused state grows via `content.height + 24`, the exact
+`Media.available ? content.height + 24 : content.height` idiom `faces/MediaFace.qml`
+already established for the identical "richer content needs real breathing room"
+reason. Re-tested live after the fix, confirmed proper spacing.
+
+**Verification**: `scripts/lint.sh` clean (documented baseline categories only).
+`scripts/test.sh` unaffected (no `Kinds` rows touched). Live-tested: swiped to the face
+via `qs -c kuroshima ipc call island setCompactFace focusFace`, started the 5-minute
+preset from the real screen, confirmed the countdown ticked and pause/resume/reset all
+worked, confirmed the post-overflow-fix spacing looked right on a second pass. refuter's
+own follow-up review (`scripts/qml` harness, executed not just read) confirmed the state
+machine is correct at every boundary (notification fires exactly once at
+`remaining === 0`, never `-1`; `pause()` on a completed timer is a genuine no-op) and
+measured the real rendered geometry of both states against actual font metrics rather
+than trusting the pixel-math estimate this entry's own overflow bug came from.
+
+**Deliberate, undocumented-until-now behavior**: `active` (which gates idle vs. running
+layout) goes false the instant `remaining` hits 0, so the pill shrinks back to the chip
+row on the exact same frame the completion notification fires - the countdown's last
+`00:00` and a full progress bar are never actually seen. Reads as the right call
+(the face is already inviting "start the next session" rather than lingering on a
+finished one), not a bug, but worth naming so a future reader doesn't wonder whether a
+tick got eaten. `reset()` also now clears `phaseLabel` back to `"FOCUS"` (refuter-caught:
+it only used to get rewritten by `start()`, so it could stay `"BREAK"` after a break
+ended - harmless today since idle renders a hardcoded string, not `phaseLabel`, but
+would silently go stale for whatever reads it next).

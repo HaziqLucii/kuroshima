@@ -51,7 +51,7 @@ Item {
     // Settings island screen later, not built yet. Clamped at both ends
     // when swiping (matches ui/WallpaperCarousel.qml's own Left/Right
     // precedent), not wrapping.
-    readonly property var faceOrder: ["clockEq", "clockDate", "statusFace", "systemFace", "media", "clipboard"]
+    readonly property var faceOrder: ["clockEq", "clockDate", "statusFace", "systemFace", "focusFace", "media", "clipboard"]
 
     function _goToFace(id, direction) {
         facesHost.setPage(id, null, direction)
@@ -82,6 +82,7 @@ Item {
     Component { id: clockDateComponent; ClockDate {} }
     Component { id: statusFaceComponent; StatusFace {} }
     Component { id: systemFaceComponent; SystemFace {} }
+    Component { id: focusFaceComponent; FocusFace {} }
     Component { id: mediaComponent; MediaFace {} }
     Component { id: clipboardComponent; ClipboardFace {} }
 
@@ -98,6 +99,7 @@ Item {
                 "clockDate": clockDateComponent,
                 "statusFace": statusFaceComponent,
                 "systemFace": systemFaceComponent,
+                "focusFace": focusFaceComponent,
                 "media": mediaComponent,
                 "clipboard": clipboardComponent
             })

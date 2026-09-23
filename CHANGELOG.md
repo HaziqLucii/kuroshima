@@ -11,6 +11,18 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- `faces/FocusFace.qml` + `services/Focus.qml`: a pomodoro-style timer
+  Island Face, desktop echo of the maintainer's own `~/Projects/kuro-focus`
+  "expedition timer" (same dossier aesthetic, no sync between the two
+  apps). Idle shows preset chips (25/50/5 min, tap to start); a running
+  session shows `mm:ss`, pause/reset glyphs, and a hairline progress bar.
+  On completion, a `notify-send` lands in INBOX and fires the existing
+  `NotificationPeek` bridge like any other notification - no new
+  `core/Kinds.qml` row needed. Tried pinning the face to exactly
+  `Theme.compactH` in both states first (the original plan) - overflowed
+  the pill live, so it grows with real padding once a session is running,
+  same resolution `faces/MediaFace.qml` already reached for the identical
+  reason.
 - DND and IDLE toggles in the TOGGLES grid are real now, not dimmed
   placeholders: DND (`services/Notifs.qml`) suppresses notification peeks
   (critical urgency still shows) while keeping them in INBOX, and swaps the
