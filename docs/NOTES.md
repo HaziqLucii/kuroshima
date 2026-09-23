@@ -3039,3 +3039,101 @@ uninstalled - only the keybind stopped using it.
   with the actual command line being launched, including flags added
   later in the same session - a stale anchor doesn't error, it just quietly
   stops working.
+
+## Slice 1 (2026-09-22 faces/screens roadmap): DND + IDLE toggles real, StatusFace, SystemFace
+
+Per `plans/2026-09-22-faces-and-screens-plan.md` Wave 1, Slice 1. Concurrent session's
+launcher favourites work (`ui/AppLauncher.qml`, `services/Favorites.qml`, `ui/AppCard.qml`)
+was sitting uncommitted in the working tree at session start; none of it touched, per the
+plan's own file list.
+
+**DND**: `Notifs.dnd: bool` (services/Notifs.qml). refuter caught a false claim in an
+earlier draft of this entry and the file's own comment: `dnd` does NOT survive a hot
+reload the way `compactFace` does - `Notifs.qml` is a bare `QtObject` singleton, and
+`app/Island.qml`'s own comment on why IT is `Singleton`-rooted instead already explains
+why (a bare `QtObject` singleton is unreachable by reload propagation, no
+`PersistentProperties` can fix that). Resets to `false` on every hot reload and every
+real restart, same as every other `services/*.qml` boolean in this codebase - correct
+for v1 scope, real persistence is Slice 5's job once `Faces.qml`'s config file exists.
+`Toggles.idleInhibit` has the identical behaviour and makes no persistence claim, so it
+needed no correction. `app/Bridges.qml`'s
+`onReceived` gates on `Notifs.dnd && !isCritical`: `notification.expire()` then `return`
+before `Island.show(...)`. History already has the notification by this point (Notifs.qml
+appends inside `onNotification`, before emitting `received`), so INBOX is unaffected.
+The explicit `expire()` on the suppressed path matters: it's the only close call that
+ever runs for a notification that never became a transient (`onTransientEnded` only
+fires for ones that did) - skip it and a DND-suppressed notification stays tracked
+forever, hanging any `notify-send --wait` sender, same bug class refuter caught once
+already for queue-evicted notifications.
+
+**IDLE**: `Toggles.idleInhibit: bool` (state only). `ui/IslandWindow.qml` gained a plain
+`IdleInhibitor { enabled: Toggles.idleInhibit; window: root }` child of the PanelWindow -
+confirmed via `wayland-info` that niri exposes `zwp_idle_inhibit_manager_v1`, and via the
+installed qmltypes (`quickshell-wayland-idle-inhibit.qmltypes`) that `IdleInhibitor`'s
+API is exactly `enabled`/`window` as the plan assumed. This is a new protocol object
+bound to an already-mapped surface, not a reconfigured existing one (different class of
+change from this file's own exclusiveZone/keyboardFocus hang history), but verified
+carefully anyway: launched a nested `niri -c ~/dev-niri.kdl` (on `wayland-2`, avoided
+touching the live desktop's niri session) with `qs -n -p .` inside it, and `niri msg
+layers` (wrapped in `timeout`) showed the `kuroshima` top-layer surface mapped cleanly,
+no hang, no extra restart needed.
+
+Both toggles wired into `pages/MediaExpanded.qml`'s TOGGLES grid (DND `available:
+Config.notificationServer`, IDLE `available: true`), same `isOn`/`onClicked` shape as
+WIFI/BT. `pages/CompactPage.qml`'s bell glyph swaps `cod-bell_dot` (0xeb9a) for
+`cod-bell_slash` (0xec08) when `Notifs.dnd` - codepoint verified against
+JetBrainsMono Nerd Font's actual cmap via fontTools before use, not guessed.
+
+**`faces/StatusFace.qml`** and **`faces/SystemFace.qml`** added, registered in
+`pages/CompactPage.qml`'s `faceOrder` between `clockDate` and `media`. StatusFace
+collapses to just the clock when nothing's true (no WIFI/BT/DND/IDLE-on or mic-muted
+state to show) - reuses the exact glyph codepoints already verified for the TOGGLES
+grid. SystemFace mirrors MediaExpanded's own "05 SYSTEM" cell layout (label + tabular
+value + 1px hairline mini-bar) at compact-pill scale, hides a cell when its
+`SystemStats` value is `-1`/unavailable. Both read-only, no handlers, no new services.
+
+**Verification actually done**: `scripts/lint.sh` clean (same 4 documented `qs.*` noise
+categories only, checked line-by-line against the new/touched files - no new categories,
+no errors). `scripts/test.sh` 24/24 (no `Kinds` rows changed, so no new controller
+tests). Nested sandbox config load confirmed clean (no QML errors) and the layer surface
+mapped fine with the new `IdleInhibitor` child.
+
+**Verification completed live, next session** (the PID churn noted above was this same
+session's own favourites/drag-reorder debugging, running concurrently - explains it):
+swiped to STATUS and SYSTEM faces on the real screen, both confirmed rendering correctly
+(CPU/MEM/TEMP bars, clock plus status glyphs). Toggled DND on, sent a real normal-urgency
+`notify-send` - no peek shown, confirmed present in the dashboard's INBOX. Sent a
+critical-urgency one - it peeked despite DND (correct), and stayed open until manually
+dismissed rather than auto-expiring (`duration: -1` for critical, matching the
+freedesktop spec convention deliberately, not a bug - confirmed with Haziq live), then
+closed correctly on tap. Toggled IDLE - `faces/StatusFace.qml`'s idle glyph correctly
+reflected the on state.
+
+**Real bug found and fixed live**: `faces/StatusFace.qml` originally showed its own DND
+glyph in the status row AND `pages/CompactPage.qml`'s shared bell indicator (visible on
+every face, not just this one) also swaps to the slashed glyph while DND is on - a plain
+visual duplicate when viewing StatusFace specifically, caught by Haziq
+("idk if this is intentional though to show both"). Fixed by dropping DND from
+StatusFace's own glyph row entirely - WIFI/BT/MIC/IDLE stay, since none of those have any
+other indicator anywhere in the pill, only DND was redundant.
+
+**Second real bug, refuter-caught before commit**: the shared bell (and its divider) were
+gated purely on `Notifs.history.length > 0`, so DND being on had zero visual confirmation
+anywhere in the collapsed pill the moment INBOX was empty (e.g. right after CLEAR ALL) -
+directly contradicting this slice's own "muted at a glance regardless of which face is
+showing" claim. Fixed: both gated on `Notifs.history.length > 0 || Notifs.dnd`.
+
+**Worth knowing, not fixed**: `app/Bridges.qml`'s DND path calls `notification.expire()`
+*synchronously*, inside `NotificationServer`'s own `onNotification` emission chain
+(`Notifs.qml` calls `received()` as the last statement of that handler, and `Bridges`
+expires immediately from there). Every other `expire()`/`dismiss()` call site in this
+codebase goes through `onTransientEnded` instead, i.e. asynchronously. Live-tested with
+no crash, so this is empirically fine today, but if a future notification-related crash
+ever traces back to this exact path, `Qt.callLater(() => notification.expire())` is the
+first thing to try.
+
+**Footprint**: live production instance currently ~440 MB RSS (`ps -o rss -p 75423`),
+consistent with the plan's ~460 MB baseline. Not a controlled before/after - the PID
+change above means this isn't attributable cleanly to this slice alone. Slice 3 is where
+a real controlled measurement happens; this slice added no new subprocess (IdleInhibitor
+is a Wayland protocol object, not a Process) so the expected delta is ~0 regardless.

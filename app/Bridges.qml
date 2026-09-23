@@ -98,6 +98,21 @@ Item {
             const isLow = notification.urgency === NotificationUrgency.Low
             const key = "notif:" + notification.id
 
+            // Slice 1. History already has this notification (Notifs.qml's
+            // onNotification appends before emitting `received`), so
+            // suppressing the peek here doesn't lose INBOX. Must expire()
+            // immediately on this path: nothing else will. The only other
+            // close path is onTransientEnded below, which never runs for a
+            // notification that never became a transient - without this,
+            // every DND-suppressed notification stays tracked forever and
+            // a sender waiting on NotificationClosed (notify-send --wait)
+            // hangs, the same class of bug refuter already caught once for
+            // queue-evicted notifications.
+            if (Notifs.dnd && !isCritical) {
+                notification.expire()
+                return
+            }
+
             Island.show("notification", { notification: notification }, {
                 key: key,
                 priority: isCritical ? 60 : 50,

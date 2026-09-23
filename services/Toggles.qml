@@ -2,14 +2,18 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Backs the design's "04 TOGGLES" grid. WIFI and BT only: DND needs the
-// not-yet-built notification server, NIGHT has no gamma daemon installed
-// on this machine (checked: no gammastep/wlsunset/redshift), VPN has no
-// connection profile configured at all, CAPS is a passive indicator (not
-// sensibly a click-toggle), and IDLE has no idle-inhibit daemon running
-// (the "idle_inject" kernel threads found while checking are CPU power
-// management, unrelated). MIC reuses services/Audio.qml directly rather
-// than duplicating it here.
+// Backs the design's "04 TOGGLES" grid. WIFI, BT, and IDLE here: DND lives
+// in services/Notifs.qml (it needs the notification server, not this
+// file), NIGHT has no gamma daemon installed on this machine (checked: no
+// gammastep/wlsunset/redshift), VPN has no connection profile configured
+// at all, and CAPS is a passive indicator (not sensibly a click-toggle).
+// MIC reuses services/Audio.qml directly rather than duplicating it here.
+//
+// idleInhibit is state only, no protocol object: a QtObject singleton has
+// no window to bind an IdleInhibitor to. niri exposes
+// zwp_idle_inhibit_manager_v1 (confirmed via wayland-info), so
+// ui/IslandWindow.qml hosts the actual IdleInhibitor as a child of its
+// PanelWindow, bound to this property.
 //
 // State isn't event-driven (no live D-Bus signal wired up for either),
 // just polled every 5s plus an immediate re-poll right after this page's
@@ -22,6 +26,7 @@ QtObject {
     property bool wifiOn: false
     property bool btAvailable: false
     property bool btOn: false
+    property bool idleInhibit: false
 
     function setWifi(on) {
         root.wifiOn = on // optimistic; the next poll corrects it if the command failed

@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import qs.theme
 import qs.ui
 import qs.app
+import qs.services
 
 // One surface, not two: an earlier version split rendering (this file)
 // from space reservation (a second, separate PanelWindow) specifically to
@@ -53,6 +54,16 @@ PanelWindow {
     // it always pass through to the window underneath.
     mask: Region {
         item: capsule
+    }
+
+    // Slice 1. Binds a new protocol object to the surface rather than
+    // reconfiguring an existing one (a different class of change from the
+    // exclusiveZone/keyboardFocus hang history above), but this file's own
+    // surface-property-change history earns caution anyway - verify with
+    // `timeout` in the nested sandbox.
+    IdleInhibitor {
+        enabled: Toggles.idleInhibit
+        window: root
     }
 
     Capsule {

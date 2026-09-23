@@ -25,6 +25,18 @@ QtObject {
     readonly property int historyCap: 20
     property var history: [] // [{id, appName, title, body, time}], newest first
 
+    // Slice 1. Not persisted, and unlike compactFace (app/Island.qml),
+    // doesn't survive a hot reload either: this file is a bare QtObject
+    // singleton, and app/Island.qml's own comment on why IT is Singleton-
+    // rooted instead already spells out the reason - a bare QtObject
+    // singleton is never registered by Quickshell's SingletonRegistry and
+    // is unreachable by reload propagation, PersistentProperties or not.
+    // Resets to false on every `scripts/dev.sh` hot reload and every real
+    // restart, same as every other services/*.qml boolean in this
+    // codebase (wifiOn, btOn, editMode, ...) - v1 scope, real persistence
+    // is Slice 5's job once Faces.qml's config file exists to hold it.
+    property bool dnd: false
+
     function clearHistory() {
         root.history = []
     }

@@ -51,7 +51,7 @@ Item {
     // Settings island screen later, not built yet. Clamped at both ends
     // when swiping (matches ui/WallpaperCarousel.qml's own Left/Right
     // precedent), not wrapping.
-    readonly property var faceOrder: ["clockEq", "clockDate", "media", "clipboard"]
+    readonly property var faceOrder: ["clockEq", "clockDate", "statusFace", "systemFace", "media", "clipboard"]
 
     function _goToFace(id, direction) {
         facesHost.setPage(id, null, direction)
@@ -80,6 +80,8 @@ Item {
 
     Component { id: clockEqComponent; ClockEq {} }
     Component { id: clockDateComponent; ClockDate {} }
+    Component { id: statusFaceComponent; StatusFace {} }
+    Component { id: systemFaceComponent; SystemFace {} }
     Component { id: mediaComponent; MediaFace {} }
     Component { id: clipboardComponent; ClipboardFace {} }
 
@@ -94,6 +96,8 @@ Item {
             pageMap: ({
                 "clockEq": clockEqComponent,
                 "clockDate": clockDateComponent,
+                "statusFace": statusFaceComponent,
+                "systemFace": systemFaceComponent,
                 "media": mediaComponent,
                 "clipboard": clipboardComponent
             })
@@ -118,7 +122,14 @@ Item {
             height: 11
             anchors.verticalCenter: parent.verticalCenter
             color: Theme.divider
-            visible: Notifs.history.length > 0
+            // || Notifs.dnd - refuter caught this live: without it, DND
+            // being on has literally no visual confirmation anywhere in
+            // the collapsed pill the moment INBOX is empty (a very
+            // reachable state, e.g. right after CLEAR ALL), directly
+            // contradicting this same slice's own claim that the bell
+            // shows "muted" at a glance regardless of which face is
+            // showing.
+            visible: Notifs.history.length > 0 || Notifs.dnd
         }
 
         // Same "gone when there's genuinely nothing to show" pattern used
@@ -126,17 +137,22 @@ Item {
         // empty" - there's no separate read/unread tracking anywhere else,
         // and CLEAR ALL in the expanded INBOX (Notifs.clearHistory()) is the
         // only thing that empties it, so that's also what makes this
-        // disappear. A single icon, not a separate bell+counter-bubble pair:
-        // cod-bell_dot already draws the "unread" indicator as a dot on the
-        // bell's own top-right corner - codepoint verified against this
-        // font's actual cmap via fontTools before use.
+        // disappear (except while DND is on - see the divider above). A
+        // single icon, not a separate bell+counter-bubble pair: cod-bell_dot
+        // already draws the "unread" indicator as a dot on the bell's own
+        // top-right corner - codepoint verified against this font's actual
+        // cmap via fontTools before use.
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            visible: Notifs.history.length > 0
+            visible: Notifs.history.length > 0 || Notifs.dnd
             color: Theme.ink
             font.family: Theme.fontFamily
             font.pixelSize: 13
-            text: String.fromCodePoint(0xeb9a)
+            // Slice 1. Swaps to the slashed glyph while DND is on, so the
+            // pill shows "muted" at a glance regardless of which face is
+            // showing - codepoint verified against this font's actual
+            // cmap via fontTools before use, same as cod-bell_dot was.
+            text: String.fromCodePoint(Notifs.dnd ? 0xec08 : 0xeb9a)
         }
     }
 

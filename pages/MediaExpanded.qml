@@ -19,9 +19,10 @@ import qs.ui
 // specifically commit-on-release (scrubFinished) rather than continuous,
 // since every ddcutil call measures ~8s on this hardware and a
 // continuous drag would queue up dozens of them), TOGGLES ("04",
-// WIFI/BT via services/Toggles.qml and MIC via services/Audio.qml;
-// DND/NIGHT/VPN/CAPS/IDLE render dimmed, no real backend for any of them
-// on this machine), SYSTEM ("05", services/SystemStats.qml), INBOX
+// WIFI/BT via services/Toggles.qml, MIC via services/Audio.qml, DND via
+// services/Notifs.qml, IDLE via services/Toggles.qml's idleInhibit;
+// NIGHT/VPN/CAPS render dimmed, no real backend for any of them on this
+// machine), SYSTEM ("05", services/SystemStats.qml), INBOX
 // ("06", services/Notifs.qml's history array, capped to 2 shown here vs
 // its own 20-deep cap - separate from NotificationServer.trackedNotifications,
 // see Notifs.qml's own comment for why), and SESSION ("07": workspace
@@ -783,16 +784,15 @@ Item {
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "切替"; color: Theme.inkDim; font.family: Theme.fontFamilyJp; font.pixelSize: 9 }
                     }
 
-                    // Only WIFI/BT/MIC are real (services/Toggles.qml,
-                    // services/Audio.qml). DND needs the not-yet-built
-                    // notification server, NIGHT has no gamma daemon
-                    // installed on this machine, VPN has no connection
-                    // profile configured, CAPS is a passive indicator (not
-                    // sensibly a click-toggle), and IDLE has no idle-inhibit
-                    // daemon running - all five render `available: false`
-                    // (dimmed, not clickable) rather than being dropped
-                    // from the grid, per the maintainer: keep the full 4x2 look
-                    // rather than shrinking to only what's real.
+                    // WIFI/BT/MIC/DND/IDLE are real (services/Toggles.qml,
+                    // services/Audio.qml, services/Notifs.qml). NIGHT has
+                    // no gamma daemon installed on this machine, VPN has no
+                    // connection profile configured, and CAPS is a passive
+                    // indicator (not sensibly a click-toggle) - all three
+                    // render `available: false` (dimmed, not clickable)
+                    // rather than being dropped from the grid, per the
+                    // maintainer: keep the full 4x2 look rather than
+                    // shrinking to only what's real.
                     Grid {
                         id: toggleGrid
                         width: parent.width
@@ -821,9 +821,13 @@ Item {
                         ToggleButton {
                             width: (toggleGrid.width - 3 * 7) / 4
                             label: "DND"
-                            available: false
+                            // DND means nothing when this shell isn't the
+                            // notification server (Config.notificationServer).
+                            available: Config.notificationServer
+                            isOn: Notifs.dnd
                             onIconCodepoint: 0xf009b
                             offIconCodepoint: 0xf0f3
+                            onClicked: Notifs.dnd = !Notifs.dnd
                         }
                         ToggleButton {
                             width: (toggleGrid.width - 3 * 7) / 4
@@ -856,9 +860,11 @@ Item {
                         ToggleButton {
                             width: (toggleGrid.width - 3 * 7) / 4
                             label: "IDLE"
-                            available: false
+                            available: true
+                            isOn: Toggles.idleInhibit
                             onIconCodepoint: 0xf0176
                             offIconCodepoint: 0xf0faa
+                            onClicked: Toggles.idleInhibit = !Toggles.idleInhibit
                         }
                     }
                 }

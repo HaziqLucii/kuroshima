@@ -11,6 +11,17 @@ history and `docs/NOTES.md` for decision-level detail.
 
 ### Added
 
+- DND and IDLE toggles in the TOGGLES grid are real now, not dimmed
+  placeholders: DND (`services/Notifs.qml`) suppresses notification peeks
+  (critical urgency still shows) while keeping them in INBOX, and swaps the
+  compact pill's shared bell indicator for a slashed glyph, visible on
+  every face; IDLE (`services/Toggles.qml`) inhibits the compositor's idle
+  timeout via niri's `zwp_idle_inhibit_manager_v1`. Two new Island Faces:
+  `faces/StatusFace.qml` (clock plus whatever's currently true -
+  WIFI/BT/IDLE/mic-muted - collapsing to just the clock otherwise; no DND
+  glyph here specifically, the shared bell above already covers it and
+  showing it twice was a duplicate caught live) and
+  `faces/SystemFace.qml` (CPU/MEM/TEMP mini-bars, compact-pill sized).
 - Favorite apps in the launcher (`Mod+Space`): star up to 4 apps and they
   show in a dedicated FAVORITES section above the results, visible only
   while the search box is empty. Single-tap launches a favorite directly
