@@ -196,4 +196,15 @@ Item {
     Connections {
         target: SystemStats
     }
+
+    // Same lazy-singleton trap, same fix: services/Weather.qml is otherwise
+    // only referenced from the on-demand faces/WeatherFace.qml, so its poll
+    // Timer would never start until the user first swiped to that face -
+    // meaning the very first time anyone looked at it, it'd be sitting on
+    // the "WEATHER" empty state for however long the first curl call takes.
+    // Referencing it here starts polling (if a location is configured) at
+    // shell launch instead.
+    Connections {
+        target: Weather
+    }
 }

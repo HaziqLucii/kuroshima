@@ -492,6 +492,12 @@ Haziq's call (2026-09-22): a swipeable face, not a persistent row beside the bel
   the services, if the widget canvas gets more use.
 - VPN toggle: needs a real profile to drive; CAPS: no caps-lock source exposed by
   Quickshell or niri IPC. Both stay dimmed.
+- Weather location field in the Settings island screen: a lat/lon text input writing
+  straight to `config.json`, replacing the current hand-edit-the-file workflow. Raised
+  live once Slice 4's fetch was confirmed working (Kuala Lumpur coords). Deliberately
+  deferred past Slice 4/5: Slice 5's FACES panel is enable/disable + reorder only, not
+  per-face settings, and a one-off settings field for a single face doesn't earn a new
+  panel pattern on its own. Worth a look once more than one face wants user-set config.
 
 ## Standing traps (every slice re-reads this list)
 

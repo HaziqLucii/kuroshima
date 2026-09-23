@@ -3276,3 +3276,91 @@ context, not a real issue). `scripts/test.sh` unaffected (no `Kinds` rows touche
 Headless boot clean. Live-tested: restarted the production instance, confirmed WIFI/BT
 toggle state still reads correctly and no `nmcli`/`bluetoothctl` processes ever spawn,
 confirmed SystemFace's CPU% still updates live while visible.
+
+## Slice 4 (2026-09-22 faces/screens roadmap): WeatherFace + Weather.qml
+
+New `services/Weather.qml` singleton: one reused `Process` running `curl -s --max-time
+10` against open-meteo.org's forecast API (no key), parsed the same
+try/JSON.parse/catch way every other JSON-fed `Process` in this codebase already is
+(`services/System.qml`'s niri version read is the closest precedent). Two new
+`services/Config.qml` keys, `weatherLat`/`weatherLon` (real, default `NaN` = unset,
+both required together - a lone lat with no lon is meaningless, so a partial config
+falls back to fully unset rather than half-configured). 30 minute poll `Timer`, only
+running at all once a location is configured, referenced from `app/Bridges.qml` (same
+lazy-singleton-forcing trick already used for `SystemStats`/`Brightness` - otherwise the
+Timer never starts until someone first swipes to the face). `faces/WeatherFace.qml`
+templates `faces/ClockDate.qml`'s clock+divider+secondary-info shape, with the weather
+readout standing in for the plain date text. Registered in `faceOrder` after
+`systemFace`.
+
+**Live-tested twice**: first the unset-location fallback (no `config.json` keys set,
+correctly showed the dim placeholder), then a real fetch against the maintainer's actual
+coordinates (Kuala Lumpur, 3.139/101.6869) - confirmed against a manual `curl` of the
+same URL returning `{"current":{"temperature_2m":28.1,...,"weather_code":3}}`, and the
+face correctly showed `28° CLOUDY`.
+
+**refuter FAIL, two must-fix items, both applied before commit**:
+
+**Must-fix 1**: the original fallback text ("WEATHER · SET LOCATION") was gated on a
+single `!Weather.available` check, which is also true for two other states entirely: a
+correctly-configured location still waiting on its first response (a real ~0.3-1s window
+at every shell start), and a configured-but-permanently-broken location (bad
+coordinates, `curl` not installed, API down) - refuter reproduced both live, including
+the exact case of `weatherLat: 999.0` (a plausible typo - decimal point dropped from
+`99.9`, or lat/lon swapped, which covers most of the world) sitting forever on "SET
+LOCATION" despite the user having already set one, with nothing in the logs to explain
+why either (the JSON-parse catch block was silent). Fixed with a single `status` property
+on `services/Weather.qml` ("unset"/"loading"/"unavailable"/"ok") as the one source of
+truth, consumed by the face instead of re-deriving three ad-hoc booleans there: "unset"
+keeps the original placeholder, "loading" renders nothing (rather than guessing, so a
+correctly-configured location never flashes a wrong instruction during its first ~1s),
+"unavailable" gets its own distinct string ("WEATHER · UNAVAILABLE") once two consecutive
+fetches have failed and none have ever succeeded. Also added a `console.warn` on every
+failed fetch, so a bad coordinate or dead API is now diagnosable from the logs even
+during the silent "loading" window. One accepted residual gap: if `curl` itself can't
+spawn at all (binary missing from PATH), Quickshell's `Process` never emits
+`streamFinished`, so `_failStreak` never increments and status stays "loading" forever
+rather than ever reaching "unavailable" - low likelihood (this project already depends on
+`curl` existing for other things), and the failure mode is "quietly blank forever," not
+"actively wrong," so left as a known gap rather than adding a spawn-failure handler for
+a single external binary that shouldn't be missing.
+
+**Must-fix 2**: `docs/NOTES.md` and `CHANGELOG.md` hadn't been touched at all for this
+slice, breaking the convention Slices 1 and 3 both established. This entry and the
+CHANGELOG's new `weatherFace` bullet are that fix.
+
+**Notes-level, not must-fix**: a code comment near `_fetchProc` mis-cited
+`services/Brightness.qml`'s `_getProc` (a plain declarative `command:` binding, never
+rebuilt) as precedent for "command rebuilt per call" - the real precedent is
+`setBrightness()`'s own `_setProc`. The same comment's "can't pile up concurrent curl
+calls" claim was also overstated: Quickshell's `running = true` is a no-op while already
+running, so an overlapping `poll()` would be silently *dropped*, not queued - harmless
+today since only the 30-min Timer ever calls `poll()`, but the claim itself was wrong.
+Both corrected in the file. `Weather.humidity`/`windKmh`/`updatedAt` are parsed and
+stored but read by nothing yet - kept anyway, since the plan's own Slice 4 spec names
+them explicitly as part of the singleton's public surface (a forecast-row follow-up is
+already in the backlog and would want them), not scope creep invented mid-slice.
+
+**Live-tested a third time after the fixes**: confirmed real weather still renders
+correctly (28° CLOUDY, Kuala Lumpur), confirmed the unset-location fallback is unchanged,
+did not re-test the "unavailable" state live (would need a real 60+ minute broken
+location or code-level fault injection matching what refuter already did in its own
+sandboxed harness runs - the fix is small and directly addresses what refuter reproduced,
+re-deriving the same live repro wasn't worth the wait).
+
+**Backlog addition**: a lat/lon field in the Settings island screen (writing straight to
+`config.json`, replacing the current hand-edit workflow) was raised live once the fetch
+was confirmed working. Deliberately deferred, not built as part of this slice - Slice 5's
+FACES panel is enable/disable + reorder only, and a one-off settings field for a single
+face doesn't earn a new panel pattern on its own. Logged in the plan's own Backlog
+section.
+
+**Verification**: `scripts/lint.sh` clean (`services/Weather.qml` and
+`faces/WeatherFace.qml` add only `[import]`/`[unqualified]` warnings, same baseline
+categories as every other service/face in this codebase - confirmed via a targeted
+re-lint of just those two files). Headless boot (`qs -n -p .`) clean both before and
+after the `import Quickshell` fix (the first attempt forgot it - `SystemClock` lives in
+`Quickshell`, not `QtQuick`, same as `faces/ClockDate.qml` already imports it for; missed
+on the first pass, caught immediately by the headless boot check). `scripts/test.sh`
+unaffected (no `Kinds` rows touched, `Weather`/`WeatherFace` have zero suite coverage -
+this project's test suite only covers `core/IslandController`).

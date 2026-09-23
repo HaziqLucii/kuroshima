@@ -106,6 +106,7 @@ you to apply by hand:
 | key | default | effect |
 |---|---|---|
 | `notificationServer` | `false` | Registers Quickshell's own D-Bus notification server. Off by default because a second server competing for `org.freedesktop.Notifications` with an already-running one (Noctalia, `mako`, etc.) fails silently - Quickshell just logs a warning and the island never receives anything. Turn this on only after disabling any other notification daemon. |
+| `weatherLat`, `weatherLon` | `null` | Coordinates for the WEATHER face's open-meteo.org lookup (no API key needed). Both must be set (numbers, not `null`) for weather to fetch at all - the face shows `WEATHER · SET LOCATION` until they are, or `WEATHER · UNAVAILABLE` if they're set but every fetch has failed (bad coordinates, no network, `curl` missing). |
 
 Missing file or invalid JSON both fall back to the defaults above; the island never
 fails to start over a config problem. Config is read once at startup (no live-reload),

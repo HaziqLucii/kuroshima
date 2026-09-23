@@ -1,3 +1,5 @@
 {
-    "notificationServer": false
+    "notificationServer": false,
+    "weatherLat": null,
+    "weatherLon": null
 }

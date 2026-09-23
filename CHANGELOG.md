@@ -156,6 +156,18 @@ history and `docs/NOTES.md` for decision-level detail.
   spring-eased with the exact same values (`Motion.morphSpring`/
   `morphDamping`/`morphMass`) the capsule's own width/height/radius morph
   already uses.
+- A "weather" Island Face (`plans/2026-09-22-faces-and-screens-plan.md`'s
+  Slice 4): `services/Weather.qml` polls open-meteo.org (no API key) every
+  30 minutes for the two new `config.json` coordinates
+  (`weatherLat`/`weatherLon`), exposing temperature, a short WMO-code-derived
+  label (CLEAR/CLOUDY/FOG/RAIN/SNOW/STORM), and a `stale` flag after two
+  consecutive failed polls. `faces/WeatherFace.qml` shows a Nerd Font glyph,
+  `°C`, and the label next to the clock, distinguishing three non-fetching
+  states (no location configured, first fetch still pending, or configured
+  but never once succeeded) rather than collapsing them into one misleading
+  "set your location" message - refuter caught the original version doing
+  exactly that. The only face with an external data source; nothing else in
+  the app depends on it.
 
 ### Fixed
 

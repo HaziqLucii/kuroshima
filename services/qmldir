@@ -17,3 +17,4 @@ singleton Favorites 1.0 Favorites.qml
 singleton Focus 1.0 Focus.qml
 singleton Network 1.0 Network.qml
 singleton Bluetooth 1.0 Bluetooth.qml
+singleton Weather 1.0 Weather.qml
