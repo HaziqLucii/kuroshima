@@ -1,12 +1,22 @@
 pragma Singleton
 import QtQuick
 import Quickshell.Io
+import qs.app
 
-// Backs the design's "05 SYSTEM" grid (CPU/MEM/TEMP/DISK). Read-only,
-// unlike CONTROLS: no destructive-action or latency tradeoffs here, just
-// periodic polling of /proc and hwmon, so all four land in one pass.
-// Each stat is independent and hides itself (-1 / "") if its source isn't
-// there, same rule as everything else on this page.
+// Backs the design's "05 SYSTEM" grid (CPU/MEM/TEMP/DISK), and Slice 1's
+// faces/SystemFace.qml Island Face. Read-only, unlike CONTROLS: no
+// destructive-action or latency tradeoffs here, just periodic polling of
+// /proc and hwmon, so all four land in one pass. Each stat is independent
+// and hides itself (-1 / "") if its source isn't there, same rule as
+// everything else on this page.
+//
+// Slice 3 footprint pass: used to poll every 3s forever regardless of
+// whether anything ever displayed the stats. Gated on a real consumer
+// being visible instead - the dashboard's own SYSTEM section
+// (Island.isExpanded) or the compact-pill SystemFace specifically
+// (Island.compactFace === "systemFace"). triggeredOnStart still fires
+// the moment either becomes true, so CPU%/MEM%/TEMP appear promptly
+// rather than waiting a stale first interval.
 QtObject {
     id: root
 
@@ -129,7 +139,7 @@ QtObject {
 
     property Timer _pollTimer: Timer {
         interval: root.pollInterval
-        running: true
+        running: Island.isExpanded || Island.compactFace === "systemFace"
         repeat: true
         triggeredOnStart: true
         onTriggered: {

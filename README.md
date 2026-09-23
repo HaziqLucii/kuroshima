@@ -245,12 +245,51 @@ slow decode never crossfades in a still-blank frame.
 Full architecture: `plans/2026-09-18-foundation-plan.md`. Decision log and known
 quirks: `docs/NOTES.md`.
 
+## Footprint
+
+Measured 2026-09-23 on the real desktop, `qs -c kuroshima` (no `-vv`), idle (nothing
+expanded, no media playing), `ps`/`/proc/<pid>/stat` deltas over a clean 60s window:
+
+| | RSS | idle CPU (60s avg) |
+|---|---|---|
+| Before Slice 3 | ~454 MB | ~0.35% |
+| After Slice 3  | ~459 MB | ~0.083% |
+
+RSS is essentially flat - it's dominated by the Qt/QML engine itself, not by anything
+this pass touched, and no single-digit-MB fix was going to move it. The real win is idle
+CPU, down roughly 4x: `services/Toggles.qml` used to spawn `nmcli` and
+`sh -c bluetoothctl` as subprocesses every 5s forever, whether or not anything ever
+displayed the WIFI/BT toggle. Replaced with `services/Network.qml`/
+`services/Bluetooth.qml`, thin event-driven wrappers around Quickshell's own
+`Quickshell.Networking`/`Quickshell.Bluetooth` modules - zero subprocesses, state
+pushed live instead of polled every 5s. `services/SystemStats.qml`'s own 3s `/proc`/hwmon
+poll is now gated on a real consumer being visible (the dashboard's SYSTEM section, or
+the compact-pill SystemFace) instead of running forever regardless.
+
+Not chased this pass, honestly noted rather than silently skipped: `qs -c kuroshima`
+measured here doesn't use `-vv` - the plan that scheduled this pass assumed it did
+(based on an earlier observation), but the actual autostart config
+(`cachyos-setup/kuro/wm/niri/cfg/autostart.kdl`) already runs the plain, quiet
+invocation, so that specific fix was already moot by the time this slice started.
+`ui/WallpaperBackground.qml`'s two resident decoded `Image` layers (the plan's own
+"candidate, measure before touching" item) weren't isolated with a per-layer
+`Loader.active` toggle - RSS not moving meaningfully across this whole pass didn't point
+at it being a large share, and confirming that properly needs its own controlled
+before/after, deferred rather than guessed at here.
+
+This is not a competitive number against a from-scratch C/sokol shell with no Qt
+runtime underneath it at all (expect that kind of project to sit in the 20-50 MB range
+permanently) - see `plans/2026-09-22-faces-and-screens-plan.md`'s own "honest position"
+section for the full comparison. The point of this section is that the number is
+measured and dated, not asserted.
+
 ## Status
 
 The foundation (window, state machine, morph animation, system services, IPC, config,
 install) is frozen as of Slice 9. All 7 dashboard sections are backed by real services;
-a few toggle cells (DND/NIGHT/CAPS/IDLE, the network/VPN/sync tray row) render dimmed
-with no backend on this hardware, and battery% is unreachable on a desktop with no
-battery. From here, changes are visual/design iteration on `theme/Theme.qml`,
-`theme/Motion.qml`, and page internals behind the fixed page contract in `CLAUDE.md`,
-not foundation work.
+DND and IDLE are real toggles now (`plans/2026-09-22-faces-and-screens-plan.md`'s
+Slice 1), NIGHT/VPN/CAPS still render dimmed (no gamma daemon, no connection profile, no
+caps-lock source exposed by Quickshell or niri, respectively), and battery% is
+unreachable on a desktop with no battery. From here, changes are visual/design iteration
+on `theme/Theme.qml`, `theme/Motion.qml`, and page internals behind the fixed page
+contract in `CLAUDE.md`, not foundation work.

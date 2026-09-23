@@ -1,6 +1,5 @@
 pragma Singleton
 import QtQuick
-import Quickshell.Io
 
 // Backs the design's "04 TOGGLES" grid. WIFI, BT, and IDLE here: DND lives
 // in services/Notifs.qml (it needs the notification server, not this
@@ -15,69 +14,30 @@ import Quickshell.Io
 // ui/IslandWindow.qml hosts the actual IdleInhibitor as a child of its
 // PanelWindow, bound to this property.
 //
-// State isn't event-driven (no live D-Bus signal wired up for either),
-// just polled every 5s plus an immediate re-poll right after this page's
-// own toggle actions, since nmcli/bluetoothctl are the only interfaces
-// used and neither pushes change notifications to a plain Process.
+// Slice 3 footprint pass: WIFI/BT used to poll nmcli/bluetoothctl every 5s
+// forever via two Process subprocesses, whether or not anything ever
+// displayed the toggle - the exact "polling subprocess when a Quickshell
+// module already exposes the same state" waste the plan's own rule 7
+// calls out. Now plain delegating reads/writes to services/Network.qml
+// and services/Bluetooth.qml (Quickshell.Networking/Quickshell.Bluetooth,
+// event-driven, zero subprocesses) - this file's own public API
+// (wifiAvailable/wifiOn/btAvailable/btOn/setWifi/setBt) is unchanged so
+// every existing consumer (the TOGGLES grid, faces/StatusFace.qml) needed
+// no changes at all.
 QtObject {
     id: root
 
-    property bool wifiAvailable: false
-    property bool wifiOn: false
-    property bool btAvailable: false
-    property bool btOn: false
+    readonly property bool wifiAvailable: Network.wifiHardwareEnabled
+    readonly property bool wifiOn: Network.wifiEnabled
+    readonly property bool btAvailable: Bluetooth.available
+    readonly property bool btOn: Bluetooth.enabled
     property bool idleInhibit: false
 
     function setWifi(on) {
-        root.wifiOn = on // optimistic; the next poll corrects it if the command failed
-        _wifiSetProc.command = ["nmcli", "radio", "wifi", on ? "on" : "off"]
-        _wifiSetProc.running = true
+        Network.setWifiEnabled(on)
     }
 
     function setBt(on) {
-        root.btOn = on
-        _btSetProc.command = ["bluetoothctl", "power", on ? "on" : "off"]
-        _btSetProc.running = true
-    }
-
-    property Process _wifiPollProc: Process {
-        command: ["nmcli", "radio", "wifi"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const s = text.trim()
-                root.wifiAvailable = (s === "enabled" || s === "disabled")
-                root.wifiOn = (s === "enabled")
-            }
-        }
-    }
-
-    property Process _btPollProc: Process {
-        command: ["sh", "-c", "bluetoothctl show | grep -i Powered"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const s = text.trim().toLowerCase()
-                root.btAvailable = s.length > 0
-                root.btOn = s.includes("yes")
-            }
-        }
-    }
-
-    property Process _wifiSetProc: Process {
-        onExited: (code, status) => root._wifiPollProc.running = true
-    }
-
-    property Process _btSetProc: Process {
-        onExited: (code, status) => root._btPollProc.running = true
-    }
-
-    property Timer _pollTimer: Timer {
-        interval: 5000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            root._wifiPollProc.running = true
-            root._btPollProc.running = true
-        }
+        Bluetooth.setEnabled(on)
     }
 }

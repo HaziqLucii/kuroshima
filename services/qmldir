@@ -15,3 +15,5 @@ singleton Widgets 1.0 Widgets.qml
 singleton Clipboard 1.0 Clipboard.qml
 singleton Favorites 1.0 Favorites.qml
 singleton Focus 1.0 Focus.qml
+singleton Network 1.0 Network.qml
+singleton Bluetooth 1.0 Bluetooth.qml

@@ -3187,3 +3187,92 @@ tick got eaten. `reset()` also now clears `phaseLabel` back to `"FOCUS"` (refute
 it only used to get rewritten by `start()`, so it could stay `"BREAK"` after a break
 ended - harmless today since idle renders a hardcoded string, not `phaseLabel`, but
 would silently go stale for whatever reads it next).
+
+## Slice 3 (2026-09-22 faces/screens roadmap): footprint honesty pass
+
+Per `plans/2026-09-22-faces-and-screens-plan.md` Wave 2. Measure-first, per the plan's
+own rule: baseline taken on the live production instance (`ps -o rss,pcpu -p <pid>` plus
+`/proc/<pid>/stat` `utime+stime` deltas over a clean 60s window, `pidstat` not installed
+on this machine so `ps` polling was the fallback the plan itself lists) BEFORE touching
+anything. ~454 MB RSS, ~0.35% idle CPU. **The plan's own premise about `-vv` being live
+was already stale by the time this slice started** - checked `cachyos-setup`'s actual
+autostart config (`kuro/wm/niri/cfg/autostart.kdl`) directly, it already runs plain
+`qs -c kuroshima`, no `-vv` flag, matching what this whole session's own restarts have
+been using throughout. That "fix" turned out to be a non-issue, not applied.
+
+**Fix 1**: `services/Network.qml` and `services/Bluetooth.qml` (both new), thin
+event-driven wrappers around `Quickshell.Networking`'s `Networking` singleton
+(`wifiEnabled`/`wifiHardwareEnabled`, writable via `setWifiEnabled`) and
+`Quickshell.Bluetooth`'s `Bluetooth` singleton (`defaultAdapter.enabled`, guarded on
+`defaultAdapter !== null`). `services/Toggles.qml` rewritten to delegate to both,
+public API (`wifiAvailable`/`wifiOn`/`btAvailable`/`btOn`/`setWifi`/`setBt`) kept the
+same names so every existing consumer (the TOGGLES grid, `faces/StatusFace.qml`) needed
+zero changes - refuter caught that "byte-identical" overstated it, though: all four went
+from plain writable properties to `readonly` ones (safe - grepped the whole repo, no
+consumer ever wrote `wifiOn`/`btOn` directly, only ever called `setWifi`/`setBt`), and
+`wifiAvailable`'s actual meaning shifted from "did `nmcli` answer at all" to
+NetworkManager's own `WirelessHardwareEnabled`. Identical outcome on this specific
+machine (soft-blocked reads as available-but-off under both old and new), but a real
+hard-rfkill would now render the WIFI cell dim/unavailable where the old `nmcli`-based
+check used to still call it available. Two other behavior changes worth naming, both
+minor: the optimistic local write (`root.wifiOn = on` before the command landed, so the
+toggle flipped instantly) is gone - `ui/ToggleButton.qml` has no local visual state of
+its own, so the button now waits on the real NetworkManager/bluez D-Bus round-trip
+before flipping. And WIFI/BT render unavailable (dim) for roughly the first 1-2s after
+shell start while the Quickshell backends connect, longer than the old ~50ms first
+`nmcli` poll - cosmetic, only visible right at startup/restart. Removes two `Process`
+subprocesses (`nmcli radio wifi`, `sh -c "bluetoothctl show | grep -i Powered"`) that
+were spawned every 5s forever regardless of whether the toggle was ever on screen.
+
+Naming note worth flagging explicitly (added a comment in the file too):
+`services/Bluetooth.qml` is registered as the `Bluetooth` singleton under `qs.services`,
+and it also `import`s `Quickshell.Bluetooth`, whose own singleton is separately named
+`Bluetooth` too. Not a real conflict (QML resolves the identifier against each file's
+own imports), but confusing to read cold without the comment explaining it.
+
+**Fix 2**: `services/SystemStats.qml`'s 3s poll `Timer` was `running: true` unconditionally.
+Now `running: Island.isExpanded || Island.compactFace === "systemFace"` (needed
+`import qs.app`). refuter corrected the circularity claim: a module-level cycle
+`qs.services -> qs.app -> qs.services` genuinely exists (`app/Bridges.qml` itself
+imports `qs.services`), so "`services/` -> `qs.app` doesn't loop back" was too broad and
+would mislead a future reader who greps `app/`. What actually makes this safe is
+narrower: the ONE singleton this file needs, `app/Island.qml`, only imports
+`qs.theme`/`qs.core` itself, so there's no singleton-construction loop specifically for
+`Island` - the cycle exists at the module level but never bites here. `triggeredOnStart:
+true` still fires immediately once either condition becomes true, so CPU%/MEM%/TEMP
+appear promptly rather than waiting a stale first interval. One known, accepted minor
+glitch, corrected after refuter re-derived the actual formula: the CPU% delta calc
+(`_prevTotal`/`_prevIdle`) never resets when the timer pauses and resumes later, so the
+first sample after a pause covers the whole pause window as `100 * (1 - idleDelta /
+totalDelta)` - the AVERAGE CPU% across that window, which reads artificially HIGH if the
+machine was busy during the pause (not low, as first written here), never negative or
+out of `[0,100]` since `/proc/stat` counters are monotonic. Also: `hadPrior` is still
+true on resume, so the 250ms `_cpuQuickFollowup` doesn't re-arm, meaning that one bad
+reading sits on screen for the full 3s `pollInterval`, not a fraction of it. Not worth a
+reset-on-resume mechanism for a footprint cleanup pass - logged here in case it's ever
+mistaken for a real bug.
+
+**Fix 3 (not applied, see above)**: the `-vv` autostart flag was already not in use.
+
+**Candidate, not touched**: `ui/WallpaperBackground.qml`'s two resident decoded `Image`
+layers - the plan's own text said "only do it if the per-component measurement shows
+the wallpaper layer is a meaningful share." RSS staying essentially flat across this
+whole pass (~454 -> ~459 MB, the delta well within normal measurement noise) didn't
+point at it being a large one; a real per-layer `Loader.active` isolation test is
+deferred rather than skipped silently.
+
+**Measured result**: idle CPU ~0.35% -> ~0.083% (roughly 4x lower) over a clean 60s
+window post-fix; RSS ~454 -> ~459 MB (flat, as expected - dominated by the Qt/QML
+engine itself). Confirmed live: `pgrep -af "nmcli|bluetoothctl"` returns nothing while
+the shell is running, versus periodic spawns before. Full numbers, dated, in the
+README's new Footprint section - this pass's whole point was a measured number, not an
+asserted one.
+
+**Verification**: `scripts/lint.sh` clean (same documented baseline categories -
+`services/Bluetooth.qml` adds 3 more `[unresolved-type]` instances for
+`BluetoothAdapter`, same class as the pre-existing ones: a Quickshell singleton
+property-chain type qmllint's static analyzer can't fully resolve without runtime
+context, not a real issue). `scripts/test.sh` unaffected (no `Kinds` rows touched).
+Headless boot clean. Live-tested: restarted the production instance, confirmed WIFI/BT
+toggle state still reads correctly and no `nmcli`/`bluetoothctl` processes ever spawn,
+confirmed SystemFace's CPU% still updates live while visible.

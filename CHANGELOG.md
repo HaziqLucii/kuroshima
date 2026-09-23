@@ -228,6 +228,24 @@ history and `docs/NOTES.md` for decision-level detail.
   handlers that mark the event accepted before TextInput's own handling
   can claim it.
 
+### Changed
+
+- Footprint honesty pass (`plans/2026-09-22-faces-and-screens-plan.md`'s
+  Slice 3): `services/Toggles.qml`'s WIFI/BT state used to come from
+  polling `nmcli`/`bluetoothctl` as subprocesses every 5s forever,
+  regardless of whether the toggle was ever on screen. Replaced with
+  `services/Network.qml`/`services/Bluetooth.qml`, thin event-driven
+  wrappers around Quickshell's own `Quickshell.Networking`/
+  `Quickshell.Bluetooth` modules - zero subprocesses, `Toggles.qml`'s own
+  public API unchanged so nothing downstream needed to change.
+  `services/SystemStats.qml`'s own 3s `/proc`/hwmon poll is now gated on
+  a real consumer being visible (the dashboard's SYSTEM section, or the
+  compact-pill `SystemFace`) instead of running forever. Measured, not
+  asserted: idle CPU dropped roughly 4x (~0.35% -> ~0.083% over a 60s
+  window); RSS stayed flat (~454 -> ~459 MB), as expected - it's
+  dominated by the Qt/QML engine itself, not these subprocesses. Full
+  numbers and methodology in the README's new Footprint section.
+
 ## [0.3.0] - 2026-09-20
 
 ### Added
