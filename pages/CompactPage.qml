@@ -47,11 +47,30 @@ Item {
     width: implicitWidth
     height: implicitHeight
 
-    // Fixed order for now, not user-configurable - a natural fit for the
-    // Settings island screen later, not built yet. Clamped at both ends
-    // when swiping (matches ui/WallpaperCarousel.qml's own Left/Right
-    // precedent), not wrapping.
-    readonly property var faceOrder: ["clockEq", "clockDate", "statusFace", "systemFace", "weatherFace", "focusFace", "media", "clipboard"]
+    // Slice 5: user-configurable now (pages/SettingsFacesPanel.qml),
+    // enable/disable + reorder persisted via services/Faces.qml. Validated
+    // against facesHost.pageMap here, not just against itself - closes a
+    // hole _syncFaceHost() below doesn't cover: an order entry that's
+    // missing from pageMap (a stale persisted id after a bundled face gets
+    // renamed/removed in an update) would otherwise pass the membership
+    // guard, hit PageHost's own "unknown page" warning, and leave a stale
+    // face on screen. Falls back to Faces.defaultOrder (same pageMap
+    // filter applied) if that's ALSO empty post-filter - genuine
+    // corruption recovery, not a way to silently undo the user's own
+    // enable/disable choices (services/Faces.qml's setEnabled() already
+    // refuses to let `order` reach zero length on its own). Clamped at
+    // both ends when swiping (matches ui/WallpaperCarousel.qml's own
+    // Left/Right precedent), not wrapping.
+    readonly property var faceOrder: {
+        const enabled = Faces.order.filter(id => facesHost.pageMap[id] !== undefined)
+        return enabled.length > 0 ? enabled : Faces.defaultOrder.filter(id => facesHost.pageMap[id] !== undefined)
+    }
+    // Disabling the currently-active face (or a corrupted persisted order
+    // resolving differently) needs to heal at once, not wait for the next
+    // swipe attempt - _syncFaceHost() already self-heals an
+    // Island.compactFace that's not in faceOrder, this just makes sure
+    // that check re-runs the moment faceOrder itself changes underneath it.
+    onFaceOrderChanged: root._syncFaceHost()
 
     function _goToFace(id, direction) {
         facesHost.setPage(id, null, direction)

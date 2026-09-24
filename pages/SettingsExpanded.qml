@@ -32,7 +32,10 @@ Item {
     height: implicitHeight
 
     readonly property var categories: [
-        { id: "audio", icon: 0xf057e, label: "AUDIO", component: audioPanelComponent }
+        { id: "audio", icon: 0xf057e, label: "AUDIO", component: audioPanelComponent },
+        // Slice 5. cod-layers, verified against the font's real cmap via
+        // fontTools before use, same discipline as every other icon here.
+        { id: "faces", icon: 0xebd2, label: "FACES", component: facesPanelComponent }
     ]
     property string activeCategory: "audio"
     readonly property var _activeEntry: root.categories.find(c => c.id === root.activeCategory)
@@ -40,6 +43,11 @@ Item {
     Component {
         id: audioPanelComponent
         SettingsAudioPanel {}
+    }
+
+    Component {
+        id: facesPanelComponent
+        SettingsFacesPanel {}
     }
 
     Item {

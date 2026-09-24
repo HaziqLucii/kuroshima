@@ -168,6 +168,25 @@ history and `docs/NOTES.md` for decision-level detail.
   "set your location" message - refuter caught the original version doing
   exactly that. The only face with an external data source; nothing else in
   the app depends on it.
+- Island Faces are user-configurable now (`plans/2026-09-22-faces-and-screens-plan.md`'s
+  Slice 5): a new Settings category, FACES, lists every bundled face as a
+  card with a live preview (the real face Component, rendered inside a
+  small replica of the actual floating capsule - not a mockup), a
+  track-and-thumb enable/disable switch, and up/down reorder chevrons,
+  with a column legend above the list naming what each control does. State
+  (`services/Faces.qml`) persists to `~/.config/kuroshima/faces.json`
+  across real restarts, unlike `app/Island.qml`'s existing hot-reload-only
+  persistence. Disabling a face always leaves at least one enabled.
+  Rebuilt twice from live feedback: an initial single-line row cut most
+  faces' content off, and a first card version still forced every preview
+  into one shared fixed-height strip (illegible for
+  `faces/ClipboardFace.qml`'s taller idle state) before landing on the
+  per-face capsule-replica sizing that shipped. User drop-in faces (a
+  `~/.config/kuroshima/faces/*.qml` scan) were in the original plan for
+  this slice but dropped - see `services/Faces.qml`'s own comment. A face
+  indicator-ticks overlay was also built, live-tested, and then removed
+  entirely after the maintainer felt it broke the pill's own visual
+  identity ("lost the feel of dynamic island").
 
 ### Fixed
 

@@ -3364,3 +3364,136 @@ after the `import Quickshell` fix (the first attempt forgot it - `SystemClock` l
 on the first pass, caught immediately by the headless boot check). `scripts/test.sh`
 unaffected (no `Kinds` rows touched, `Weather`/`WeatherFace` have zero suite coverage -
 this project's test suite only covers `core/IslandController`).
+
+## Slice 5 (2026-09-22 faces/screens roadmap): user-configurable Island Faces
+
+New `services/Faces.qml` singleton: `bundled` (static id/label metadata for the 8
+existing faces), `defaultOrder` (derived from it), `order` (the enabled faces in swipe
+order, bound to `defaultOrder` until a real mutation severs the binding - so a fresh
+install genuinely sees every bundled face, not an ambiguous empty array),
+`current` (which face is showing), and `setOrder`/`setEnabled`/`moveUp`/`moveDown`/
+`setCurrent`, persisted to `~/.config/kuroshima/faces.json` via the same `FileView{
+blockLoading:true; printErrors:false }` + try/JSON.parse/catch pattern
+`services/Widgets.qml` already established. `setEnabled(id, false)` refuses to shrink
+`order` below length 1 - a face can always be re-enabled, but the pill can never end up
+with nothing to show.
+
+`app/Island.qml`'s `compactFace` now defaults to `Faces.current` (both the live property
+and the `PersistentProperties` default) instead of a hardcoded `"clockEq"`, and
+`onCompactFaceChanged` also calls `Faces.setCurrent()` - a second, real-restart-surviving
+persistence layer alongside Island's own existing hot-reload-only one.
+`pages/CompactPage.qml`'s `faceOrder` became a computed property (`Faces.order` filtered
+against `facesHost.pageMap`, falling back to `Faces.defaultOrder` filtered the same way)
+with a new `onFaceOrderChanged: root._syncFaceHost()` so disabling the active face heals
+at once instead of waiting for the next swipe attempt.
+
+**User drop-in faces, dropped**: the original plan for this slice also wanted
+`services/Faces.qml` to scan `~/.config/kuroshima/faces/*.qml` (same idea as
+`services/Widgets.qml`'s `customTypes`) and have `pages/CompactPage.qml` wire each as a
+dynamic `Qt.createComponent()` `pageMap` entry. Not built: the scan is async and finishes
+after `CompactPage`'s own `pageMap` is already constructed, nobody has actually written a
+custom face yet, and the plan's own text names this exact escape hatch ("if wiring...
+proves awkward, ship bundled-only and log it; do not build a plugin API around it").
+
+**Face indicator ticks, built then fully removed**: a row of small hairline ticks under
+the pill content (one per enabled face, active one inverted to `Theme.ink`), shown for
+~1s after a real swipe then faded out, as an overlay within the pill's existing bounds
+(not stacked in a Column - would have added real layout height and hit the
+"undersized-capsule" bug class this project keeps re-discovering, same fix
+`faces/FocusFace.qml`'s own progress underline already used). Live-tested, then removed
+entirely on direct feedback: "i think i dont like that indicator thing you put below. it
+lost the feel of dynamic island from that." Confirmed nothing was left behind (no dead
+properties/Timer/comments).
+
+**Settings FACES panel, rebuilt three times from live feedback**:
+
+1. First version: one row per face, a fixed ~96px clipped preview window, up/down
+   chevrons, and a filled/outline circle enable toggle (`services/Favorites.qml`'s star
+   toggle language). Live screenshot showed most faces' real content cut off mid-render -
+   not a "preview" at all for anything wider than a plain clock.
+2. Second version: rows became full-width cards, but the preview was still one shared
+   fixed 56px-tall strip with the real face `Component` scaled to fit
+   (`scale: Math.min(1, maxW/item.implicitWidth, maxH/item.implicitHeight)`). Fixed the
+   cutoff problem but created a new one: `faces/ClipboardFace.qml`'s idle state (~97px
+   tall - a title label plus a real-padding drop zone) got scaled down hard to fit the
+   same box built for ~30px-tall faces, rendering as barely-legible tiny text.
+3. Third version, shipped: direct request - "shouldnt we spawn a dummy dynamic island so
+   we can see the full replica of the island itself in each faces?" Each preview is now
+   its own small `Rectangle` styled like the real capsule (`ui/Capsule.qml`'s own
+   radius-15/`Theme.bg` chrome, plus one addition the real capsule doesn't need: a 1px
+   `Theme.hairline` border, since this one sits on the settings panel's own matching
+   `Theme.bg` background rather than floating over desktop wallpaper, and needs an edge
+   to read as a shape at all), sized to the loaded face's own real implicit size (`(item.
+   implicitWidth + 28) * fitScale` / `item.implicitHeight * fitScale`, the same +28px
+   horizontal padding formula `pages/CompactPage.qml`'s own root uses for the real pill).
+   `fitScale` is computed against fixed bounds (500x140), not the capsule's own size -
+   binding it to the capsule would be circular, since the capsule's size is itself
+   derived FROM `fitScale`. refuter checked every bundled face against those bounds
+   (including MediaFace playing, ~260x115): none currently need scaling down at all -
+   `fitScale` is a pure safety net for whatever's added later, not something any face
+   relies on today. `clip: true` stays on as a defensive backstop only.
+
+   Two bugs caught along the way, both fixed before commit:
+   - refuter (first pass): the previews are the REAL face Components, complete with real
+     `TapHandler`/`DragHandler`/`DropArea` - tapping one would have actually paused/
+     skipped real media or started a real focus session. Fixed with `enabled: false` on
+     the preview `Loader`, which disables input delivery for the whole loaded subtree
+     while leaving it painting normally.
+   - refuter (second pass, post-redesign): the card header was a `Row` with children
+     anchored to their own left/right edges - Qt refuses this at runtime ("Row will not
+     function"), invisible to both lint and the headless boot check since this panel only
+     loads once Settings > FACES is actually opened. It "worked" only because the
+     positioner gave up and the anchors won by default. Changed to a plain `Item`.
+
+**Enable toggle and reorder arrows, discoverability pass**: live feedback that neither
+control was self-explanatory ("i think we need a better indicator... is it because we
+dont put any tutorial remark or is it because of ui ux") - diagnosed as UI/UX, not a
+missing-copy problem. Fixed two ways: the circle glyph became an actual toggle switch
+(a `Rectangle` track + sliding thumb `Rectangle`, colors inverting between `Theme.ink`/
+`Theme.bg` (on) and `transparent`/`Theme.inkDim` (off) - the same full-invert-on-active
+language `ui/ToggleButton.qml` already established for this app's TOGGLES grid), a shape
+people already recognize as on/off with no caption needed; and a small "ORDER"/"SHOW"
+column-legend row was added once, above the whole card list, rather than repeated on all
+8 cards - same "section header above the controls it describes" convention this panel's
+own sibling, `pages/SettingsAudioPanel.qml`'s OUTPUT/INPUT headers, already uses. Shared
+width constants (`root._reorderGroupWidth`/`_toggleWidth`) keep the legend labels
+genuinely aligned over the icons/switch they describe rather than just approximately
+near them.
+
+**refuter's second pass (post-redesign) also found, all fixed**: `services/Faces.qml`'s
+persisted `order` could contain a stale id (surviving a bundled face rename/removal) or a
+duplicate, either of which could defeat the "never disable the last remaining face" guard
+- e.g. a stale id could get "disabled" while the one real remaining face silently
+survived in `order`, or a duplicate could collapse to an empty array the moment anything
+deduplicated it. Fixed with one shared `_sanitizeOrder()` helper (filters to real
+`bundled` ids, dedupes) used by both the `FileView` load path and `setOrder()`, so this
+can't drift back out of sync between them. Also: a code comment on `app/Island.qml`'s
+`compactFace: Faces.current` line credited the safety of that default to construction
+ORDER (Faces loading before Island reads it) - refuter corrected this: it's actually a
+live binding, not a one-time read, so it would pick up `Faces.current` whenever that
+`FileView` finished regardless of which ran first; the binding only genuinely depends on
+ordering at the point something WRITES `root.compactFace` directly, which does reliably
+happen after `Faces` is constructed. Comment corrected to credit the right mechanism.
+
+**Notes-level, not must-fix, left as-is**: refuter's second pass also found that the
+toggle switch's `Behavior on x`/`Behavior on color` never actually animate in practice -
+`root._rows` (the Repeater's model) is a freshly-built JS array on every `Faces.order`
+change, so every single toggle/reorder tap tears down and recreates all 8 card delegates;
+each new delegate is born already at its final value, with nothing to animate from.
+Fixing that for real would mean giving delegates a stable identity (a `ListModel` updated
+via `move()`/`setProperty()` instead of a reassigned array) - real structural churn for a
+purely cosmetic snap-vs-slide difference, and the maintainer had already confirmed the
+current state looks "perfect" before this was even found. Left alone; the misleading
+comment claiming the thumb "animates" was corrected instead. refuter also confirmed the
+rebuild itself is cheap regardless (each face creates at most one lightweight
+`SystemClock`, every shared singleton survives untouched, and a synchronous `Loader`
+already has `item` set before the first frame, so there's no visible flash of the
+fallback 40x30 size).
+
+**Verification**: `scripts/lint.sh` clean across every round (no new warning categories
+beyond this project's baseline). Headless boot (`qs -n -p .`) clean across every round.
+`scripts/test.sh` unaffected (24 passed, 0 failed - covers `core/IslandController` only,
+zero coverage of `Faces`/`SettingsFacesPanel`). Live-tested after every round on the real
+desktop: enable/disable, reorder, the panel's own live previews, and the real compact
+pill's swipe behavior all confirmed working; the maintainer's own final words on the
+panel: "this is perfect already. nice."

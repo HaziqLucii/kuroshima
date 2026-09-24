@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import qs.theme
 import qs.core
+import qs.services
 
 // The real, singleton controller instance the app actually uses. Lives
 // outside core/ deliberately: this file needs Quickshell (Singleton,
@@ -46,7 +47,18 @@ Singleton {
     // EqualizerBars glyph (matching what the compact pill always showed
     // before faces existed), simplified to clock-only once
     // faces/MediaFace.qml took over media-signaling on its own face.
-    property string compactFace: "clockEq"
+    // Slice 5: defaults to whatever services/Faces.qml already persisted
+    // to disk (survives a real restart), not a hardcoded "clockEq".
+    // refuter-corrected: this doesn't actually depend on construction
+    // ORDER (Faces loading before this property is read) the way an
+    // earlier version of this comment claimed - `compactFace: Faces.current`
+    // is a live binding, not a one-time read, so it would pick up
+    // Faces.current's value whenever that FileView finishes even if this
+    // ran first. The binding only breaks once something writes
+    // `root.compactFace` directly (PersistentProperties' onLoaded below,
+    // or the first setCompactFace() call), and both of those genuinely do
+    // run after Faces is fully constructed.
+    property string compactFace: Faces.current
 
     signal transientStarted(var t)
     signal transientEnded(var t, string reason)
@@ -112,13 +124,18 @@ Singleton {
     PersistentProperties {
         id: persistedFace
         reloadableId: "dynamicIslandCompactFace"
-        property string compactFace: "clockEq"
+        property string compactFace: Faces.current
         onLoaded: root.compactFace = persistedFace.compactFace
         onReloaded: root.compactFace = persistedFace.compactFace
     }
 
     Connections {
         target: root
-        function onCompactFaceChanged() { persistedFace.compactFace = root.compactFace }
+        function onCompactFaceChanged() {
+            persistedFace.compactFace = root.compactFace
+            // Real-restart persistence, separate from PersistentProperties
+            // above (hot-reload only) - services/Faces.qml's own FileView.
+            Faces.setCurrent(root.compactFace)
+        }
     }
 }
